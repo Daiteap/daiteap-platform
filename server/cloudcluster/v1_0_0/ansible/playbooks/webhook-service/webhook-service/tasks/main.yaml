@@ -1,0 +1,140 @@
+---
+- name: Get ip of the default network interface
+  shell: ip route get $(ip route show 0.0.0.0/0 | grep -oP 'via \K\S+') | grep -oP 'src \K\S+'
+  register: default_interface_ip
+
+- local_action: shell pwd
+  register: pwd
+
+- name: Set kubespray directory to "{{ pwd.stdout }}/../kubespray/"
+  set_fact:
+    kubespray_directory: "{{ pwd.stdout }}/../kubespray/"
+
+- name: Replace kube_webhook_token_auth_url value
+  local_action:
+    module: lineinfile
+    path: "{{ kubespray_directory }}/roles/kubernetes/master/defaults/main/main.yml"
+    regexp: 'kube_webhook_token_auth_url: '
+    line: 'kube_webhook_token_auth_url: {{ default_interface_ip.stdout }}'
+    backrefs: yes
+
+- name: Copy webhook.go to the remote master
+  template:
+    src: webhook.go.j2
+    dest: /opt/webhook.go
+
+- name: Install git
+  apt:
+    state: present
+    update_cache: yes
+    name: git
+  retries: 10
+  delay: 3
+
+- name: Update ca certificates
+  shell: apt update && apt install ca-certificates libgnutls30 -y
+  args:
+    executable: /bin/bash
+
+- name: Install go dependencies
+  shell: /usr/local/go/bin/go get k8s.io/api/authentication/v1@v0.22.4 && /usr/local/go/bin/go get github.com/go-ldap/ldap/v3@v3.4.1
+  args:
+    executable: /bin/bash
+
+- name: Remove old mod file
+  shell: rm -rf /opt/go.mod
+  ignore_errors: yes
+  args:
+    executable: /bin/bash
+  when: ansible_architecture == 'x86_64'
+
+- name: Build webhook
+  shell: cd /opt && /usr/local/go/bin/go mod init webhook && /usr/local/go/bin/go get k8s.io/api/authentication/v1@v0.22.4 && /usr/local/go/bin/go get github.com/go-ldap/ldap && GOOS=linux GOARCH=amd64 /usr/local/go/bin/go build /opt/webhook.go
+  args:
+    executable: /bin/bash
+  when: ansible_architecture == 'x86_64'
+
+- name: Build webhook
+  shell: cd /opt && GOOS=linux GOARCH=arm64 /usr/local/go/bin/go build /opt/webhook.go
+  args:
+    executable: /bin/bash
+  when: ansible_architecture == 'aarch64'
+
+- name: Build webhook
+  shell: cd /opt && GOOS=linux GOARCH=arm /usr/local/go/bin/go build /opt/webhook.go
+  args:
+    executable: /bin/bash
+  when: ansible_architecture == 'armv6l' or ansible_architecture == 'armv7l'
+
+- name: Copy webhook service file
+  template:
+    src: "webhook.service.j2"
+    dest: "/etc/systemd/system/webhook.service"
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Enable and check webhook service
+  systemd:
+    name: webhook
+    daemon_reload: yes
+    state: restarted
+    enabled: yes
+
+- name: Verify webhook service is listening on 80
+  wait_for:
+    port: 80
+    timeout: 15
+
+- name: Find avaible idNumber
+  shell: |
+        LINES=`ldapsearch -x -b ou={{ groupsOU }},{{ baseDN }} | sort | grep idNumber |cut -c12-`
+        if [[ -z $LINES ]]; then
+                echo 2002
+                exit
+        fi
+
+        for i in `seq 2002 10000`;
+        do
+            USED=false
+            while read -r CURRENTLINE;
+            do
+                if [ "$i" -eq "$CURRENTLINE" ]; then
+                    export USED=true
+                    break
+                fi
+            done <<< "$(echo -e "$LINES")"
+            if [ "$USED" = false ]; then
+                echo $i
+                exit
+            fi
+        done
+  register: free_idnumber
+  args:
+    executable: /bin/bash
+
+- name: Set idNumber
+  set_fact: idNumber={{ free_idnumber.stdout }}
+
+- name: Upload the ldif file
+  template:
+    src: kubernetes_users.ldif.j2
+    dest: "/tmp/kubernetes_users.ldif"
+    mode: 0600
+    force: yes
+
+- name: Install ldap-utils
+  apt:
+    state: present
+    update_cache: yes
+    name: ldap-utils
+  retries: 10
+  delay: 3
+
+- name: Add ldap group
+  shell: "ldapadd -x -D \"{{ adminDN }},{{ baseDN }}\" -w {{ adminPassword }} -f /tmp/kubernetes_users.ldif"
+
+- name: Delete ldif file
+  file:
+    state: absent
+    path: "/tmp/kubernetes_users.ldif"

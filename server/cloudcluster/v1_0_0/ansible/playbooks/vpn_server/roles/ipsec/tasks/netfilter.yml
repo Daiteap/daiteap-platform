@@ -1,0 +1,12 @@
+---
+- name: Get name of the default network interface
+  shell: ip route get $(ip route show 0.0.0.0/0 | grep -oP 'via \K\S+') | head -n 1 | awk '{print $3;}'
+  register: external_interface
+
+- name: Setup Network Address Translation
+  iptables:
+    table: nat
+    chain: POSTROUTING
+    out_interface: "{{ external_interface.stdout }}"
+    source: "{{ client_subnet }}"
+    jump: MASQUERADE

@@ -1,0 +1,10 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+
+- name: "Install required packages"
+  apt:
+    pkg: "{{ item }}"
+    state: latest
+  with_items: "{{ vpn_ikev2_apt_required_packages }}"

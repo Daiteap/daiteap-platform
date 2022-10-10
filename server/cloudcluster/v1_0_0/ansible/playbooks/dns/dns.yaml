@@ -1,0 +1,25 @@
+- name: Add hosts and vars
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts_and_vars
+
+- name: provider DNS server
+  become: yes
+  hosts: provider-server-node
+  any_errors_fatal: true
+  roles:
+    - role: server
+
+- name: provider DNS client
+  become: yes
+  hosts: provider-client-nodes
+  any_errors_fatal: true
+  roles:
+    - role: client
+
+- name: Test provider DNS server
+  become: yes
+  hosts: provider-server-node
+  roles:
+    - role: test_server

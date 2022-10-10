@@ -1,0 +1,24 @@
+---
+- name: Remove node-role.kubernetes.io/master from the last node
+  run_once: true
+  become: yes
+  shell: 'kubectl label nodes {{ nodes[-1].name }} node-role.kubernetes.io/master-'
+
+- name: Copy aws-cloud-controller-manager to master node
+  run_once: true
+  template:
+    src: aws_cloud_controller_manager.yml.j2
+    dest: "{{ aws_cloud_controller_manager_directory }}{{ aws_cloud_controller_manager_filename }}"
+
+- name: Apply {{ aws_cloud_controller_manager_filename }}
+  run_once: true
+  become: yes
+  shell: kubectl apply -f {{ aws_cloud_controller_manager_directory }}{{ aws_cloud_controller_manager_filename }}
+  retries: 10
+  delay: 5
+
+- name: Clean {{ aws_cloud_controller_manager_filename }} file
+  run_once: true
+  file:
+    state: absent
+    path: "{{ aws_cloud_controller_manager_directory }}{{ aws_cloud_controller_manager_filename }}"

@@ -1,0 +1,55 @@
+---
+- name: Load OS-specific variables
+  include_vars: "{{ item }}"
+  with_first_found:
+    - debian-ubuntu-16.yml
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution | lower }}.yml"
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_os_family | lower }}.yml"
+    - defaults.yml
+
+- name: Update apt-get
+  shell: "apt update"
+
+- name: Install sasl
+  shell: "{{ install_command }} {{ sasl_packages }}"
+
+- name: Make sure the sasl service is started
+  service:
+    name: "{{ sasl_service_name }}"
+    state: started
+
+- name: Make sure the sasl service is enabled
+  service:
+    name: "{{ sasl_service_name }}"
+    enabled: yes
+
+- name: Add user {{ ldap_system_user }} to group {{ sasl_group }}
+  user:
+    name: "{{ ldap_system_user }}"
+    groups: "{{ sasl_group }}"
+    append: yes
+
+- name: Upload the sasl config file for the ldap daemon
+  copy:
+    src: slapd.conf
+    dest: "{{ ldap_daemon_sasl_config_file }}"
+    mode: 0644
+    force: yes
+
+- name: Make {{ ldap_system_user }} the owner of {{ ldap_daemon_sasl_config_file }}
+  shell: "chown {{ ldap_system_user }}:{{ ldap_system_user }} {{ ldap_daemon_sasl_config_file }}"
+  notify: Restart ldap
+
+- meta: flush_handlers
+
+- name: Upload the config file for the sasl daemon
+  copy:
+    src: saslauthd
+    dest: "{{ sasl_daemon_config_file }}"
+    mode: 0644
+    force: yes
+  notify: Restart sasl
+
+- meta: flush_handlers

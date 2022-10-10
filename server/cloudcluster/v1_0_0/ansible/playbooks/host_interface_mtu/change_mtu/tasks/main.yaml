@@ -1,0 +1,8 @@
+---
+- name: Include ubuntu
+  include: change_mtu/tasks/ubuntu.yaml
+  when: ansible_distribution == 'Ubuntu'
+
+- name: Include debian
+  include: change_mtu/tasks/debian.yaml
+  when: ansible_distribution == 'Debian'

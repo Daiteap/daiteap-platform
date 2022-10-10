@@ -1,0 +1,20 @@
+---
+sasl_packages: sasl2-bin libsasl2-modules-gssapi-mit
+sasl_packages_centos: cyrus-sasl-plain -y
+
+sasl_service_name: saslauthd
+ldap_service_name: slapd
+
+ldap_system_user: openldap
+ldap_system_user_centos: ldap
+sasl_group: sasl
+sasl_group_centos: saslauth
+
+install_command: DEBIAN_FRONTEND=noninteractive apt install -y
+install_command_centOS: yum install
+
+ldap_daemon_sasl_config_file: /etc/ldap/sasl2/slapd.conf
+ldap_daemon_sasl_config_file_centos: /etc/openldap/sasl2/slapd.conf
+sasl_daemon_config_file: /etc/default/saslauthd
+sasl_daemon_config_file_centos: /etc/sysconfig/saslauthd
+cyrus_sasl_package: cyrus-sasl

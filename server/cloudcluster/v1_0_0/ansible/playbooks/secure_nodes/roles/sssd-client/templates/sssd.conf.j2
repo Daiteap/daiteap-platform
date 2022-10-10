@@ -1,0 +1,30 @@
+[sssd]
+config_file_version = 2
+services = nss,pam,ssh
+domains = {{ cluster_domain }}
+
+[nss]
+# debug_level = 8
+filter_users = root
+filter_groups = root
+
+[pam]
+
+[domain/{{ cluster_domain }}]
+enumerate = false
+# debug_level = 8
+auth_provider = krb5
+krb5_realm = {{ krb_realm }}
+krb5_server = {{ krb_server_hostname }}
+cache_credentials = true
+access_provider = simple
+chpass_provider = krb5
+id_provider = ldap
+ldap_uri = ldaps://{{ ldap_server_hostname }}:636
+ldap_search_base = {{ ldap_base_dn }}
+ldap_id_use_start_tls = true
+ldap_sasl_mech = gssapi
+sudo_provider = none
+ldap_tls_cacert = {{ ca_crt_path }}
+ldap_schema = rfc2307
+ldap_group_member = memberUID

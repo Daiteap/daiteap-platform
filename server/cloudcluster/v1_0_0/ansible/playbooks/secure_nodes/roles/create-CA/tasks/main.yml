@@ -1,0 +1,36 @@
+---
+- name: Init PKI
+  shell: printf "yes" | ./easyrsa init-pki
+  args:
+    chdir: "/root/easy-rsa-3.0.1/easyrsa3"
+
+- name: Create vars
+  set_fact:
+    domain_controller: "{{ hostvars[groups['domain-controller'][0]].ldap_server_hostname }}"
+
+- name: Install python3-pip
+  package:
+    name: python3-pip
+    state: present
+  become: yes
+
+- name: Install pexpect
+  pip:
+    name: pexpect
+  become: yes
+
+- name: Build CA
+  expect:
+    command: ./easyrsa build-ca
+    responses:
+      "Enter PEM pass phrase:": "{{ ca_password }}"
+      "Verifying - Enter PEM pass phrase:": "{{ ca_password }}"
+      "Common Name": "dc"
+  args:
+    chdir: "/root/easy-rsa-3.0.1/easyrsa3"
+
+- name: Fetch ca.crt
+  fetch:
+    src: "/root/easy-rsa-3.0.1/easyrsa3/pki/ca.crt"
+    dest: "{{ playbook_dir }}/"
+    flat: yes

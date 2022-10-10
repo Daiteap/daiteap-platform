@@ -1,0 +1,10 @@
+---
+- name: Add label 'provider={{ provider }}' on each {{ provider }} node
+  run_once: true
+  become: yes
+  shell: "kubectl label node --overwrite {{ item }} provider={{ provider }}"
+  with_items: "{{ provider_nodes }}"
+  retries: 20
+  delay: 10
+  register: result
+  until: result.rc == 0

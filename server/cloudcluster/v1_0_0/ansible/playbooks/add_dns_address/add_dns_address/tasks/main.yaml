@@ -1,0 +1,12 @@
+---
+- name: Add dns record
+  lineinfile:
+    path: /etc/dnsmasq.conf
+    line: address=/{{ item.hostname }}/{{ item.private_ip }}
+  with_items: "{{ new_nodes }}"
+
+- name: Restart dnsmasq
+  become: yes
+  become_user: root
+  become_method: sudo
+  shell: service dnsmasq restart

@@ -1,0 +1,21 @@
+- name: Add hosts and vars
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts_and_vars
+
+- name: Delete user role for dc-node
+  become: yes
+  hosts: dc-node
+  any_errors_fatal: true
+  roles:
+    - role: delete_user
+
+- name: Delete sssd cache and user's home dir for dc-node and client-nodes
+  become: yes
+  hosts:
+    - dc-node
+    - client-nodes
+  any_errors_fatal: true
+  roles:
+    - role: delete_sssd_cache_and_home_dir

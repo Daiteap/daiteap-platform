@@ -1,0 +1,12 @@
+- name: Add hosts
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts
+
+- name: Add dns address
+  hosts: dns_server
+  any_errors_fatal: true
+  become: yes
+  roles:
+    - role: add_dns_address

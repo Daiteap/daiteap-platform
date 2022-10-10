@@ -1,0 +1,17 @@
+- name: Add hosts
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts
+
+- name: Add loadbalancer config
+  hosts: azurenodes
+  any_errors_fatal: true
+  roles:
+    - role: add_config
+
+- name: Integrate loadbalancer
+  hosts: masternode
+  any_errors_fatal: true
+  roles:
+    - role: loadbalancer

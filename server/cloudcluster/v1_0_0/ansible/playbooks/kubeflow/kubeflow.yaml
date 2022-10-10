@@ -1,0 +1,12 @@
+- name: Add hosts
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts
+
+- name: Kubeflow
+  become: yes
+  hosts: dc-node
+  any_errors_fatal: true
+  roles:
+    - role: kubeflow

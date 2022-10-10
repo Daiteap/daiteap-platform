@@ -1,0 +1,10 @@
+conn %default
+    ikelifetime=600m # 36,000 s
+    keylife=180m # 10,800 s
+    rekeymargin=3m
+    keyingtries=3
+    mobike=no
+    ike=aes256gcm16-sha512-modp4096
+    esp=aes256gcm16-sha512-modp8192
+    authby=psk
+

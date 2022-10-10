@@ -1,0 +1,33 @@
+- name: Template capi
+  set_fact:
+    OPENSTACK_CLOUD_YAML_B64: "{{ lookup('template', './clouds_yaml.j2') | b64encode }}"
+  when: KUBERNTES_COMMAND == 'create' or KUBERNTES_COMMAND == 'apply'
+
+- name: Template capi
+  template:
+    src: ./capi.j2
+    dest: /tmp/capi.yaml
+  when: KUBERNTES_COMMAND == 'create' or KUBERNTES_COMMAND == 'apply'
+
+- name: Delete old machine deployments
+  shell: |
+    kubectl delete -n {{ NAMESPACE }} {{ PATH_TO_MANAGEMENT_CLUSTER_KUBECTL }} machinedeployments.cluster.x-k8s.io -l cluster.x-k8s.io/cluster-name={{ CLUSTER_NAME }}
+  when: KUBERNTES_COMMAND == 'apply'
+  register: delete_old_machine_deployments
+
+- name: Delete old machine deployments output
+  debug:
+    msg: "{{ delete_old_machine_deployments.stdout_lines }}"
+  when: KUBERNTES_COMMAND == 'apply'
+
+- name: Apply manifest
+  become: yes
+  shell: |
+    kubectl {{ KUBERNTES_COMMAND }} {{ PATH_TO_MANAGEMENT_CLUSTER_KUBECTL }} -f /tmp/capi.yaml
+  when: KUBERNTES_COMMAND == 'create' or KUBERNTES_COMMAND == 'apply'
+
+- name: Delete capi tmp file
+  file:
+    state: absent
+    path: /tmp/capi.yaml
+  when: KUBERNTES_COMMAND == 'create' or KUBERNTES_COMMAND == 'apply'

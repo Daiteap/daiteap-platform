@@ -1,0 +1,26 @@
+- name: Add hosts
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts
+
+- name: Run add_labels
+  become: yes
+  hosts: masternode
+  any_errors_fatal: true
+  roles:
+    - role: add_labels
+
+- name: Run add_providerID
+  become: yes
+  hosts: masternode
+  any_errors_fatal: true
+  roles:
+    - role: add_providerID
+
+- name: Run add_user
+  become: yes
+  hosts: masternode
+  any_errors_fatal: true
+  roles:
+    - role: add_user

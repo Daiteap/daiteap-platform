@@ -1,0 +1,37 @@
+---
+- name: Remove node-role.kubernetes.io/master from all nodes
+  run_once: true
+  become: yes
+  shell: 'kubectl label nodes --all node-role.kubernetes.io/master-'
+
+- name: Add node-role.kubernetes.io/master on all nodes
+  run_once: true
+  become: yes
+  shell: 'kubectl label nodes --all node-role.kubernetes.io/master=""'
+
+- name: Remove node-role.kubernetes.io/master on google_nodes
+  run_once: true
+  become: yes
+  shell: 'kubectl label nodes {{ item.name }} node-role.kubernetes.io/master-'
+  with_items: "{{ nodes }}"
+
+- name: Copy google-controller-manager to master node
+  run_once: true
+  become: yes
+  template:
+    src: google_cloud_controller_manager.yml.j2
+    dest: "{{ google_cloud_controller_manager_directory }}{{ google_cloud_controller_manager_filename }}"
+
+- name: Apply {{ google_cloud_controller_manager_filename }}
+  run_once: true
+  become: yes
+  shell: kubectl apply -f {{ google_cloud_controller_manager_directory }}{{ google_cloud_controller_manager_filename }}
+  retries: 10
+  delay: 5
+
+- name: Clean {{ google_cloud_controller_manager_filename }} file
+  run_once: true
+  become: yes
+  file:
+    state: absent
+    path: "{{ google_cloud_controller_manager_directory }}{{ google_cloud_controller_manager_filename }}"

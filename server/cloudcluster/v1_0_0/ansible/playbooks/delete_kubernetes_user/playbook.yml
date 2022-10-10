@@ -1,0 +1,5 @@
+- name: Delete kubernetes cluster
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: delete_kubernetes_user

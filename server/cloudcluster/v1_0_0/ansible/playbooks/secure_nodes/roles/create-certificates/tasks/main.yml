@@ -1,0 +1,85 @@
+---
+- name: Create vars
+  set_fact:
+    domain_controller: "{{ dc_hostname }}"
+
+- debug:
+    var: dc_hostname
+    verbosity: 2
+
+- name: Generate password for {{ dc_hostname }}
+  set_fact:
+    password: "{{ lookup('password', '/dev/null length=20 chars=ascii_letters,digits') }}"
+
+- name: Generate key for {{ dc_hostname }}
+  shell: "openssl genrsa -des3 -out {{ dc_hostname }}.key -passout pass:{{ password }} 2048"
+  args:
+    chdir: "{{ rsa_parent_dir }}/easy-rsa-3.0.1/easyrsa3"
+
+- name: Remove key password for the server
+  shell: "openssl rsa -in {{ dc_hostname }}.key -out {{ dc_hostname }}.key -passin pass:{{ password }}"
+  args:
+    chdir: "{{ rsa_parent_dir }}/easy-rsa-3.0.1/easyrsa3"
+
+- name: Generate CSR for the server
+  shell: "openssl req -nodes -new -newkey rsa:2048 -sha256 \
+      -key {{ dc_hostname }}.key \
+      -out {{ dc_hostname }}-csr.pem \
+      -subj \"/C={{ country }}/ST={{ city }}/CN={{ dc_hostname }}/O={{ organization_name }}/OU={{ organizational_unit }}\""
+  args:
+    chdir: "{{ rsa_parent_dir }}/easy-rsa-3.0.1/easyrsa3"
+
+- name: Import the server CSR
+  shell: "./easyrsa import-req {{ dc_hostname }}-csr.pem {{ dc_hostname }}"
+  args:
+    chdir: "{{ rsa_parent_dir }}/easy-rsa-3.0.1/easyrsa3"
+
+- name: Sign-req to the CA
+  expect:
+    command: ./easyrsa sign-req server {{ dc_hostname }}
+    responses:
+      "Request subject, to be signed as a server certificate": "yes"
+      "Enter pass phrase for": "{{ ca_password }}"
+  args:
+    chdir: "{{ rsa_parent_dir }}/easy-rsa-3.0.1/easyrsa3/"
+
+- name: Remove passwords.yml if exists
+  file:
+    state: absent
+    path: "{{ playbook_dir }}/passwords.yml"
+  become: no
+  delegate_to: localhost
+
+- name: Create passwords.yml
+  file:
+    path: "{{ playbook_dir }}/passwords.yml"
+    state: touch
+  become: no
+  delegate_to: localhost
+
+- name: Write key password to passwords file
+  blockinfile:
+    state: present
+    marker: ""
+    path: ./passwords.yml
+    block: |
+      {{ dc_hostname }}: {{ password }}
+  become: no
+  delegate_to: localhost
+
+# - name: Encrypt password file
+#   command: "ansible-vault encrypt {{ playbook_dir }}/passwords.yml --vault-password-file {{ playbook_dir }}/vaults.sh"
+#   become: no
+#   delegate_to: localhost
+
+- name: Copy {{ dc_hostname }}.crt to localhost
+  fetch:
+    src: "{{ rsa_parent_dir }}/easy-rsa-3.0.1/easyrsa3/pki/issued/{{ dc_hostname }}.crt"
+    dest: "{{ playbook_dir }}/"
+    flat: yes
+
+- name: Copy {{ dc_hostname }}.key to localhost
+  fetch:
+    src: "{{ rsa_parent_dir }}/easy-rsa-3.0.1/easyrsa3/{{ dc_hostname }}.key"
+    dest: "{{ playbook_dir }}/"
+    flat: yes

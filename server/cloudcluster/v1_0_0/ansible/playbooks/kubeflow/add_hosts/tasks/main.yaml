@@ -1,0 +1,7 @@
+---
+- name: Add host to group 'dc-node' "{{ dc_node }}"
+  add_host:
+    name: '{{ dc_node }}'
+    groups: dc-node
+    deployment_name: "{{ name }}"
+    delete: "{{ delete }}"

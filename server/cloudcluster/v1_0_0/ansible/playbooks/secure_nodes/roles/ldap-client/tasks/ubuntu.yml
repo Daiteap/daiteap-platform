@@ -1,0 +1,18 @@
+---
+- name: Install openldap client
+  package: name={{ item }} state=present
+  with_items:
+    - libnss-ldap
+    - libpam-ldap
+    - ldap-utils
+  register: result
+  retries: 10
+  until: result is succeeded
+  delay: 30
+
+- name: Configure /etc/ldap/ldap.conf
+  template:
+    src: ldap.conf.j2
+    dest: /etc/ldap/ldap.conf
+    mode: 0644
+    force: yes

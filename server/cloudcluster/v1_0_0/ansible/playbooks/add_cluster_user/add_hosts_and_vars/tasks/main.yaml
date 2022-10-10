@@ -1,0 +1,12 @@
+---
+- name: Add host to group 'dc-node' "{{ dc_node }}"
+  add_host:
+    name: "{{ dc_node }}"
+    groups: dc-node
+    first_name: "{{ first_name }}"
+    last_name: "{{ last_name }}"
+    type: "{{ type }}"
+    publick_ssh_key: "{{ publick_ssh_key }}"
+    ldap_admin_password: "{{ ldap_admin_password }}"
+    email: "{{ email }}"
+    username: "{{ username }}"

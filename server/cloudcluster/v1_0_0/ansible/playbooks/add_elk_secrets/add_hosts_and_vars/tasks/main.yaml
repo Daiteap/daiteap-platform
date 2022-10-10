@@ -1,0 +1,8 @@
+---
+- name: Add host to group 'dc-node' "{{ dc_node }}"
+  add_host:
+    name: "{{ dc_node }}"
+    groups: dc-node
+    namespace: "{{ namespace }}"
+    elastic_password: "{{ elastic_password }}"
+    dns_name: "{{ dns_name }}"

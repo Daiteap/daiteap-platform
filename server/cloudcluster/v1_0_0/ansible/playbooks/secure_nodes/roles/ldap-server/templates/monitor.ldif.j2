@@ -1,0 +1,4 @@
+dn: cn=admin,{{ ldap_base_dn}}
+changetype: modify
+replace: userPassword
+userPassword: {{ root_password.stdout }}

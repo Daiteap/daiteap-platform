@@ -1,0 +1,11 @@
+---
+- name: Run hostname role on {{ group_names }}
+  include_role:
+    name: hostname
+    allow_duplicates: false
+  args:
+    apply:
+        delegate_to: "{{ item }}"
+  with_items:
+    - "{{ groups[group_names[0]] }}"
+  run_once: true

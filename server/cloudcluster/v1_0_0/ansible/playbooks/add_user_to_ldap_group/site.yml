@@ -1,0 +1,12 @@
+- name: Add hosts and vars
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts_and_vars
+
+- name: Add user to ldap group
+  become: yes
+  hosts: dc-node
+  any_errors_fatal: true
+  roles:
+    - role: add_user_to_group

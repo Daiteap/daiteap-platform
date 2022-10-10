@@ -1,0 +1,16 @@
+
+conn {{ item.provider_name }}
+    left=%any
+    leftid=%any
+    leftsubnet={{ client_subnet }}
+    leftauth=psk
+    right={{ item.remote_public_ip }}
+    rightid={{ item.remote_right_id }}
+    rightsubnet={{ item.remote_subnet }}
+    rightauth=psk
+    type=tunnel
+    keyexchange={{ item.key_exchange_version }}
+    auto=start
+    # auto=add - means strongSwan won't try to initiate it
+    # auto=start - means strongSwan will try to establish connection as well
+    # dpdaction=restart - means strongSwan will try to reconnect if Dead Peer Detection spots a problem. Change to 'clear' if needed

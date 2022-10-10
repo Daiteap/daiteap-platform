@@ -1,0 +1,26 @@
+---
+- name: Add host to group 'CA_scm_server' "{{ dc_ip }}"
+  add_host:
+    name: "{{ dc_ip }}"
+    groups: CA_scm_server
+    dc_hostname: "{{ dc_hostname }}"
+
+- name: Add host to group 'domain-controller' "{{ dc_ip }}"
+  add_host:
+    name: "{{ dc_ip }}"
+    groups: domain-controller
+    krb_server_hostname: "{{ dc_hostname }}"
+    ldap_server_hostname: "{{ dc_hostname }}"
+    krb_admin_password: "{{ krb_admin_password }}"
+    ldap_admin_password: "{{ ldap_admin_password }}"
+    kdc_master_password: "{{ kdc_master_password }}"
+
+- name: Add host to group 'cluster-host' "{{ nodes }}"
+  add_host:
+    name: "{{ item }}"
+    groups: cluster-host
+    krb_server_hostname: "{{ dc_hostname }}"
+    ldap_server_hostname: "{{ dc_hostname }}"
+    krb_admin_password: "{{ krb_admin_password }}"
+  loop: "{{ nodes|flatten(levels=1) }}"
+  when: nodes != ["user@0.0.0.0","user@0.0.0.0"]

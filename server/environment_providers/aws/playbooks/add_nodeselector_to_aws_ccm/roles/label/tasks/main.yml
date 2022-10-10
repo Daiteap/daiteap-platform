@@ -1,0 +1,4 @@
+---
+- name: Update aws cloud controller manager nodeselector
+  shell: |
+    kubectl -n kube-system patch daemonset aws-cloud-controller-manager --type json -p='[{"op": "remove", "path": "/spec/template/spec/nodeSelector/non-existing"}]'

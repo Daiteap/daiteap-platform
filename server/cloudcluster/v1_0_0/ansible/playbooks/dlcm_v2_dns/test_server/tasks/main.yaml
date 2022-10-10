@@ -1,0 +1,4 @@
+---
+- name: Include ubuntu
+  include: test_server/tasks/ubuntu.yaml
+  when: ansible_distribution == 'Ubuntu'

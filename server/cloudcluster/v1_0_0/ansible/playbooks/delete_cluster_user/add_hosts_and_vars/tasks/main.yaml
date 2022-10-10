@@ -1,0 +1,15 @@
+---
+- name: Add host to group 'dc-node' "{{ dc_node }}"
+  add_host:
+    name: "{{ dc_node }}"
+    groups: dc-node
+    username: "{{ username }}"
+    ldap_admin_password: "{{ ldap_admin_password }}"
+
+- name: Add hosts to group 'client-nodes' "{{ client_nodes }}"
+  add_host:
+    name: "{{ item }}"
+    groups: client-nodes
+    username: "{{ username }}"
+  loop: "{{ client_nodes|flatten(levels=1) }}"
+  when: client_nodes != ["user@0.0.0.0","user@0.0.0.0"]

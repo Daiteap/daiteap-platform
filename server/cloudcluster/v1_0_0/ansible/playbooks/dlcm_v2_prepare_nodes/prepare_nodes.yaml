@@ -1,0 +1,12 @@
+- name: Add hosts
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts
+
+- name: Prepare prepare_nodes
+  become: yes
+  hosts: nodes
+  any_errors_fatal: true
+  roles:
+    - role: prepare_nodes

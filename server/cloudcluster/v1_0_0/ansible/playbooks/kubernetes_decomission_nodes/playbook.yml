@@ -1,0 +1,14 @@
+- name: Add hosts
+  gather_facts: false
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts
+
+- name: Scale down nodes
+  gather_facts: false
+  become: yes
+  hosts: masternode
+  any_errors_fatal: true
+  roles:
+    - role: kubernetes_decomission_nodes

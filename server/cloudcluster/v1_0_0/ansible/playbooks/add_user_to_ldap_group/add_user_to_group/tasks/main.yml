@@ -1,0 +1,23 @@
+---
+
+- name: Upload the ldif file
+  template:
+    src: user.ldif.j2
+    dest: "/tmp/user.ldif"
+    mode: 0600
+    force: yes
+
+- name: Add ldap user to group
+  shell: "ldapmodify -x -D \"{{ adminDN }}\" -w {{ adminPassword }} -f /tmp/user.ldif"
+
+- name: Upload the ldif file
+  template:
+    src: user.ldif.j2
+    dest: "/tmp/user.ldif"
+    mode: 0600
+    force: yes
+
+- name: Delete ldif file
+  file:
+    state: absent
+    path: "/tmp/user.ldif"

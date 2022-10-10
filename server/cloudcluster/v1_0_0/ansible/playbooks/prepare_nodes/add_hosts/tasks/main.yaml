@@ -1,0 +1,6 @@
+---
+- name: Add host to group 'nodes' "{{ nodes_public_ips }}"
+  add_host:
+    name: '{{ item }}'
+    groups: nodes
+  loop: "{{ nodes_public_ips|flatten(levels=1) }}"

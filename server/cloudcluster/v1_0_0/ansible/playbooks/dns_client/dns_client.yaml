@@ -1,0 +1,54 @@
+- name: Add hosts and vars
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts_and_vars
+
+- name: GOOGLE DNS client
+  become: yes
+  hosts: google-client-nodes
+  any_errors_fatal: true
+  roles:
+    - role: client
+
+- name: OPENSTACK DNS client
+  become: yes
+  hosts: openstack-client-nodes
+  any_errors_fatal: true
+  roles:
+    - role: client
+
+- name: Alicloud DNS client
+  become: yes
+  hosts: alicloud-client-nodes
+  any_errors_fatal: true
+  roles:
+    - role: client
+
+- name: AWS DNS client
+  become: yes
+  hosts: aws-client-nodes
+  any_errors_fatal: true
+  roles:
+    - role: client
+
+- name: Azure DNS client
+  become: yes
+  hosts: azure-client-nodes
+  any_errors_fatal: true
+  roles:
+    - role: client
+
+- name: Onpremise DNS client
+  become: yes
+  hosts: onpremise-client-nodes
+  any_errors_fatal: true
+  roles:
+    - role: client
+
+- name: IoT DNS client
+  become: yes
+  hosts: iotarm-client-nodes
+  any_errors_fatal: true
+  roles:
+    - role: client

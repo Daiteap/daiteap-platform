@@ -1,0 +1,11 @@
+---
+- debug:
+    msg: "{{ ansible_os_family }}"
+  when: ansible_os_family == "Debian"
+  register: status
+
+- debug:
+    msg: "{{ status }}"
+
+- name: Include ubuntu
+  include: ubuntu.yml

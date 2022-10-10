@@ -1,0 +1,15 @@
+---
+- name: Copy installation script to the instance
+  become: yes
+  copy:
+    src: "../../../files/k3s.sh"
+    dest: /tmp/k3s.sh
+
+- name: Install k3s
+  shell: K3S_NODE_NAME={{ node_name }} INSTALL_K3S_VERSION={{ k3s_version }} K3S_URL=https://{{ master_ip }}:6443 K3S_TOKEN={{ hostvars[groups['master'][0]]['token'] }} sh /tmp/k3s.sh
+
+- name: Clean installation script
+  become: yes
+  file:
+    state: absent
+    path: "/tmp/k3s.sh"

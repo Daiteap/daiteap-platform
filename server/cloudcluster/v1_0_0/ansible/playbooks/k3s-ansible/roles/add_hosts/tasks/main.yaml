@@ -1,0 +1,14 @@
+---
+- name: Add host to group 'master'
+  add_host:
+    name: "{{ item.address }}"
+    groups: master
+    node_name: "{{ item.id }}"
+  with_items: "{{ master_nodes }}"
+
+- name: Add host to group 'node'
+  add_host:
+    name: "{{ item.address }}"
+    groups: node
+    node_name: "{{ item.id }}"
+  with_items: "{{ worker_nodes }}"

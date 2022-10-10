@@ -1,0 +1,11 @@
+---
+- name: Restart sasl
+  service:
+    name: "{{ sasl_service_name }}"
+    state: restarted
+  notify: Restart ldap
+
+- name: Restart ldap
+  service:
+    name: "{{ ldap_service_name }}"
+    state: restarted

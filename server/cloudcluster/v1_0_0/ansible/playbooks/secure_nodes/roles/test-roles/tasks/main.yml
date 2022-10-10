@@ -1,0 +1,114 @@
+---
+- include_vars: redhat.yml
+
+- stat:
+    path: "{{ krb5_keytab_file }}"
+  register: status
+
+- name: Check if krb5.keytab exists
+  fail:
+    msg: krb5.keytab is missing
+  when: status.stat.exists
+
+- name: Check if klist works
+  shell: klist -kt /etc/krb5.keytab | grep "{{ krb_realm }}"
+  register: klist_response
+
+- fail:
+    msg: klist failed
+  when: klist_response.stdout == ""
+
+- name: Add the principal
+  shell: "kadmin.local -q \"add_principal -pw {{ password }} {{ username }}\""
+  register: addprinc_result
+
+- name: Fail if the principal could not be created
+  fail:
+    msg: The principal could not be created. Error is {{ addprinc_result.stderr }}
+  when: addprinc_result is failed or not (addprinc_result.stdout is search("Principal .* created") or addprinc_result.stderr is search("Principal or policy already exists while creating"))
+
+- name: Find available idNumber
+  shell: |
+        LINES=`ldapsearch -x -b ou={{ groupsOU }},{{ ldap_base_dn }} | sort | grep idNumber |cut -c12-`
+        if [[ -z $LINES ]]; then
+                echo 2002
+                exit
+        fi
+
+        for i in `seq 2002 10000`;
+        do
+            USED=false
+            while read -r CURRENTLINE;
+            do
+                if [ "$i" -eq "$CURRENTLINE" ]; then
+                    export USED=true
+                    break
+                fi
+            done <<< "$(echo -e "$LINES")"
+            if [ "$USED" = false ]; then
+                echo $i
+                exit
+            fi
+        done
+  register: free_idnumber
+  args:
+    executable: /bin/bash
+
+- name: Set idNumber
+  set_fact: idNumber={{ free_idnumber.stdout }}
+
+- name: Creates directory for ldif file
+  file: path=/var/tmp/ansible state=directory
+
+- name: Upload the ldif file
+  template:
+    src: user.ldif.j2
+    dest: "/var/tmp/ansible/user.ldif"
+    mode: 0600
+    force: yes
+
+- name: Add ldap user
+  shell: "ldapadd -x -D \"cn={{ krb_admin_principal }},{{ ldap_base_dn }}\" -w {{ ldap_admin_password }} -f /var/tmp/ansible/user.ldif"
+
+- set_fact:
+    desired_response: "Password for {{ krb_admin_principal }}/admin@{{ krb_realm | upper }}: "
+
+- name: Kinit with the user
+  shell: "echo {{ password }} | kinit -p {{ username }}"
+
+- name: Check if ldapsearch works
+  shell: ldapsearch -x -D "uid={{ username }},ou={{ usersOU }},{{ ldap_base_dn }}" -w "{{ password }}" -b "{{ ldap_base_dn }}"
+
+- name: Check if klist works
+  shell: klist
+
+- name: Check if sasl works correctly
+  shell: ldapsearch -x -b "{{ ldap_base_dn }}"
+
+- name: Delete sssd cache
+  shell: rm /var/lib/sss/db/*.ldb
+
+- name: Restart services
+  shell: service saslauthd restart && service sssd restart && service slapd restart && service krb5-kdc restart && service krb5-admin-server restart
+
+- name: Wait for the above services to start
+  pause:
+    minutes: 2
+
+- name: Check sssd service
+  shell: id {{ username }}
+
+# - name: Check if the user exists on all hosts
+#   shell: id {{ username }}
+#   delegate_to: "{{ item }}"
+#   with_items: "{{ groups['cluster-host'] }}"
+
+- name: Delete principal
+  shell: "kadmin.local -q \"delete_principal -force {{ username }}\""
+  register: addprinc_result
+
+- name: Delete ldap user
+  shell: "ldapdelete -x -D \"cn={{ krb_admin_principal }},{{ ldap_base_dn }}\" -w {{ ldap_admin_password }}  uid={{ username }},ou={{ usersOU }},{{ ldap_base_dn }}"
+
+- name: Delete ldap group
+  shell: "ldapdelete -x -D \"cn={{ krb_admin_principal }},{{ ldap_base_dn }}\" -w {{ ldap_admin_password }}  cn={{ username }},ou={{ groupsOU }},{{ ldap_base_dn }}"

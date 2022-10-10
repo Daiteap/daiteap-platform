@@ -1,0 +1,17 @@
+---
+- name: Delete sssd cache
+  shell: rm /var/lib/sss/db/*.ldb
+
+- name: Restart sssd
+  shell: service sssd restart
+
+- name: Register home dir
+  stat:
+    path: /home/{{ username }}
+  register: home_directory
+
+- name: Delete home dir if it exists
+  file:
+    path: "{{ home_directory.stat.path }}"
+    state: absent
+  when: home_directory.stat.exists and home_directory.stat.isdir

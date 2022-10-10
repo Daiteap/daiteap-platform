@@ -1,0 +1,5 @@
+- name: Create kubernetes cluster
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: create_kubernetes_user

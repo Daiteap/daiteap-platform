@@ -1,0 +1,25 @@
+---
+- name: Create temporary file for kubeconfig
+  ansible.builtin.tempfile:
+    state: file
+    suffix: temp_kubeconfig
+  register: temp_kubeconfig
+
+- name: Save kubespray value in a temp file
+  template:
+    src: empty_template.j2
+    dest: "{{ temp_kubeconfig.path }}"
+    mode: 0600
+    force: yes
+
+- name: Delete cluster role binding
+  shell: kubectl --kubeconfig={{ temp_kubeconfig.path }} delete clusterrolebinding {{user}}-cluster-admin
+
+- name: Delete the CSRs
+  shell: kubectl --kubeconfig={{ temp_kubeconfig.path }} delete csr user-request-{{user}} #
+
+- name: Delete temp kubeconfig
+  ansible.builtin.file:
+    path: "{{ temp_kubeconfig.path }}"
+    state: absent
+  when: temp_kubeconfig.path is defined

@@ -1,0 +1,45 @@
+---
+- name: Create system user
+  become: yes
+  user:
+    name: "{{ ssh_user }}"
+    shell: /bin/bash
+    state: present
+    create_home: yes
+
+- debug: var=ssh_user
+
+- name: Make sure .ssh directory exists
+  become: yes
+  file:
+    path: /home/{{ ssh_user }}/.ssh
+    state: directory
+    owner: "{{ ssh_user }}"
+    group: "{{ ssh_user }}"
+    mode: "700"
+
+- name: Make sure authorized_keys exists
+  become: yes
+  file:
+    path: /home/{{ ssh_user }}/.ssh/authorized_keys
+    state: touch
+    owner: "{{ ssh_user }}"
+    group: "{{ ssh_user }}"
+    mode: "0600"
+
+- name: Add key in authorized keys for {{ ssh_user }} user
+  become: yes
+  lineinfile:
+    path: /home/{{ ssh_user }}/.ssh/authorized_keys
+    line: "{{ app_public_key }}"
+    owner: "{{ ssh_user }}"
+    group: "{{ ssh_user }}"
+    mode: "0600"
+
+- name: Give user passwordless sudo permissions
+  become: yes
+  lineinfile:
+    path: /etc/sudoers
+    state: present
+    line: "{{ ssh_user }}  ALL=(ALL:ALL) NOPASSWD:ALL"
+    validate: "/usr/sbin/visudo -cf %s"

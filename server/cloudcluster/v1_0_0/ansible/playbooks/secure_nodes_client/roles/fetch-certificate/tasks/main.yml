@@ -1,0 +1,6 @@
+---
+- name: Fetch ca.crt
+  fetch:
+    src: "/root/easy-rsa-3.0.1/easyrsa3/pki/ca.crt"
+    dest: "{{ playbook_dir }}/"
+    flat: yes

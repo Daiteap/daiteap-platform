@@ -1,0 +1,5 @@
+---
+- name: Add host to group 'dns_server'
+  add_host:
+    name: "{{ dns_server_address }}"
+    groups: dns_server

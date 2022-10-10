@@ -1,0 +1,35 @@
+# dn: dc=c,dc=cloudcluster-261712,dc=internal
+# dc: c
+# objectClass: top
+# objectClass: domain
+
+# groups
+dn: ou=groups,{{ ldap_base_dn }}
+objectClass: organizationalUnit
+objectClass: top
+ou: groups
+
+# users
+dn: ou=users,{{ ldap_base_dn }}
+objectClass: organizationalUnit
+objectClass: top
+ou: users
+
+# admin
+# dn: cn=admin,dc=c,dc=cloudcluster-261712,dc=internal
+# objectClass: organizationalRole
+# cn: admin
+
+# sync
+dn: cn=sync,{{ ldap_base_dn }}
+objectClass: inetOrgPerson
+cn: sync
+sn: sync
+userPassword:: aWVsM29vRjFhWWVlOGppZ2hlZW4=
+
+# admins group
+dn: cn=admins,ou=groups,{{ ldap_base_dn }}
+objectClass: posixGroup
+objectClass: top
+gidNumber: 1011
+cn: admins

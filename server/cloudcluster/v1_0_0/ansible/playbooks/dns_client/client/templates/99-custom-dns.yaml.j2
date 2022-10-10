@@ -1,0 +1,8 @@
+network:
+    version: 2
+    ethernets:
+        {{ default_interface.stdout }}:
+            nameservers:
+                    addresses: [{{ serverIP }}]
+            dhcp4-overrides:
+                    use-dns: false

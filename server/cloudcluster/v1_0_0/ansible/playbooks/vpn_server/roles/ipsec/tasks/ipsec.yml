@@ -1,0 +1,38 @@
+---
+- name: Include the IPSec provider connection
+  lineinfile:
+    dest: "{{ vpn_ikev2_ipsec_conf_path }}"
+    line: "include /etc/ipsec.d/{{ item.provider_name }}.conf"
+  with_items: "{{ providers }}"
+
+- name: Include the IPSec default connection
+  lineinfile:
+    dest: "{{ vpn_ikev2_ipsec_conf_path }}"
+    line: "include /etc/ipsec.d/default.conf"
+
+- name: Add IPsec credentials
+  lineinfile:
+    dest: "{{ vpn_ikev2_ipsec_secrets_path }}"
+    line: "{{ item.remote_public_ip }} : PSK \"{{ item.pre_shared_key }}\""
+  with_items: "{{ providers }}"
+
+- name: Get name of the default network interface
+  shell: ip route get $(ip route show 0.0.0.0/0 | grep -oP 'via \K\S+') | head -n 1 | awk '{print $3;}'
+  register: external_interface
+
+- name: "Add ipsec.conf.j2"
+  template:
+    src: "provider.conf.j2"
+    dest: "{{ vpn_ikev2_ipsec_provider_conf_path }}/{{ item.provider_name }}.conf"
+  with_items: "{{ providers }}"
+
+- name: "Add default.conf"
+  template:
+    src: "default.conf.j2"
+    dest: "{{ vpn_ikev2_ipsec_default_conf_path }}"
+
+- name: "Restart strongswan"
+  shell: systemctl restart strongswan*
+
+- name: "Restart ipsec"
+  shell: systemctl restart ipsec

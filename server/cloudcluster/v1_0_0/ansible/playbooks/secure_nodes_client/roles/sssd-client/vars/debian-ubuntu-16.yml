@@ -1,0 +1,15 @@
+---
+sssd_packages: libnss-sss libpam-sss libsss-sudo libsasl2-modules-gssapi-mit ldap-utils sssd sssd-tools
+
+sssd_redhat_packages: sssd
+sssd_packages_centos: sssd
+sssd_service_name: sssd
+sshd_service_name: sshd
+
+install_command: DEBIAN_FRONTEND=noninteractive apt install -y
+install_command_centos: yum install
+
+sssd_config_file: /etc/sssd/sssd.conf
+sssd_config_file_parent_dir: /etc/sssd
+pam_config_file: /etc/pam.d/common-account
+sshd_config: /etc/ssh/sshd_config

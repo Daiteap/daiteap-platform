@@ -1,0 +1,12 @@
+- name: Add hosts and vars
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts_and_vars
+
+- name: Change interface mtu
+  become: yes
+  hosts: all_nodes
+  any_errors_fatal: true
+  roles:
+    - role: change_mtu

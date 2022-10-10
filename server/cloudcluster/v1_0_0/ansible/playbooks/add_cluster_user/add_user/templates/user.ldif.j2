@@ -1,0 +1,44 @@
+dn: uid={{ username }},ou={{ usersOU }},{{ ldap_base_dn }}
+{% if first_name != "" and last_name != "" %}
+cn: {{ first_name }} {{ last_name }}
+{% else %}
+cn: {{ username }}
+{% endif %}
+uid: {{ username }}
+objectClass: inetOrgPerson
+{% if publick_ssh_key != "" %}
+objectClass: ldapPublicKey
+{% endif %}
+objectClass: posixAccount
+objectClass: shadowAccount
+objectClass: top
+loginShell: /bin/bash
+userPassword:: {{ ('{SASL}' + username + '@' + krb_realm) | b64encode  }}
+uidNumber: {{ idNumber }}
+shadowMax: 99999
+gidNumber: {{ idNumber }}
+{% if first_name != "" or last_name != "" %}
+gecos: {{ first_name }} {{ last_name }}
+{% else %}
+gecos: {{ username }}
+{% endif %}
+{% if first_name != "" and last_name != "" %}
+sn: {{ last_name }}
+{% else %}
+sn: {{ username }}
+{% endif %}
+homeDirectory: /home/{{ username }}
+shadowLastChange: 16693
+shadowWarning: 7
+{% if publick_ssh_key != "" %}
+sshPublicKey: {{ publick_ssh_key }}
+{% endif %}
+{% if email != "" %}
+mail: {{ email }}
+{% endif %}
+
+dn: cn={{ username }},ou={{ groupsOU }},{{ ldap_base_dn }}
+objectClass: posixGroup
+objectClass: top
+gidNumber: {{ idNumber }}
+cn: {{ username }}

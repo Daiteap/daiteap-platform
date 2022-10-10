@@ -1,0 +1,93 @@
+---
+- name: create temporary directory to store files
+  tempfile:
+    state: directory
+    prefix: temp
+    path: ./
+  register: temp_directory
+
+- name: Check if Service Exists
+  stat: path=/etc/init.d/docker
+  register: service_status
+
+- name: Install required system packages
+  apt: name={{ item }} state=latest update_cache=yes
+  loop: [ 'apt-transport-https', 'ca-certificates', 'curl', 'software-properties-common', 'python3-pip', 'virtualenv', 'python3-setuptools']
+  when: not(service_status.stat.exists)
+
+- name: Add Docker GPG apt Key
+  apt_key:
+    url: https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg
+    state: present
+  when: not(service_status.stat.exists)
+
+- debug:
+    msg: deb https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release | lower }} stable
+  when: not(service_status.stat.exists)
+
+- name: Add Docker Repository
+  apt_repository:
+    repo: deb https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release | lower }} stable
+    state: present
+  when: not(service_status.stat.exists)
+
+- name: Update apt and install docker-ce
+  apt: update_cache=yes name=docker-ce state=latest
+  when: not(service_status.stat.exists)
+
+- name: Remove old containers
+  become: yes
+  ignore_errors: yes
+  shell: docker rm -f elastic-helm-charts-certs
+
+- name: Create certificates
+  become: yes
+  shell: docker run --name elastic-helm-charts-certs --env DNS_NAME -i -w /app docker.elastic.co/elasticsearch/elasticsearch:7.10.1 /bin/sh -c "elasticsearch-certutil ca --out /app/elastic-stack-ca.p12 --pass '' && elasticsearch-certutil cert --name {{ dns_name }} --dns {{ dns_name }} --ca /app/elastic-stack-ca.p12 --pass '' --ca-pass '' --out /app/elastic-certificates.p12"
+
+- name: Copy certificates
+  become: yes
+  shell: docker cp elastic-helm-charts-certs:/app/elastic-certificates.p12 {{ temp_directory.path }}
+
+- name: Remove docker container
+  become: yes
+  shell: docker rm -f elastic-helm-charts-certs
+
+- name: Creating certificate in pem format for kibana
+  become: yes
+  shell: openssl pkcs12 -nodes -passin pass:'' -in {{ temp_directory.path }}/elastic-certificates.p12 -out {{ temp_directory.path }}/elastic-certificate.pem
+
+- name: Get current user
+  shell: whoami
+  register: current_user
+
+- name: Change certificate owner
+  become: yes
+  shell: chown {{ current_user.stdout }}:{{ current_user.stdout }} {{ temp_directory.path }}/elastic-certificates.p12
+
+- name: Change pem certificate owner
+  become: yes
+  shell: chown {{ current_user.stdout }}:{{ current_user.stdout }} {{ temp_directory.path }}/elastic-certificate.pem
+
+- name: Add namespace
+  become: yes
+  shell: kubectl create namespace {{ namespace }}
+
+- name: Add elastic-certificates secret
+  become: yes
+  shell: kubectl -n {{ namespace }} create secret generic elastic-certificates --from-file={{ temp_directory.path }}/elastic-certificates.p12
+
+- name: Add elastic-certificate-pem secret
+  become: yes
+  shell: kubectl -n {{ namespace }} create secret generic elastic-certificate-pem --from-file={{ temp_directory.path }}/elastic-certificate.pem
+
+- name: Add elastic-credentials secret
+  become: yes
+  shell: kubectl -n {{ namespace }} create secret generic elastic-credentials  --from-literal=password={{ elastic_password }} --from-literal=username=elastic
+
+- name: Remove certificates
+  become: yes
+  shell: rm -f {{ temp_directory.path }}/elastic-certificates.p12 {{ temp_directory.path }}/elastic-certificate.pem {{ temp_directory.path }}/elastic-stack-ca.p12
+
+- name: Delete tmp dir {{ temp_directory.path }}
+  become: yes
+  local_action: file path="{{ temp_directory.path }}" state=absent

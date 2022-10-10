@@ -1,0 +1,10 @@
+krb5_keytab_file: /etc/krb5kdc/kadm5.keytab
+
+password: test2
+firstname: test2
+lastname: test2
+username: test2
+groupsOU: groups
+usersOU: users
+sshPublicKey: ""
+mail: test

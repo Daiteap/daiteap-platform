@@ -1,0 +1,6 @@
+---
+- name: Add providerID on each {{ provider }} node
+  run_once: true
+  become: yes
+  shell: 'kubectl patch node {{ item.name }} -p ''{"spec":{"providerID":"{{ provider_id }}"{% raw %}}}{% endraw %}'''
+  with_items: "{{ provider_lb_nodes }}"

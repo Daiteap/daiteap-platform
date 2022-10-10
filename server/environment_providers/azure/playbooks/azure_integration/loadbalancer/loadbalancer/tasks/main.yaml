@@ -1,0 +1,37 @@
+---
+- name: Remove node-role.kubernetes.io/master from all nodes
+  run_once: true
+  become: yes
+  shell: 'kubectl label nodes --all node-role.kubernetes.io/master-'
+
+- name: Add node-role.kubernetes.io/master on all nodes
+  run_once: true
+  become: yes
+  shell: 'kubectl label nodes --all node-role.kubernetes.io/master=""'
+
+- name: Remove node-role.kubernetes.io/master on azure_nodes
+  run_once: true
+  become: yes
+  shell: 'kubectl label nodes {{ item.name }} node-role.kubernetes.io/master-'
+  with_items: "{{ nodes }}"
+
+- name: Copy azure-controller-manager to master node
+  run_once: true
+  become: yes
+  template:
+    src: azure_cloud_controller_manager.yml.j2
+    dest: "{{ azure_cloud_controller_manager_directory }}{{ azure_cloud_controller_manager_filename }}"
+
+- name: Apply {{ azure_cloud_controller_manager_filename }}
+  run_once: true
+  become: yes
+  shell: kubectl apply -f {{ azure_cloud_controller_manager_directory }}{{ azure_cloud_controller_manager_filename }}
+  retries: 10
+  delay: 5
+
+- name: Clean {{ azure_cloud_controller_manager_filename }} file
+  run_once: true
+  become: yes
+  file:
+    state: absent
+    path: "{{ azure_cloud_controller_manager_directory }}{{ azure_cloud_controller_manager_filename }}"

@@ -1,0 +1,39 @@
+---
+- name: Drain node
+  shell: >-
+    kubectl drain {{ item }}
+    --ignore-daemonsets
+    --delete-emptydir-data
+    --force
+    --grace-period {{ drain_grace_period }}
+    --timeout {{ drain_timeout }}
+  with_items:
+    - "{{ nodes_to_delete }}"
+  register: drain_nodes
+  ignore_errors: yes
+
+- include: remove_etcd.yaml node_name={{ item }}
+  with_items:
+  - "{{ nodes_to_delete }}"
+
+- name: Delete node
+  shell: kubectl delete node {{ item }}
+  with_items:
+    - "{{ nodes_to_delete }}"
+  ignore_errors: yes
+  register: delete_nodes
+
+- name: Fail if node is not deleted
+  fail:
+    msg: "Not all nodes were deleted"
+  when: "item.rc != 0 and 'Error from server (NotFound)' not in item.stderr"
+  with_items: "{{ delete_nodes.results }}"
+
+- name: "Check if node is deleted"
+  shell: kubectl get nodes
+  register: nodes_list
+  until: "item not in nodes_list.stdout"
+  retries: 60
+  delay: 10
+  with_items:
+    - "{{ nodes_to_delete }}"

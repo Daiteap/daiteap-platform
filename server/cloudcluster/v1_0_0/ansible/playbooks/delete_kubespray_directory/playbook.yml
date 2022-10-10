@@ -1,0 +1,7 @@
+---
+- name: Delete kubespray directory
+  hosts: localhost
+  become: yes
+  any_errors_fatal: true
+  roles:
+    - role: delete_kubespray_directory

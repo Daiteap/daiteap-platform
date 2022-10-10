@@ -1,0 +1,34 @@
+---
+- name: Load OS-specific variables
+  include_vars: "{{ item }}"
+  with_first_found:
+    - debian-ubuntu.yml
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution | lower }}.yml"
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_os_family | lower }}.yml"
+    - defaults.yml
+
+- name: Delete principal
+  shell: "kadmin.local -q \"delete_principal -force {{ username }}\""
+  register: addprinc_result
+
+- name: Delete ldap user
+  shell: "ldapdelete -x -D \"cn={{ krb_admin_principal }},{{ ldap_base_dn }}\" -w {{ ldap_admin_password }}  uid={{ username }},ou={{ usersOU }},{{ ldap_base_dn }}"
+
+- name: Delete ldap group
+  shell: "ldapdelete -x -D \"cn={{ krb_admin_principal }},{{ ldap_base_dn }}\" -w {{ ldap_admin_password }}  cn={{ username }},ou={{ groupsOU }},{{ ldap_base_dn }}"
+
+- name: Upload ldif file
+  template:
+    src: delete_user_from_admins_group.ldif.j2
+    dest: "/var/tmp/ansible/delete_user_from_admins_group.ldif"
+    mode: 0600
+    force: yes
+
+- name: Remove ldap user from admins group
+  shell: "ldapmodify -x -D \"cn={{ krb_admin_principal }},{{ ldap_base_dn }}\" -w {{ ldap_admin_password }} -f /var/tmp/ansible/delete_user_from_admins_group.ldif"
+
+- name: Delete clusterrolebinding
+  shell: "kubectl delete clusterrolebinding {{ username }}-webhook-role"
+  when: kubernetes_user|bool == true

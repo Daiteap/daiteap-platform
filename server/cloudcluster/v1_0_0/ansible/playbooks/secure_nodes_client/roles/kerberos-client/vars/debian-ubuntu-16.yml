@@ -1,0 +1,12 @@
+---
+krb_client_package: krb5-user
+krb_client_package_centOS: krb5-workstation
+
+install_command: DEBIAN_FRONTEND=noninteractive apt install -y
+install_command_centOS: yum -y install
+kadmin_command: kadmin
+
+krb_client_config_file: /etc/krb5.conf
+host_keytab_file: /etc/krb5.keytab
+
+disable_firewall_command_centOS: systemctl disable firewalld && systemctl stop firewalld

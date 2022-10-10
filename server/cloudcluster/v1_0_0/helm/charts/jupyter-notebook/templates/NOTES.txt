@@ -1,0 +1,13 @@
+1. Get the application URL by running these commands:
+
+{{- if contains "LoadBalancer" .Values.service.type }}
+     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+           You can watch the status of by running 'kubectl get svc -w {{ template "jupyter-notebook.fullname" . }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ template "jupyter-notebook.fullname" . }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  echo notebook_url=http://$SERVICE_IP:8888
+{{- else if contains "ClusterIP" .Values.service.type }}
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ template "jupyter-notebook.fullname" . }} 8888:8888
+{{- end }}
+
+2. Get the notebook password:
+  You can check get the password by running 'kubectl get secret --namespace {{ .Release.Namespace }} {{ template "jupyter-notebook.fullname" . }} -o jsonpath="{.data.password}" | base64 --decode; echo'

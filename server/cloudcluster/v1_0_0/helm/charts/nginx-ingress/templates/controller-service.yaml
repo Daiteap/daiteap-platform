@@ -1,0 +1,60 @@
+{{- if .Values.service.create }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nginx-ingress.serviceName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "nginx-ingress.labels" . | nindent 4 }}
+{{- if .Values.service.extraLabels }}
+{{ toYaml .Values.service.extraLabels | indent 4 }}
+{{- end }}
+{{- if .Values.service.annotations }}
+  annotations:
+{{ toYaml .Values.service.annotations | indent 4 }}
+{{- end }}
+spec:
+{{- if or (eq .Values.service.type "LoadBalancer") (eq .Values.service.type "NodePort") }}
+  {{- if .Values.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy }}
+  {{- end }}
+{{- end }}
+{{- if eq .Values.service.type "LoadBalancer" }}
+  {{- if .Values.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.service.loadBalancerIP }}
+  {{- end }}
+  {{- if .Values.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+{{ toYaml .Values.service.loadBalancerSourceRanges | indent 4 }}
+  {{- end }}
+{{- end }}
+  type: {{ .Values.service.type }}
+  ports:
+{{- if .Values.service.customPorts }}
+{{ toYaml .Values.service.customPorts | indent 2 }}
+{{ end }}
+{{- if .Values.service.httpPort.enable }}
+  - port: {{ .Values.service.httpPort.port }}
+    targetPort: {{ .Values.service.httpPort.targetPort }}
+    protocol: TCP
+    name: http
+  {{- if eq .Values.service.type "NodePort" }}
+    nodePort: {{ .Values.service.httpPort.nodePort }}
+  {{- end }}
+{{- end }}
+{{- if .Values.service.httpsPort.enable }}
+  - port: {{ .Values.service.httpsPort.port }}
+    targetPort: {{ .Values.service.httpsPort.targetPort }}
+    protocol: TCP
+    name: https
+  {{- if eq .Values.service.type "NodePort" }}
+    nodePort: {{ .Values.service.httpsPort.nodePort }}
+  {{- end }}
+{{- end }}
+  selector:
+    app:  {{ include "nginx-ingress.appName" . }}
+  {{- if .Values.service.externalIPs }}
+  externalIPs:
+{{ toYaml .Values.service.externalIPs | indent 4 }}
+  {{- end }}
+{{- end }}

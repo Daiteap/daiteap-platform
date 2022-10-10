@@ -1,0 +1,58 @@
+---
+- name: Get curl
+  apt:
+    state: present
+    name: curl
+  retries: 10
+  delay: 3
+
+- name: Get helm
+  shell: curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+  retries: 10
+  delay: 3
+
+- name: Create namespace monitoring
+  shell: "{{ kubectl_command }} create namespace monitoring"
+  ignore_errors: yes
+
+- name: Add prometheus repo
+  shell: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+- name: Update helm repos
+  shell: helm repo update
+
+- name: Uninstall prometheus
+  shell: helm uninstall prometheus --kubeconfig "{{ kubeconfig_path }}" --namespace monitoring
+  ignore_errors: yes
+
+- name: Install prometheus
+  shell: helm install prometheus prometheus-community/kube-prometheus-stack --kubeconfig "{{ kubeconfig_path }}" --namespace monitoring --set "grafana.adminPassword={{ grafana_admin_password }}"
+
+- name: Change Grafana internal port to 3000
+  shell: >
+    {{ kubectl_command }}  patch  svc -n monitoring prometheus-grafana --type='json' -p '[{"op": "replace", "path": "/spec/ports/0/port", "value": 3000}]'
+
+- name: Get grafana private ip
+  shell: "{{ kubectl_command }} get svc -n monitoring prometheus-grafana -o jsonpath=\"{.spec.clusterIP}\""
+  register: grafana_private_ip
+
+- name: Copy dashboard template
+  copy:
+    src: node-exporter-full_rev21.json
+    dest: "/tmp/node-exporter-full_rev21.json"
+    mode: 0644
+    force: yes
+
+- name: Import dashboard
+  shell: "curl 'http://{{ grafana_private_ip.stdout }}:3000/api/dashboards/db' -H 'Content-Type: application/json' -u 'admin:{{ grafana_admin_password }}' -d  @/tmp/node-exporter-full_rev21.json"
+  retries: 20
+  delay: 10
+  register: import_result
+  until: import_result.rc == 0
+
+- name: Change default homepage
+  shell: "curl 'http://{{ grafana_private_ip.stdout }}:3000/api/user/preferences' -X 'PUT' -H 'Content-Type: application/json'  -u 'admin:{{ grafana_admin_password }}' -d '{\"homeDashboardId\": {{ (import_result.stdout | from_json).id }},\"theme\":\"\",\"timezone\":\"\"}'"
+  retries: 20
+  delay: 10
+  register: result
+  until: result.rc == 0

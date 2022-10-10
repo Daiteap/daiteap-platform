@@ -1,0 +1,6 @@
+---
+- name: Add host to group 'nodes'
+  add_host:
+    name: "{{ item }}"
+    groups: nodes
+  with_items: "{{ nodes_addresses }}"

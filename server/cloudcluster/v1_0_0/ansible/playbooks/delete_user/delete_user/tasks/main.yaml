@@ -1,0 +1,15 @@
+---
+- name: Delete system user
+  become: yes
+  user:
+    name: "{{ ssh_user }}"
+    state: absent
+    remove: yes
+
+- name: Remove user from sudoers
+  become: yes
+  lineinfile:
+    path: /etc/sudoers
+    state: absent
+    line: "{{ ssh_user }}  ALL=(ALL:ALL) NOPASSWD:ALL"
+    validate: "/usr/sbin/visudo -cf %s"

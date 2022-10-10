@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "jupyter-notebook.fullname" . }}
+  labels:
+    app: {{ template "jupyter-notebook.name" . }}
+    chart: {{ template "jupyter-notebook.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ template "jupyter-notebook.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "jupyter-notebook.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      {{- if .Values.affinity }}
+      affinity:
+{{ toYaml .Values.affinity | indent 8 }}
+      {{- end }}
+      containers:
+        - name: jupyter
+          image: "{{ .Values.jupyter.image.repository }}:{{ .Values.jupyter.image.tag }}"
+          imagePullPolicy: {{ .Values.jupyter.image.pullPolicy }}
+          ports:
+            - containerPort: 8888
+              name: jupyter
+          command:
+            - jupyter
+          args:
+            - notebook
+            - --allow-root
+            - --notebook-dir=/root/data
+          env:
+            - name: PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "jupyter-notebook.fullname" . }}
+                  key: password
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8888
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8888
+          volumeMounts:
+            - mountPath: /output/training_logs
+              name: training-logs-volume
+            - mountPath: /root/data
+              name: volume-{{ template "jupyter-notebook.fullname" . }}
+      volumes:
+        - name: training-logs-volume
+          emptyDir: {}
+        - name: volume-{{ template "jupyter-notebook.fullname" . }}
+          persistentVolumeClaim:
+            claimName: claim-{{ template "jupyter-notebook.fullname" . }}
+
+

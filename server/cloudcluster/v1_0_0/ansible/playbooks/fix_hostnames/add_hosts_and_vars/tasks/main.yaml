@@ -1,0 +1,9 @@
+---
+- name: Add host to group 'provider-nodes' "{{ provider_nodes }}"
+  add_host:
+    name: "{{ item }}"
+    groups: provider-nodes
+    clustername: "{{ clustername }}"
+    number: "{{ counter }}"
+  loop: "{{ provider_nodes|flatten(levels=1) }}"
+  when: provider_nodes != ["user@0.0.0.0","user@0.0.0.0"]

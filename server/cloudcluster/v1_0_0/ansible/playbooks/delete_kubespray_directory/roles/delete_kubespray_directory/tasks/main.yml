@@ -1,0 +1,8 @@
+---
+- shell: pwd
+  register: pwd
+
+- name: Delete directory
+  file:
+    state: absent
+    path: "{{ pwd.stdout }}/../kubespray/inventory/{{ inventory_directory_name }}"

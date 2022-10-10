@@ -1,0 +1,53 @@
+---
+- name: Update apt packages
+  shell: apt-get update
+
+- name: Install dnsmasq
+  retries: 4
+  delay: 10
+  package:
+    name: dnsmasq
+    state: present
+
+- name: Install resolvconf
+  retries: 4
+  delay: 10
+  package:
+    name: resolvconf
+    state: present
+
+- name: Update config file
+  template:
+    src: dnsmasq.conf.j2
+    dest: "/etc/dnsmasq.conf"
+    owner: root
+    group: root
+    mode: u=rw,g=r,o=r
+    force: yes
+
+- name: Update service file
+  template:
+    src: dnsmasq.service.j2
+    dest: "/lib/systemd/system/dnsmasq.service"
+    owner: root
+    group: root
+    mode: u=rw,g=r,o=r
+    force: yes
+
+- name: Daemon reload
+  become: yes
+  become_user: root
+  become_method: sudo
+  shell: systemctl daemon-reload
+
+- name: Enable dnsmasq service
+  become: yes
+  become_user: root
+  become_method: sudo
+  shell: systemctl enable dnsmasq
+
+- name: Restart dnsmasq
+  become: yes
+  become_user: root
+  become_method: sudo
+  shell: service dnsmasq restart

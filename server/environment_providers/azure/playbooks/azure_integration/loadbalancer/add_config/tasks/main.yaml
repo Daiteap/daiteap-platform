@@ -1,0 +1,12 @@
+---
+- name: Create directory
+  become: yes
+  file:
+    path: /etc/kubernetes
+    state: directory
+
+- name: Copy azure config to each Azure node "{{ azure_cloud_config_path }}"
+  become: yes
+  template:
+    src: azure.json.j2
+    dest: "{{ azure_cloud_config_path }}"

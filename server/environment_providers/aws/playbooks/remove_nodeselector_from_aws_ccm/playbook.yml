@@ -1,0 +1,13 @@
+---
+- name: Add hosts
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts
+
+- name: Label
+  hosts: master
+  become: yes
+  any_errors_fatal: true
+  roles:
+    - role: label

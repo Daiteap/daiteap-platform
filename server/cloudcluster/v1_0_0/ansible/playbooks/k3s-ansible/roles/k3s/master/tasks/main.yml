@@ -1,0 +1,88 @@
+---
+- name: Create webhook token auth config
+  template:
+    src: webhook-token-auth-config.yaml.j2
+    dest: "/var/webhook-token-auth-config.yaml"
+  when: kube_webhook_token_auth|default(false)
+
+- name: Copy installation script to the instance
+  become: yes
+  copy:
+    src: "../../../files/k3s.sh"
+    dest: /tmp/k3s.sh
+
+- name: Install k3s
+  shell: INSTALL_K3S_VERSION={{ k3s_version }} INSTALL_K3S_EXEC="server --node-name {{ node_name }} --disable-cloud-controller --kubelet-arg cloud-provider=external --kube-apiserver-arg authentication-token-webhook-config-file=/var/webhook-token-auth-config.yaml --cluster-cidr {{ kube_pods_subnet }} --service-cidr {{ kube_service_addresses }}  --disable servicelb --disable traefik --disable metrics-server" sh /tmp/k3s.sh
+  when: external_cloud_provider == "true"
+
+- name: Install k3s
+  shell: INSTALL_K3S_VERSION={{ k3s_version }} INSTALL_K3S_EXEC="server --node-name {{ node_name }} --disable-cloud-controller --kube-apiserver-arg authentication-token-webhook-config-file=/var/webhook-token-auth-config.yaml --cluster-cidr {{ kube_pods_subnet }} --service-cidr {{ kube_service_addresses }}  --disable servicelb --disable traefik --disable metrics-server" sh /tmp/k3s.sh
+  when: external_cloud_provider == "false"
+
+- name: Clean installation script
+  become: yes
+  file:
+    state: absent
+    path: "/tmp/k3s.sh"
+
+- name: Wait for node-token
+  wait_for:
+    path: /var/lib/rancher/k3s/server/node-token
+
+- name: Register node-token file access mode
+  stat:
+    path: /var/lib/rancher/k3s/server
+  register: p
+
+- name: Change file access node-token
+  file:
+    path: /var/lib/rancher/k3s/server
+    mode: "g+rx,o+rx"
+
+- name: Read node-token from master
+  slurp:
+    src: /var/lib/rancher/k3s/server/node-token
+  register: node_token
+
+- name: Store Master node-token
+  set_fact:
+    token: "{{ node_token.content | b64decode | regex_replace('\n', '') }}"
+
+- name: Restore node-token file access
+  file:
+    path: /var/lib/rancher/k3s/server
+    mode: "{{ p.stat.mode }}"
+
+- name: Create directory .kube
+  file:
+    path: ~{{ ansible_user }}/.kube
+    state: directory
+    owner: "{{ ansible_user }}"
+    mode: "u=rwx,g=rx,o="
+
+- name: Copy config file to user home directory
+  copy:
+    src: /etc/rancher/k3s/k3s.yaml
+    dest: ~{{ ansible_user }}/.kube/config
+    remote_src: yes
+    owner: "{{ ansible_user }}"
+    mode: "u=rw,g=,o="
+
+- name: Replace https://localhost:6443 by https://master-ip:6443
+  command: >-
+    k3s kubectl config set-cluster default
+      --server=https://{{ master_ip }}:6443
+      --kubeconfig ~{{ ansible_user }}/.kube/config
+  changed_when: true
+
+- name: Create kubectl symlink
+  file:
+    src: /usr/local/bin/k3s
+    dest: /usr/local/bin/kubectl
+    state: link
+
+- name: Create crictl symlink
+  file:
+    src: /usr/local/bin/k3s
+    dest: /usr/local/bin/crictl
+    state: link

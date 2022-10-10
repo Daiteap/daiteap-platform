@@ -1,0 +1,8 @@
+---
+#
+# Role configuration.
+#
+vpn_ikev2_check_os: True
+vpn_ikev2_install_packages: True
+vpn_ikev2_enable_forwarding: True
+vpn_ikev2_manage_netfilter: True

@@ -1,0 +1,5 @@
+- name: Prepare kubespray
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: prepare_kubespray

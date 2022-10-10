@@ -1,0 +1,65 @@
+---
+- name: Install dbus
+  retries: 4
+  delay: 10
+  package:
+    name: dbus
+    state: present
+
+- name: Check if /etc/cloud/cloud.cfg exists
+  stat:
+    path: /etc/cloud/cloud.cfg
+  register: cloud_cfg_result
+
+- name: Delete update_etc_hosts in /etc/cloud/cloud.cfg
+  lineinfile:
+    path: /etc/cloud/cloud.cfg
+    state: absent
+    regexp: 'update_etc_hosts'
+  when: cloud_cfg_result.stat.exists
+
+- name: Delete update_hostname in /etc/cloud/cloud.cfg
+  lineinfile:
+    path: /etc/cloud/cloud.cfg
+    state: absent
+    regexp: 'update_hostname'
+  when: cloud_cfg_result.stat.exists
+
+- name: Delete old hostname in /etc/hosts
+  lineinfile:
+    path: /etc/hosts
+    state: absent
+    regexp: '127.0.*{{ clustername }}-node-*'
+
+- name: Start dbus
+  shell: systemctl start dbus.socket dbus
+  ignore_errors: yes
+
+- name: Update hostname when number is smaller than 10
+  shell: hostnamectl set-hostname {{ clustername }}-node-0{{ number }}
+  when: number|int < 10
+
+- name: Update hostname when number is bigger than 9
+  shell: hostnamectl set-hostname {{ clustername }}-node-{{ number }}
+  when: number|int >= 10
+
+- name: Change default realm when number is smaller than 10
+  replace:
+    dest: /etc/hosts
+    regexp: "localhost\n"
+    replace: "localhost\n127.0.0.2 {{ clustername }}-node-0{{ number }}.{{ provider }}.{{ internal_dns_zone }} {{ clustername }}-node-0{{ number }}\n"
+  when: number|int < 10
+
+- name: Change default realm when number is bigger than 9
+  replace:
+    dest: /etc/hosts
+    regexp: "localhost\n"
+    replace: "localhost\n127.0.0.2 {{ clustername }}-node-{{ number }}.{{ provider }}.{{ internal_dns_zone }} {{ clustername }}-node-{{ number }}\n"
+  when: number|int >= 10
+
+- name: Increment variable
+  set_fact: number={{ number | int + 1 }}
+
+- name: Reboot to apply changes
+  reboot:
+    reboot_timeout: 900

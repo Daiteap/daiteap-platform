@@ -1,0 +1,7 @@
+calico_mtu: 1390
+calico_veth_mtu: 1340
+calico_network_backend: vxlan
+calico_ipip_mode: 'Never'
+calico_vxlan_mode: 'Always'
+calico_vxlan_vni: 4096
+calico_vxlan_port: 4789

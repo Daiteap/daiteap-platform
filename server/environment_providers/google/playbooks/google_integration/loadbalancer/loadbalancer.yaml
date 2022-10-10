@@ -1,0 +1,11 @@
+- name: Add hosts
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts
+
+- name: Integrate loadbalancer
+  hosts: masternode
+  any_errors_fatal: true
+  roles:
+    - role: loadbalancer

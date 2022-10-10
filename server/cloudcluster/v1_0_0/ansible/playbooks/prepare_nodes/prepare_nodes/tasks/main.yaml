@@ -1,0 +1,138 @@
+---
+- name: Update apt packages
+  shell: apt-get update
+
+- name: Install python3
+  retries: 4
+  delay: 10
+  package:
+    name: python3
+    state: present
+
+- name: Install nfs-common
+  retries: 4
+  delay: 10
+  package:
+    name: nfs-common
+    state: present
+
+- name: Install aufs-tools
+  retries: 4
+  delay: 10
+  package:
+    name: aufs-tools
+    state: present
+
+- name: Update apt packages
+  shell: apt-get update
+
+- name: Install firewalld
+  ansible.builtin.apt:
+    name: firewalld
+    state: present
+  async: 1000
+  poll: 0
+  register: apt_sleeper
+
+- name: Installing firewalld
+  async_status:
+    jid: "{{ apt_sleeper.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 100
+  delay: 10
+
+- name: Start and enable firewalld service
+  service:
+    name: firewalld
+    state: started
+    enabled: yes
+  retries: 10
+  delay: 10
+  register: apt_res
+  until: apt_res is success
+
+- name: Stop and disable ufw
+  ignore_errors: yes
+  service:
+    name: ufw
+    state: stopped
+    enabled: no
+  when: ansible_distribution == 'Ubuntu'
+
+- name: Whitelist public ips of the instances
+  shell: |
+    IFS=',' read -ra ADDR <<< "{{ whitelist_ips }}"
+    for i in "${ADDR[@]}"; do
+        firewall-cmd --add-source=$i --zone=trusted --permanent
+    done
+  args:
+    executable: /bin/bash
+
+- name: Allow network 10.0.0.0/8
+  command: firewall-cmd --add-source=10.0.0.0/8 --zone=trusted --permanent
+
+- name: Allow network 172.16.0.0/12
+  command: firewall-cmd --add-source=172.16.0.0/12 --zone=trusted --permanent
+
+- name: Allow network 192.168.0.0/16
+  command: firewall-cmd --add-source=192.168.0.0/16  --zone=trusted --permanent
+
+- name: Allow port 22
+  command: firewall-cmd --add-service=ssh --zone=drop --permanent
+
+- name: Allow ipsec
+  shell: firewall-cmd --zone=drop --add-service=ipsec --permanent
+
+- name: Allow port 4500
+  shell: firewall-cmd --zone=drop --add-port=4500/udp --permanent
+
+- name: Allow port 6443 # kube_apiserver_port
+  command: firewall-cmd --add-port=6443/tcp --zone=drop --permanent
+
+- name: Change default zone to drop
+  command: firewall-cmd --set-default-zone=drop
+
+- name: Reload firewalld
+  service:
+    name: firewalld
+    state: reloaded
+
+- name: Install epel-release
+  retries: 4
+  delay: 10
+  package:
+    name: https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_distribution_major_version }}.noarch.rpm
+    state: present
+  when: ansible_distribution == 'CentOS' or ansible_distribution == 'Red Hat Enterprise Linux'
+
+- name: Install fail2ban
+  retries: 4
+  delay: 10
+  package:
+    name: fail2ban
+    state: present
+
+- name: Copy fail2ban.local
+  copy:
+    remote_src: yes
+    src: /etc/fail2ban/jail.conf
+    dest: /etc/fail2ban/jail.local
+
+- name: Copy sshd-centos.local
+  copy:
+    src: sshd-centos.local
+    dest: /etc/fail2ban/jail.d/sshd.local
+  when: ansible_distribution == 'CentOS' or ansible_distribution == 'Red Hat Enterprise Linux'
+
+- name: Copy sshd-ubuntu.local
+  copy:
+    src: sshd-ubuntu.local
+    dest: /etc/fail2ban/jail.d/sshd.local
+  when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+- name: Restart and enable fail2ban service
+  service:
+    name: fail2ban
+    state: restarted
+    enabled: yes

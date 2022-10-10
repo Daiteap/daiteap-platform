@@ -1,0 +1,41 @@
+- name: Template yaookcapi
+  template:
+    src: ./yaookcapi.j2
+    dest: /tmp/yaookcapi.yaml
+  when: KUBERNTES_COMMAND == 'create' or KUBERNTES_COMMAND == 'apply'
+
+- name: Get existing machine deployments
+  shell: |
+    kubectl get --kubeconfig {{ PATH_TO_MANAGEMENT_CLUSTER_KUBECTL }} yaookmachinedeployment -l cluster-name={{ CLUSTER_NAME }} --no-headers -o custom-columns=':metadata.name'
+  register: existing_machine_deployments
+  when: KUBERNTES_COMMAND == 'apply' and DELETE_OLD_MACHINE_DEPLOYMENTS == true
+
+- name: Get machine deployments for creation
+  shell: |
+    echo "{{ CLUSTER_NAME }}-md-{{ ITER }}"
+  register: machine_deployments_for_creation
+  loop: "{{ worker_nodes }}"
+  loop_control:
+    index_var: ITER
+  when: KUBERNTES_COMMAND == 'apply' and DELETE_OLD_MACHINE_DEPLOYMENTS == true
+
+- name: Delete unused machine deployments
+  shell: |
+    kubectl delete --kubeconfig {{ PATH_TO_MANAGEMENT_CLUSTER_KUBECTL }} yaookmachinedeployment {{ item }}
+  with_items: "{{ existing_machine_deployments.stdout_lines }}"
+  when: |
+    KUBERNTES_COMMAND == 'apply' and
+    DELETE_OLD_MACHINE_DEPLOYMENTS == true and
+    existing_machine_deployments is defined
+
+- name: Apply manifest
+  shell: |
+    kubectl {{ KUBERNTES_COMMAND }} --kubeconfig {{ PATH_TO_MANAGEMENT_CLUSTER_KUBECTL }} -f /tmp/yaookcapi.yaml
+  when: KUBERNTES_COMMAND == 'create' or KUBERNTES_COMMAND == 'apply'
+  register: apply_manifest
+
+- name: Delete yaookcapi tmp file
+  file:
+    state: absent
+    path: /tmp/yaookcapi.yaml
+  when: KUBERNTES_COMMAND == 'create' or KUBERNTES_COMMAND == 'apply'

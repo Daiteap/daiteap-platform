@@ -1,0 +1,76 @@
+---
+- name: Create temporary file for kubeconfig
+  ansible.builtin.tempfile:
+    state: file
+    suffix: temp_kubeconfig
+  register: temp_kubeconfig
+
+- name: Save kubespray value in a temp file
+  template:
+    src: empty_template.j2
+    dest: "{{ temp_kubeconfig.path }}"
+    mode: 0600
+    force: yes
+
+- name: Delete directory
+  file: path=./k8s-users/{{cluster_id}}_{{user}}/ state=absent
+
+- name: Create PKI folder
+  file: path=./k8s-users/{{cluster_id}}_{{user}}/ state=directory mode=0700
+
+- name: Create personal PKI folder 
+  file: path=./k8s-users/{{cluster_id}}_{{user}}/pki state=directory mode=0700
+
+- name: Generate RSA for user {{user}}
+  shell: /usr/bin/openssl genrsa -out ./k8s-users/{{cluster_id}}_{{user}}/pki/{{user}}.pem 2048 #
+
+- name: Generate CSR for user {{user}}
+  shell: /usr/bin/openssl req -new -key ./k8s-users/{{cluster_id}}_{{user}}/pki/{{user}}.pem -out ./k8s-users/{{cluster_id}}_{{user}}/pki/{{user}}.csr -subj "/CN={{user}}" #
+  register: csr_req_original
+
+- name: Convert CSR file into base64
+  shell: cat ./k8s-users/{{cluster_id}}_{{user}}/pki/{{user}}.csr | base64 | tr -d '\n' #
+  register: csr_req_base64
+
+- name: Generate CSR yaml file
+  template:
+    src: csr-req.yaml.j2
+    dest: ./k8s-users/{{cluster_id}}_{{user}}/pki/csr-req.yaml
+
+- name: Ingest CSRs to kubernetes
+  shell: kubectl --kubeconfig={{ temp_kubeconfig.path }} create -f ./k8s-users/{{cluster_id}}_{{user}}/pki/csr-req.yaml #
+
+- name: Approve the CSRs
+  shell: kubectl --kubeconfig={{ temp_kubeconfig.path }} certificate approve user-request-{{user}} #
+
+- name: Create the x509 certificate for user {{user}}
+  shell: kubectl --kubeconfig={{ temp_kubeconfig.path }} get csr user-request-{{user}} -o jsonpath='{.status.certificate}' | base64 -d > ./k8s-users/{{cluster_id}}_{{user}}/pki/{{user}}.crt #
+
+- name: Extract certificate-authority-data
+  shell: grep certificate-authority-data /etc/kubernetes/admin.conf | awk {'print $2'} #
+  register: certificate_authority_data
+
+- name: Extract client-certificate-data for user {{user}}
+  shell: cat ./k8s-users/{{cluster_id}}_{{user}}/pki/{{user}}.crt | base64 | tr -d '\n' #
+  register: client_certificate_data
+
+- name: Extract client-key-data for user {{user}}
+  shell: cat ./k8s-users/{{cluster_id}}_{{user}}/pki/{{user}}.pem | base64 | tr -d '\n' #
+  register: client_key_data
+
+- name: Create cluster role binding
+  shell: kubectl --kubeconfig={{ temp_kubeconfig.path }} create clusterrolebinding {{user}}-cluster-admin --clusterrole cluster-admin --user {{user}} #
+
+- name: Generate kubeconfig file for user {{user}}
+  template:
+    src: kubeconfig.j2
+    dest: ./k8s-users/{{cluster_id}}_{{user}}/kubeconfig
+
+- name: Delete directory
+  file: path=./k8s-users/{{cluster_id}}_{{user}}/pki state=absent
+
+- name: Delete temp kubeconfig
+  ansible.builtin.file:
+    path: "{{ temp_kubeconfig.path }}"
+    state: absent
+  when: temp_kubeconfig.path is defined

@@ -1,0 +1,84 @@
+---
+- name: Install python3
+  become: yes
+  package:
+    name:
+      python3
+    state: present
+
+- shell: pwd
+  register: pwd
+
+- name: Set kubespray directory to "{{ pwd.stdout }}/../kubespray/"
+  set_fact:
+    kubespray_directory: "{{ pwd.stdout }}/../kubespray/"
+
+- name: Install requirements.txt
+  become: yes
+  shell: pip3 install -r "{{ kubespray_directory }}requirements.txt"
+
+- name: Copy {{ kubespray_directory }}inventory/sample/ as {{ kubespray_directory }}inventory/{{ inventory_directory_name }}
+  copy:
+    src: "{{ kubespray_directory }}inventory/sample/"
+    dest: "{{ kubespray_directory }}inventory/{{ inventory_directory_name }}"
+
+- name: Update the all.yml file
+  template:
+    src: all.yml.j2
+    dest: "{{ kubespray_directory }}inventory/{{ inventory_directory_name }}/group_vars/all/all.yml"
+    mode: 0644
+    force: yes
+
+- name: Update the k8s-cluster.yml file
+  template:
+    src: k8s-cluster.yml.j2
+    dest: "{{ kubespray_directory }}inventory/{{ inventory_directory_name }}/group_vars/k8s-cluster/k8s-cluster.yml"
+    mode: 0644
+    force: yes
+
+- name: Update the k8s-net-calico.yml file
+  template:
+    src: k8s-net-calico.yml
+    dest: "{{ kubespray_directory }}inventory/{{ inventory_directory_name }}/group_vars/k8s-cluster/k8s-net-calico.yml"
+    mode: 0644
+    force: yes
+
+- name: Update the k8s-net-cilium.yml file
+  template:
+    src: k8s-net-cilium.yml
+    dest: "{{ kubespray_directory }}inventory/{{ inventory_directory_name }}/group_vars/k8s-cluster/k8s-net-cilium.yml"
+    mode: 0644
+    force: yes
+
+- name: Update the k8s-net-weave.yml file
+  template:
+    src: k8s-net-weave.yml
+    dest: "{{ kubespray_directory }}inventory/{{ inventory_directory_name }}/group_vars/k8s-cluster/k8s-net-weave.yml"
+    mode: 0644
+    force: yes
+
+- name: Update the addons.yml file
+  template:
+    src: addons.yml.j2
+    dest: "{{ kubespray_directory }}inventory/{{ inventory_directory_name }}/group_vars/k8s-cluster/addons.yml"
+    mode: 0644
+    force: yes
+
+- name: Delete inventory.py sample file
+  file:
+      path: "{{ kubespray_directory }}inventory/{{ inventory_directory_name }}/inventory.ini"
+      state: absent
+
+- name: Replace "kube_webhook_token_auth false" to "kube_webhook_token_auth true" in roles/kubernetes/master/defaults/main/main.yml
+  lineinfile:
+    path: "{{ kubespray_directory }}/roles/kubernetes/master/defaults/main/main.yml"
+    regexp: '^kube_webhook_token_auth: false$'
+    line: 'kube_webhook_token_auth: true'
+    backrefs: yes
+
+- name: Update "kube_kubeadm_apiserver_extra_args"
+  lineinfile:
+    path: "{{ kubespray_directory }}/roles/kubernetes/master/defaults/main/main.yml"
+    regexp: '^kube_kubeadm_apiserver_extra_args: {}$'
+    line: 'kube_kubeadm_apiserver_extra_args: {service-account-signing-key-file: /etc/kubernetes/ssl/sa.key, service-account-issuer: kubernetes.default.svc}'
+    backrefs: yes

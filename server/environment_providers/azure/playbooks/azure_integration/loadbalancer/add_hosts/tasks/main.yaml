@@ -1,0 +1,11 @@
+---
+- name: Add host to group 'masternode' "{{ master_node_address }}"
+  add_host:
+    name: "{{ master_node_address }}"
+    groups: masternode
+
+- name: Add host to group 'azurenodes' "{{ item }}"
+  add_host:
+    name: "{{ item }}"
+    groups: azurenodes
+  with_items: "{{ azure_nodes }}"

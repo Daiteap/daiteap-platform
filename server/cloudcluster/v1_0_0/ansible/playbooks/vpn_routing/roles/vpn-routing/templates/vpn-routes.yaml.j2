@@ -1,0 +1,9 @@
+network:
+    version: 2
+    ethernets:
+        {{ default_interface.stdout }}:
+            routes:
+{% for provider in providers%}
+              - to: {{ provider.remote_network }}
+                via: {{ vpn_server_private_ip }}
+{% endfor %}

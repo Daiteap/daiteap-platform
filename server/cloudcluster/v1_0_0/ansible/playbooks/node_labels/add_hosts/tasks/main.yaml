@@ -1,0 +1,6 @@
+---
+- name: Add host to group 'masternode' "{{ masternode }}"
+  add_host:
+    name: "{{ masternode }}"
+    groups: masternode
+    provider_nodes: "{{ provider_nodes }}"

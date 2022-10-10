@@ -1,0 +1,110 @@
+---
+- name: Load OS-specific variables - Ubuntu
+  include_vars: "{{ item }}"
+  with_first_found:
+    - debian-ubuntu-16.yml
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution | lower }}.yml"
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_os_family | lower }}.yml"
+    - defaults.yml
+
+
+- name: Clean old Kerberos installation if present
+  shell: "{{ clean_kerberos_packages_command }}"
+  ignore_errors: true
+
+- name: Update apt-get
+  shell: "apt update"
+
+
+- name: Install haveged
+  shell: "{{ install_command }} {{ haveged_package }}"
+  # when: ansible_os_family == 'Ubuntu'
+
+- name: Make sure the haveged service is started
+  service:
+    name: "{{ haveged_service_name }}"
+    state: started
+
+
+- name: Make sure the haveged service is enabled
+  service:
+    name: "{{ haveged_service_name }}"
+    enabled: yes
+  # ignore_errors: true
+
+
+- name: Install kdc and kadmin
+  shell: "{{ install_command }} {{ kdc_package }} {{ kadmin_package }}"
+
+# - name: Modify the /etc/hostname configuration file
+#   replace:
+#     dest: /etc/hostname
+#     regexp: '{{ hostname }}.novalocal'
+#     replace: '{{ hostname }}'
+
+# - name: Modify the /etc/sysconfig/network configuration file
+#   replace:
+#     dest: /etc/sysconfig/network
+#     regexp: 'HOSTNAME=localhost.localdomain'
+#     replace: 'HOSTNAME={{ hostname }}'
+
+# - name: Modify the /etc/cloud/cloud.cfg configuration file
+#   replace:
+#     dest: /etc/cloud/cloud.cfg
+#     regexp: 'preserve_hostname: false'
+#     replace: 'preserve_hostname: true'
+
+- name: Change default realm
+  replace:
+    dest: /etc/krb5.conf
+    regexp: 'default_realm = .*'
+    replace: "default_realm = {{ krb_realm | upper }}"
+
+- name: Change realm name
+  replace:
+    dest: /etc/krb5kdc/kdc.conf
+    regexp: '.* = {'
+    replace: "    {{ krb_realm | upper }} = {"
+
+- name: Create the kdc database for realm {{ krb_realm | upper }}
+  shell: "{{ kdc_init_command }} -r {{ krb_realm | upper }} -P {{ kdc_master_password }}"
+  notify: Restart kdc
+
+- meta: flush_handlers
+
+- name: Give full admin rights to */admin
+  lineinfile:
+    dest: "{{ kdc_acl_file }}"
+    line: "*/admin@{{ krb_realm | upper }} *"
+    insertbefore: EOF
+    state: present
+    create: yes
+    mode: 0600
+  notify: Restart kadmin
+
+- meta: flush_handlers
+
+- name: Add the admin principal for realm {{ krb_realm | upper }}
+  shell: "{{ kadmin_command }} -q \"add_principal -pw {{ krb_admin_password }} {{ krb_admin_principal }}/admin@{{ krb_realm | upper }}\""
+
+- name: Make sure the kdc service is started
+  service:
+    name: "{{ kdc_service_name }}"
+    state: started
+
+- name: Make sure the kdc service is enabled
+  service:
+    name: "{{ kdc_service_name }}"
+    enabled: yes
+
+- name: Make sure the kadmin service is started
+  service:
+    name: "{{ kadmin_service_name }}"
+    state: started
+
+- name: Make sure the kadmin service is enabled
+  service:
+    name: "{{ kadmin_service_name }}"
+    enabled: yes

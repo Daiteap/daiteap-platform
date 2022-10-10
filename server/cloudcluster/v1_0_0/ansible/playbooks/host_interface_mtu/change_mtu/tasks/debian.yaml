@@ -1,0 +1,21 @@
+---
+- name: Get name of the default network interface
+  shell: ip route get $(ip route show 0.0.0.0/0 | grep -oP 'via \K\S+') | head -n 1 | awk '{print $3;}'
+  register: default_interface
+
+- name: add to ansible hosts file
+  lineinfile:
+    dest: "/etc/network/interfaces"
+    insertafter: "iface {{ default_interface.stdout }} inet dhcp"
+    line: "  post-up /sbin/ifconfig {{ default_interface.stdout }} mtu {{ mtu }}"
+
+- name: Restart networking service
+  systemd:
+    name: networking
+    state: restarted
+
+- name: Fail if mtu is not changed
+  shell: cat /sys/class/net/{{ default_interface.stdout }}/mtu
+  retries: 10
+  until: mtu == host_mtu.stdout
+  register: host_mtu

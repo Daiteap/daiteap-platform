@@ -1,0 +1,13 @@
+---
+- name: Wait until coredns configuration is accessible via kubectl
+  action: shell kubectl get cm coredns -n kube-system 
+  register: result
+  until: result.rc == 0
+  retries: 3
+  delay: 10
+
+- name: Update coredns forward to local dnsmasq
+  shell: kubectl get cm coredns -n kube-system -o yaml | sed "s/forward . \/etc\/resolv.conf/forward . {{ local_dns_servers }}/g" | kubectl apply -f -
+
+- name: Restart coredns pods
+  shell: kubectl get pods -n kube-system -oname |grep coredns |xargs kubectl delete -n kube-system

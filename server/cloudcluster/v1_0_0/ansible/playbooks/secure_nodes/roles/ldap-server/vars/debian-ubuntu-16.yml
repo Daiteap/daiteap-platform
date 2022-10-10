@@ -1,0 +1,27 @@
+---
+ldap_server_packages: slapd ldap-utils
+ldap_server_packages_centOS: openldap compat-openldap openldap-clients openldap-servers openldap-servers-sql openldap-devel libselinux-python openssl
+ldap_service_name: slapd
+
+ldap_system_user_ubuntu: openldap
+ldap_system_user_centos: ldap
+
+install_command: DEBIAN_FRONTEND=noninteractive apt install -y
+install_command_centOS: yum -y install
+disable_mac_command: ln -s /etc/apparmor.d/usr.sbin.slapd /etc/apparmor.d/disable/; apparmor_parser -R /etc/apparmor.d/usr.sbin.slapd; service apparmor restart
+ldap_passwd_command: slappasswd -s
+ldap_passwd_command_centOS: slappasswd -h {SSHA}
+ldap_add_command: ldapadd -x
+kadmin_command: kadmin
+
+ldap_daemon_config_file_ubuntu: /etc/default/slapd
+ldap_daemon_config_file_centOS: /etc/sysconfig/slapd
+ldap_database_config_file: /etc/ldap/slapd.d/cn\=config/olcDatabase\=\{1\}mdb.ldif
+ldap_database_config_file_CentOs: /etc/openldap/slapd.d/cn\=config/olcDatabase\=\{2\}hdb.ldif
+ldap_keytab_file: /etc/ldap/ldap.keytab
+ldap_keytab_file_centOS: /etc/openldap/ldap.keytab
+
+rsa_parent_dir: /root
+opt_directory: /opt
+ldap_tls_file_ubuntu: /etc/ldap/tls.ldif
+ldap_tls_file_centOS: /etc/openldap/tls.ldif

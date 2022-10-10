@@ -1,0 +1,53 @@
+---
+- name: Get name of the default network interface
+  shell: ip route get $(ip route show 0.0.0.0/0 | grep -oP 'via \K\S+') | head -n 1 | awk '{print $3;}'
+  register: default_interface
+
+# Ubuntu part
+- name: Update dns resolve
+  ignore_errors: yes
+  template:
+    src: 99-custom-dns.yaml.j2
+    dest: "/etc/netplan/99-custom-dns.yaml"
+    owner: root
+    group: root
+    mode: u=rw,g=r,o=r
+    force: yes
+  when: ansible_distribution == 'Ubuntu'
+
+- name: Apply netplan changes
+  ignore_errors: yes
+  shell: netplan apply
+  when: ansible_distribution == 'Ubuntu'
+
+# Debian part
+
+- name: Install resolvconf
+  retries: 4
+  delay: 10
+  package:
+    name: resolvconf
+    state: present
+  when: ansible_distribution == 'Debian'
+
+- name: Enable and check resolvconf service
+  systemd:
+    name: resolvconf
+    daemon_reload: yes
+    state: restarted
+    enabled: yes
+  when: ansible_distribution == 'Debian'
+
+- name: Reboot to apply changes
+  retries: 4
+  delay: 10
+  reboot:
+    reboot_timeout: 900
+    post_reboot_delay: 180
+  when: ansible_distribution == 'Debian'
+
+- name: Add dns server
+  lineinfile:
+    path: /etc/resolvconf/resolv.conf.d/head
+    line: 'nameserver {{ serverIP }}'
+  when: ansible_distribution == 'Debian'

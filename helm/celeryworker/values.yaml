@@ -1,0 +1,67 @@
+image: eu.gcr.io/cloudcluster-261712/cloudcluster-celeryworker:e406f7732162d9b7b4aa0b912c32c23db94527ae
+env: develop
+
+imagePullSecrets:
+  - name: regcred
+
+service:
+  port: 8080
+  type: NodePort
+
+replicas: 2
+
+googleServiceOauthAccountsPrefix: daiteap-develop
+azureServiceOauthAccountsPrefix: daiteap-develop
+
+ansibleHostKeyChecking: "False"
+
+rabbitmqBrokerUser: guest
+rabbitmqBrokerPassword: guest
+rabbitmqBrokerHost: rabbitmqbroker
+rabbitmqBrokerPort: 5672
+rabbitmqbrokerConnectionTimeout: 600
+rabbitmqbrokerVhost: ""
+
+daiteapEnvironmentUrl: dev.daiteap.com/#/app/platform/clusterdetails/
+userGuideUrl: daiteap.gitbook.io/daiteap/
+daiteapLogoUrl: dev.daiteap.com/img/logo.ce08e0fb.png
+appName: Daiteap
+
+azureAuthScopes: https://management.azure.com/user_impersonation
+ansibleDeprecationWarnings: False
+ansibleCommandWarnings: False
+ansibleActionWarnings: False
+ansibleLocalhostWarning: False
+ansibleSystemWarnings: False
+ansibleTransformInvalidGroupChars: ignore
+ansibleHostPatternMismatch: ignore
+ansibleDisplayFailedStderr: yes
+ansibleSshRetries: 10
+
+mysqlUser: daiteap
+mysqlUrl: database
+mysqlDatabase: daiteap
+mysqlPort: 3306
+
+djangoDebug: False
+djangoAllowedHosts: "*"
+
+azureClientId:
+azureClientSecret:
+
+defaultFromEmail:
+emailApiKey:
+emailApiUrl:
+emailHostPassword:
+emailHostUser:
+serverEmailAddress:
+
+vaultToken:
+vaultAddr: http://vault:8200
+
+awsDaiteapImageOwner: "905898490707"
+gcpDaiteapImageProject: daiteapdevplayground
+azureDaiteapImageParameters: Daiteap/Ubuntu/18.04
+
+daiteapUnsubscribeUrl: https://dev.daiteap.com/#/app/platform/email/unsubscribe
+daiteapMailUrl: https://dev.daiteap.com/#/app/platform/email/cluster-status/

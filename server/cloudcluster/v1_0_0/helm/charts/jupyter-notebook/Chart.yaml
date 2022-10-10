@@ -1,0 +1,10 @@
+apiVersion: v1
+appVersion: 1.6.0
+description: A Helm chart for jupyter notebook
+maintainers:
+- email: cheyang@163.com
+  name: cheyang
+name: jupyter-notebook
+sources:
+- https://github.com/jupyter
+version: 0.1.3

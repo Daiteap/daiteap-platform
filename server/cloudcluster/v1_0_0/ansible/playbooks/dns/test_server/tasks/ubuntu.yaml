@@ -1,0 +1,33 @@
+---
+- name: Get net-tools
+  apt:
+    state: present
+    update_cache: yes
+    name: net-tools
+  retries: 10
+  delay: 3
+
+- name: Check if dnsmasq server listens on server private ip
+  shell: netstat -tupln |grep dnsmasq|grep "tcp "|grep "{{ serverPrivateIP }}"
+  register: first_test
+  ignore_errors: true
+
+- name: Restart dnsmasq
+  shell: service dnsmasq restart
+  when: first_test.stdout == ""
+
+- name: Sleep for 30 seconds and continue with play
+  wait_for:
+    timeout: 30
+  delegate_to: localhost
+  when: first_test.stdout == ""
+
+- name: Check if dnsmasq server listens on server private ip if needed
+  shell: netstat -tupln |grep dnsmasq|grep "tcp "|grep "{{ serverPrivateIP }}"
+  register: second_test
+  when: first_test.stdout == ""
+  ignore_errors: true
+
+- fail:
+    msg: dnsmasq server doesn't listen on server private ip
+  when: first_test.stdout == "" and second_test.stdout == ""

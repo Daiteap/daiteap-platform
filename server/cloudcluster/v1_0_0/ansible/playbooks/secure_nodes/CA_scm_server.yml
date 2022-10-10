@@ -1,0 +1,34 @@
+---
+- name: Add hosts and vars
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts_and_vars
+
+- name: Apply the install-easyrsa role to the CA_scm_server group
+  hosts: CA_scm_server
+  any_errors_fatal: true
+  become: yes
+  roles:
+    - role: install_easyrsa
+
+- name: Apply the create-CA role to the CA_scm_server group
+  hosts: CA_scm_server
+  any_errors_fatal: true
+  become: yes
+  roles:
+    - role: create-CA
+
+- name: Apply the distribute_ca role to the domain-controller and cluster-host groups
+  hosts: cluster-host
+  any_errors_fatal: true
+  become: yes
+  roles:
+    - role: distribute-ca
+
+- name: Apply the create-certificates role to the CA_scm_server group
+  hosts: CA_scm_server
+  any_errors_fatal: true
+  become: yes
+  roles:
+    - role: create-certificates

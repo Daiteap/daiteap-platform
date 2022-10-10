@@ -1,0 +1,12 @@
+- name: Add hosts
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts
+
+- name: Add ssh keys
+  become: yes
+  hosts: nodes
+  any_errors_fatal: true
+  roles:
+    - role: create_user

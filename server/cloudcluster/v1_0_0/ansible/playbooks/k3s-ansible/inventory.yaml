@@ -1,0 +1,19 @@
+all:
+  children:
+    k3s_cluster:
+      children:
+        master: {}
+        node: {}
+    localhost:
+      hosts:
+        localhost:
+          ansible_connection: local
+          ansible_user: ubuntu
+          gateway_address: ''
+          k3s_version: v1.18.9+k3s1
+          master_ip: '{{ hostvars[groups[''master''][0]][''ansible_host''] | default(groups[''master''][0])
+            }}'
+          master_nodes: []
+          systemd_dir: /etc/systemd/system
+          worker_nodes: []
+    ungrouped: {}

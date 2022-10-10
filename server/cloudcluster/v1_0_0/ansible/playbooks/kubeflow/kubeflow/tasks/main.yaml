@@ -1,0 +1,74 @@
+---
+- name: Creates directory
+  file:
+    path: /kubeflow
+    state: directory
+
+- name: Creates directory
+  file:
+    path: /kubeflow/{{ deployment_name }}
+    state: directory
+
+- name: Copy kustomize yamls archive to host
+  copy:
+    src: kustomize_yamls.tar.xz
+    dest: /kubeflow/{{ deployment_name }}/
+
+- name: Copy kfctl binary to host
+  copy:
+    src: kfctl
+    dest: /kubeflow/{{ deployment_name }}/kfctl
+    mode: u+rwx
+  when: ansible_architecture == "x86_64"
+
+- name: Copy kfctl binary to host
+  copy:
+    src: kfctl_arm
+    dest: /kubeflow/{{ deployment_name }}/kfctl
+    mode: u+rwx
+  when: ansible_architecture == 'aarch64' or ansible_architecture == 'armv6l' or ansible_architecture == 'armv7l'
+
+- name: Extract kustomize yamls
+  shell: tar -xf /kubeflow/{{ deployment_name }}/kustomize_yamls.tar.xz -C /kubeflow/{{ deployment_name }}/
+
+- name: Get cluster name
+  shell: |
+    kubectl config view -o jsonpath='{.clusters[0].name}'
+  register: cluster_name
+
+- name: Update kfdef file
+  template:
+    src: kfctl_k8s_istio.v1.2.0.yaml.j2
+    dest: "/kubeflow/{{ deployment_name }}/kfctl_k8s_istio.v1.2.0.yaml"
+    owner: root
+    group: root
+    mode: u=rw,g=r,o=r
+    force: yes
+
+- name: Check if root kubeconfig exists
+  stat:
+    path: /root/.kube/config
+  register: root_kube_config_exists
+
+- name: Copy kubeconfig if not present
+  ansible.builtin.copy:
+    src: /home/clouduser/.kube/config
+    dest: /root/.kube/config
+    owner: root
+    group: root
+    mode: '0644'
+    remote_src: yes
+  when: not root_kube_config_exists.stat.exists
+
+- name: Install kubeflow
+  become: yes
+  shell: /kubeflow/{{ deployment_name }}/kfctl apply -V -f /kubeflow/{{ deployment_name }}/kfctl_k8s_istio.v1.2.0.yaml
+  when: delete == False
+
+- name: Uninstall kubeflow
+  become: yes
+  shell: /kubeflow/{{ deployment_name }}/kfctl delete -V -f /kubeflow/{{ deployment_name }}/kfctl_k8s_istio.v1.2.0.yaml
+  when: delete == True
+
+- name: Remove directory from the system
+  shell: "rm -rf /kubeflow"

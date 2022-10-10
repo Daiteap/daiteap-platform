@@ -1,0 +1,194 @@
+{% if KUBERNTES_COMMAND != 'delete' %}
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    auth: v3applicationcredential
+  name: {{ CLUSTER_NAME }}-openrc
+  namespace: '{{ NAMESPACE }}'
+stringData:
+  OS_APPLICATION_CREDENTIAL_ID: {{ OS_APPLICATION_CREDENTIAL_ID }}
+  OS_APPLICATION_CREDENTIAL_SECRET: {{ OS_APPLICATION_CREDENTIAL_SECRET }}
+  OS_AUTH_TYPE: {{ OS_AUTH_TYPE }}
+  OS_AUTH_URL: {{ OS_AUTH_URL }}
+type: Opaque
+---
+{% endif %}
+apiVersion: yaook.mk8s.io/v1
+kind: YaookCluster
+metadata:
+  name: {{ CLUSTER_NAME }}
+  namespace: '{{ NAMESPACE }}'
+  labels:
+    cluster-name: {{ CLUSTER_NAME }}
+spec:
+  cah-users:
+    rollout: false
+{% if 'zone' in control_plane %}
+  controlPlaneAvailabilityZones: [{{ control_plane.zone }}]
+{% endif %}
+  controlPlaneRef:
+    apiVersion: yaook.mk8s.io/v1
+    kind: YaookControlPlane
+    name: {{ CLUSTER_NAME }}-control-plane
+  ipsec: {}
+  lcm:
+    TF_VAR_keypair: {{ OPENSTACK_SSH_KEY_NAME }}
+  load-balancing: {}
+  miscellaneous:
+    wireguard_on_workers: false
+  openStackRC:
+    secretRef: {{ CLUSTER_NAME }}-openrc
+  passwordstore: {}
+  terraform:
+    dualstack_support: false
+    subnet_cidr: 172.30.154.0/24
+  wireguard:
+    ip_cidr: 172.30.153.64/26
+    ip_gw: 172.30.153.65/26
+    peers:
+{% for wg_peer in wg_peers %}
+    - ident: {{ wg_peer.indent }}
+      pub_key: {{ wg_peer.publicKey }}
+{% endfor %}
+    port: 7777
+---
+apiVersion: yaook.mk8s.io/v1
+kind: YaookControlPlane
+metadata:
+  name: {{ CLUSTER_NAME }}-control-plane
+  namespace: '{{ NAMESPACE }}'
+  labels:
+    cluster-name: {{ CLUSTER_NAME }}
+spec:
+  bootstrap:
+    configRef:
+      apiVersion: yaook.mk8s.io/v1
+      kind: YaookConfigTemplate
+      name: {{ CLUSTER_NAME }}
+  machineTemplate:
+    infrastructureRef:
+      apiVersion: yaook.mk8s.io/v1
+      kind: YaookMachineTemplate
+      name: {{ CLUSTER_NAME }}-control-plane
+  replicas: {{ CONTROL_PLANE_MACHINE_COUNT }}
+  version: {{ KUBERNETES_VERSION }}
+---
+apiVersion: yaook.mk8s.io/v1
+kind: YaookMachineTemplate
+metadata:
+  name: {{ CLUSTER_NAME }}-control-plane
+  namespace: '{{ NAMESPACE }}'
+  labels:
+    cluster-name: {{ CLUSTER_NAME }}
+spec:
+  flavor: {{ OPENSTACK_CONTROL_PLANE_MACHINE_FLAVOR }}
+  image: {{ OPENSTACK_CONTROL_PLANE_IMAGE_NAME }}
+
+
+{% for worker_node in worker_nodes %}
+
+---
+apiVersion: yaook.mk8s.io/v1
+kind: YaookMachineDeployment
+metadata:
+  name: {{ CLUSTER_NAME }}-md-{{ loop.index }}
+  namespace: '{{ NAMESPACE }}'
+  labels:
+    cluster-name: {{ CLUSTER_NAME }}
+spec:
+  clusterName: {{ CLUSTER_NAME }}
+  replicas: 1
+  template:
+    spec:
+      bootstrap:
+        configRef:
+          apiVersion: yaook.mk8s.io/v1
+          kind: YaookConfigTemplate
+          name: {{ CLUSTER_NAME }}
+      clusterName: {{ CLUSTER_NAME }}
+{% if 'zone' in worker_node %}
+      failureDomain: {{ worker_node.zone }}
+{% endif %}
+      infrastructureRef:
+        apiVersion: yaook.mk8s.io/v1
+        kind: YaookMachineTemplate
+        name: {{ CLUSTER_NAME }}-md-{{ loop.index }}
+---
+apiVersion: yaook.mk8s.io/v1
+kind: YaookMachineTemplate
+metadata:
+  name: {{ CLUSTER_NAME }}-md-{{ loop.index }}
+  namespace: '{{ NAMESPACE }}'
+  labels:
+    cluster-name: {{ CLUSTER_NAME }}
+spec:
+  flavor: {{ worker_node.instanceType }}
+  image: {{ worker_node.operatingSystem }}
+
+{% endfor %}
+
+---
+apiVersion: yaook.mk8s.io/v1
+kind: YaookConfigTemplate
+metadata:
+  name: {{ CLUSTER_NAME }}
+  namespace: '{{ NAMESPACE }}'
+  labels:
+    cluster-name: {{ CLUSTER_NAME }}
+spec:
+  ch-k8s-lbaas:
+    agent_port: 15203
+    enabled: false
+    shared_secret: {{ LBAAS_SHARED_SECRET }}
+    version: 0.4.0
+  kubernetes:
+    apiserver:
+      frontend_port: 8888
+    continuous_join_key:
+      enabled: false
+    global_monitoring:
+      enabled: false
+    is_gpu_cluster: false
+    kubelet: {}
+    local_storage:
+      dynamic:
+        enabled: false
+      static:
+        enabled: false
+    monitoring:
+      enabled: false
+    network:
+      plugin: calico
+      pod_subnet: 10.244.0.0/16
+      service_subnet: 10.96.0.0/12
+    storage:
+      nodeplugin_toleration: false
+      rook_enabled: false
+    use_podsecuritypolicies: false
+    version: {{ KUBERNETES_VERSION }}
+  node-scheduling:
+    labels: {}
+    scheduling_key_prefix: scheduling.mk8s.cloudandheat.com
+    taints: {}
+  testing:
+    test-nodes: {}
+---
+apiVersion: yaook.mk8s.io/v1
+kind: YaookService
+metadata:
+  name: {{ CLUSTER_NAME }}-service
+  namespace: '{{ NAMESPACE }}'
+  labels:
+    cluster-name: {{ CLUSTER_NAME }}
+spec:
+  clusterName: {{ CLUSTER_NAME }}
+  k8s-service-layer:
+    cert-manager:
+      enabled: false
+    ingress:
+      enabled: false
+    prometheus: {}
+    rook:
+      cluster_name: rook-ceph
+      namespace: rook-ceph

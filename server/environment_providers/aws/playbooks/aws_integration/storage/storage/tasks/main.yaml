@@ -1,0 +1,33 @@
+---
+- name: Copy csi-disk.yaml to master node
+  run_once: true
+  template:
+    src: csi-disk.yaml.j2
+    dest: "/tmp/csi-disk.yaml"
+
+- name: Apply csi-disk.yaml
+  run_once: true
+  become: yes
+  shell: kubectl apply -f /tmp/csi-disk.yaml
+  retries: 10
+  delay: 5
+
+- name: Clean csi-disk.yaml file
+  run_once: true
+  file:
+    state: absent
+    path: "/tmp/csi-disk.yaml"
+
+- name: Make all storage classes non default
+  run_once: true
+  become: yes
+  shell: 'kubectl get sc --template ''{% raw %}{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}{% endraw %}'' | xargs kubectl patch storageclass -p ''{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'''
+  retries: 10
+  delay: 5
+
+# - name: Make storage class default
+#   run_once: true
+#   become: yes
+#   shell: 'kubectl patch storageclass ebs-sc -p ''{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'''
+#   retries: 10
+#   delay: 5

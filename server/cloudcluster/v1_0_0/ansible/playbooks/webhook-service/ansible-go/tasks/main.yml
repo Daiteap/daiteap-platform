@@ -1,0 +1,49 @@
+---
+- name: Download the Go tarball
+  get_url:
+    url: "https://storage.googleapis.com/golang/go1.16.6.linux-amd64.tar.gz"
+    dest: /usr/local/src/go.tar.gz
+    force: yes
+  when: ansible_architecture == 'x86_64'
+
+- name: Download the Go tarball
+  get_url:
+    url: "https://storage.googleapis.com/golang/go1.15.11.linux-arm64.tar.gz"
+    dest: /usr/local/src/go.tar.gz
+    force: yes
+  when: ansible_architecture == 'aarch64'
+
+- name: Download the Go tarball
+  get_url:
+    url: "https://storage.googleapis.com/golang/go1.15.11.linux-armv6l.tar.gz"
+    dest: /usr/local/src/go.tar.gz
+    force: yes
+  when: ansible_architecture == 'armv6l' or ansible_architecture == 'armv7l'
+
+- name: Register the current Go version (if any)
+  command: /usr/local/go/bin/go version
+  ignore_errors: yes
+  register: go_version
+  changed_when: false
+
+- name: Remove old installation of Go
+  file:
+    path: /usr/local/go
+    state: absent
+
+- name: Extract the Go tarball if Go is not yet installed or not the desired version
+  unarchive:
+    src: /usr/local/src/go.tar.gz
+    dest: /usr/local
+    copy: no
+
+- name: Add the Go bin directory to the PATH environment variable for all users
+  copy:
+    src: go-bin.sh
+    dest: /etc/profile.d
+
+- name: Set GOPATH for all users
+  copy:
+    src: go-path.sh
+    dest: /etc/profile.d
+  when: set_go_path

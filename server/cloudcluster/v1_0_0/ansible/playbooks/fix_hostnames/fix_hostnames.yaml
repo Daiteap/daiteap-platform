@@ -1,0 +1,12 @@
+- name: Add hosts and vars
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts_and_vars
+
+- name: Execute role for hostname role provider
+  become: yes
+  hosts: provider-nodes
+  any_errors_fatal: true
+  roles:
+    - role: execute

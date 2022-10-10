@@ -1,0 +1,21 @@
+[libdefaults]
+	rdns=false
+	default_realm = {{ krb_realm | upper }}
+	dns_lookup_kdc = true
+	dns_lookup_realm = false
+	ticket_lifetime = 86400
+	renew_lifetime = 604800
+	forwardable = true
+	default_tgs_enctypes = aes256-cts arcfour-hmac des3-hmac-sha1 des-cbc-crc
+	default_tkt_enctypes = aes256-cts arcfour-hmac des3-hmac-sha1 des-cbc-crc
+	permitted_enctypes = aes256-cts arcfour-hmac des3-hmac-sha1 des-cbc-crc
+	udp_preference_limit = 1
+	kdc_timeout = 3000
+[realms]
+	{{ krb_realm | upper }} = {
+		kdc = {{ krb_server_hostname }}
+		admin_server = {{ krb_server_hostname }}
+		default_domain = {{ cluster_domain }}
+	}
+[domain_realm]
+	{{ cluster_domain }} = {{ krb_realm | upper }}

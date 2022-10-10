@@ -1,0 +1,56 @@
+---
+- name: Add host to group 'google-client-nodes' "{{ google_nodes }}"
+  add_host:
+    name: "{{ item }}"
+    groups: google-client-nodes
+    serverIP: "{{ google_server_private_ip }}"
+  loop: "{{ google_nodes|flatten(levels=1) }}"
+  when: google_nodes != ["user@0.0.0.0","user@0.0.0.0"]
+
+- name: Add host to group 'openstack-client-nodes' "{{ openstack_nodes }}"
+  add_host:
+    name: "{{ item }}"
+    groups: openstack-client-nodes
+    serverIP: "{{ openstack_server_private_ip }}"
+  loop: "{{ openstack_nodes|flatten(levels=1) }}"
+  when: openstack_nodes != ["user@0.0.0.0","user@0.0.0.0"]
+
+- name: Add host to group 'alicloud-client-nodes' "{{ alicloud_nodes }}"
+  add_host:
+    name: "{{ item }}"
+    groups: alicloud-client-nodes
+    serverIP: "{{ alicloud_server_private_ip }}"
+  loop: "{{ alicloud_nodes|flatten(levels=1) }}"
+  when: alicloud_nodes != ["user@0.0.0.0","user@0.0.0.0"]
+
+- name: Add host to group 'aws-client-nodes' "{{ aws_nodes }}"
+  add_host:
+    name: "{{ item }}"
+    groups: aws-client-nodes
+    serverIP: "{{ aws_server_private_ip }}"
+  loop: "{{ aws_nodes|flatten(levels=1) }}"
+  when: aws_nodes != ["user@0.0.0.0","user@0.0.0.0"]
+
+- name: Add host to group 'azure-client-nodes' "{{ azure_nodes }}"
+  add_host:
+    name: "{{ item }}"
+    groups: azure-client-nodes
+    serverIP: "{{ azure_server_private_ip }}"
+  loop: "{{ azure_nodes|flatten(levels=1) }}"
+  when: azure_nodes != ["user@0.0.0.0","user@0.0.0.0"]
+
+- name: Add host to group 'onpremise-client-nodes' "{{ onpremise_nodes }}"
+  add_host:
+    name: "{{ item }}"
+    groups: onpremise-client-nodes
+    serverIP: "{{ onpremise_server_private_ip }}"
+  loop: "{{ onpremise_nodes|flatten(levels=1) }}"
+  when: onpremise_nodes != ["user@0.0.0.0","user@0.0.0.0"]
+
+- name: Add host to group 'iotarm-client-nodes' "{{ iotarm_nodes }}"
+  add_host:
+    name: "{{ item }}"
+    groups: iotarm-client-nodes
+    serverIP: "{{ iotarm_server_private_ip }}"
+  loop: "{{ iotarm_nodes|flatten(levels=1) }}"
+  when: iotarm_nodes != ["user@0.0.0.0","user@0.0.0.0"]

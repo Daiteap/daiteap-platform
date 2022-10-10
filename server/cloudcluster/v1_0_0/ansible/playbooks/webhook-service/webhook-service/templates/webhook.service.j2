@@ -1,0 +1,9 @@
+[Unit]
+Description=Kubernetes webhook service
+After=network.target
+[Service]
+ExecStart=/opt/webhook {{ default_interface_ip.stdout }}
+KillMode=process
+Delegate=yes
+[Install]
+WantedBy=multi-user.target

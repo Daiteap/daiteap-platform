@@ -1,0 +1,19 @@
+- name: Add hosts
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts
+
+- name: ansible-go
+  become: yes
+  hosts: master
+  any_errors_fatal: true
+  roles:
+    - role: ansible-go
+
+- name: install webhook
+  become: yes
+  hosts: master
+  any_errors_fatal: true
+  roles:
+    - role: webhook-service

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "jupyter-notebook.fullname" . }}
+  labels:
+    app: {{ template "jupyter-notebook.name" . }}
+    chart: {{ template "jupyter-notebook.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: 8888
+      targetPort: jupyter
+      protocol: TCP
+      name: jupyter
+  selector:
+    app: {{ template "jupyter-notebook.name" . }}
+    release: {{ .Release.Name }}

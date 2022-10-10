@@ -1,0 +1,23 @@
+---
+- name: Add service account
+  run_once: true
+  become: yes
+  shell: "kubectl -n kube-system create serviceaccount dashboard-admin-sa"
+  ignore_errors: yes
+
+- name: Add clusterrolebinding
+  run_once: true
+  become: yes
+  shell: "kubectl -n kube-system create clusterrolebinding dashboard-admin-sa --clusterrole=cluster-admin --serviceaccount=kube-system:dashboard-admin-sa"
+  ignore_errors: yes
+
+- name: Get service account token
+  run_once: true
+  become: yes
+  shell: "kubectl -n kube-system describe secret dashboard-admin-sa | awk '$1==\"token:\"{print $2}'"
+  register: token
+
+- name: Add token to kube config
+  run_once: true
+  become: yes
+  shell: "kubectl config set-credentials kubernetes-admin --token=\"{{ token.stdout }}\""

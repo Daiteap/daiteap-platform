@@ -1,0 +1,32 @@
+---
+- name: Load OS-specific variables
+  include_vars: "{{ item }}"
+  with_first_found:
+    - debian-ubuntu-16.yml
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution | lower }}.yml"
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_os_family | lower }}.yml"
+    - defaults.yml
+
+- name: Update apt-get
+  shell: "apt-get update"
+
+- name: Clean apt-get
+  shell: "apt-get autoclean"
+
+- name: Install kerberos client
+  shell: "{{ install_command }} {{ krb_client_package }}"
+
+- name: Upload the krb5.conf file
+  template:
+    src: krb5.conf.j2
+    dest: "{{ krb_client_config_file }}"
+    mode: 0644
+    force: yes
+
+- name: Add the host principal for the current host
+  shell: "{{ kadmin_command }} -p {{ krb_admin_principal }}/admin -w {{ krb_admin_password }} -q \"add_principal -randkey host/$(hostname -f)@{{ krb_realm | upper }}\""
+
+- name: Create the keytab for the host principal
+  shell: "{{ kadmin_command }} -p {{ krb_admin_principal }}/admin -w {{ krb_admin_password }} -q \"ktadd -kt {{ host_keytab_file }} host/$(hostname -f)@{{ krb_realm | upper }}\""

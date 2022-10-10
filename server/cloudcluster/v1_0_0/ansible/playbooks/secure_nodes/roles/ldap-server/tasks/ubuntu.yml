@@ -1,0 +1,280 @@
+---
+- name: Load OS-specific variables
+  include_vars: "{{ item }}"
+  with_first_found:
+    - debian-ubuntu-16.yml
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution | lower }}.yml"
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_os_family | lower }}.yml"
+    - defaults.yml
+
+- name: Update apt-get
+  shell: "apt update"
+
+- name: Clean old ldap installation if present
+  shell: DEBIAN_FRONTEND=noninteractive apt purge -y slapd slpd sasl2-bin libsasl2-modules-gssapi-mit; rm -rf /etc/ldap; rm -rf /var/backups/*.ldapdb
+  ignore_errors: true
+
+- name: Install ldap server
+  shell: "{{ install_command }} {{ ldap_server_packages }}"
+
+- name: Reconfigure slapd 1
+  debconf:
+    name: slapd
+    question: slapd/dump_database
+    vtype: string
+    value: when needed
+
+- name: Reconfigure slapd 2
+  debconf:
+    name: slapd
+    question: slapd/move_old_database
+    vtype: boolean
+    value: True
+
+- name: Reconfigure slapd 3
+  debconf:
+    name: slapd
+    question: slapd/backend
+    vtype: string
+    value: MDB
+
+- name: Reconfigure slapd 4
+  debconf:
+    name: slapd
+    question: slapd/dump_database_destdir
+    vtype: string
+    value: /var/backups/slapd-VERSION
+
+- name: Reconfigure slapd 5
+  debconf:
+    name: slapd
+    question: slapd/domain
+    vtype: string
+    value: "{{ internal_dns_zone }}"
+
+- name: Reconfigure slapd 6
+  debconf:
+    name: slapd
+    question: shared/organization
+    vtype: string
+    value: "{{ internal_dns_zone }}"
+
+- name: Reconfigure slapd 7
+  debconf:
+    name: slapd
+    question: slapd/no_configuration
+    vtype: boolean
+    value: False
+
+- name: Reconfigure slapd 8
+  debconf:
+    name: slapd
+    question: slapd/ppolicy_schema_needs_update
+    vtype: string
+    value: abort installation
+
+- name: Reconfigure slapd 9
+  debconf:
+    name: slapd
+    question: slapd/invalid_config
+    vtype: boolean
+    value: True
+
+- name: Apply configurations
+  shell: dpkg-reconfigure -f noninteractive slapd
+
+- name: Make sure the ldap service is started
+  service:
+    name: "{{ ldap_service_name }}"
+    state: started
+
+- name: Make sure the ldap service is enabled
+  service:
+    name: "{{ ldap_service_name }}"
+    enabled: yes
+
+
+- name: Disable mac security for ldap service
+  shell: "{{ disable_mac_command }}"
+  when: ansible_distribution == 'Ubuntu'
+
+- name: Hash the ldap admin password
+  shell: "{{ ldap_passwd_command }} {{ ldap_admin_password }}"
+  register: ldap_passwd
+
+
+- name: Change the ldap admin password
+  shell: "sed -i 's/olcRootPW::.*/olcRootPW:: {{ ldap_passwd.stdout | b64encode }}/g' {{ ldap_database_config_file }}"
+  notify: Restart ldap
+
+- meta: flush_handlers
+
+- name: Upload the ou.ldif file
+  template:
+    src: ou.ldif.j2
+    dest: "/ou.ldif"
+    mode: 0644
+    force: yes
+
+- name: Add the OUs for users and groups to ldap
+  shell: "{{ ldap_add_command }} -D \"cn=admin,{{ ldap_base_dn }}\" -w {{ ldap_admin_password }} -f /ou.ldif"
+
+- name: Remove the ou.ldif file from the system
+  shell: "rm /ou.ldif"
+
+- name: Upload public_key.ldif file
+  copy:
+    src: ldap_public_key.ldif
+    dest: "/ldap_public_key.ldif"
+    mode: 0644
+    force: yes
+
+- name: Add publicSshKey object class
+  shell: "sudo ldapadd -Y EXTERNAL -H ldapi:/// -f /ldap_public_key.ldif"
+
+- name: Remove the publicSshKey.ldif file from the system
+  shell: "rm /ldap_public_key.ldif"
+
+# member.ldif
+- name: Upload the member.ldif file
+  copy:
+    src: member.ldif
+    dest: "/tmp/member.ldif"
+    mode: 0644
+    force: yes
+
+- name: Add member.ldif
+  shell: "ldapadd -Y EXTERNAL -H ldapi:/// -f /tmp/member.ldif"
+
+- name: Remove the member.ldif file from the system
+  shell: "rm /tmp/member.ldif"
+
+# refint1.ldif
+- name: Upload the refint1.ldif file
+  copy:
+    src: refint1.ldif
+    dest: "/tmp/refint1.ldif"
+    mode: 0644
+    force: yes
+
+- name: Add memberOf search
+  shell: "ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/refint1.ldif"
+
+- name: Remove the refint1.ldif file from the system
+  shell: "rm /tmp/refint1.ldif"
+
+# refint2.ldif
+- name: Upload the refint2.ldif file
+  copy:
+    src: refint2.ldif
+    dest: "/refint2.ldif"
+    mode: 0644
+    force: yes
+
+- name: Add memberOf search
+  shell: "ldapadd -Y EXTERNAL -H ldapi:/// -f /refint2.ldif"
+
+- name: Remove the refint2.ldif file from the system
+  shell: "rm /refint2.ldif"
+
+- name: Add the ldap service principal
+  shell: "{{ kadmin_command }} -p {{ krb_admin_principal }}/admin -w {{ krb_admin_password }} -q \"add_principal -randkey ldap/$(hostname -f)@{{ krb_realm | upper }}\""
+
+- name: Create the keytab for the ldap service principal
+  shell: "{{ kadmin_command }} -p {{ krb_admin_principal }}/admin -w {{ krb_admin_password }} -q \"ktadd -kt {{ ldap_keytab_file }} ldap/$(hostname -f)@{{ krb_realm | upper }}\""
+
+- name: Make {{ ldap_system_user_ubuntu }} the owner of the keytab
+  shell: "chown {{ ldap_system_user_ubuntu }}:{{ ldap_system_user_ubuntu }} {{ ldap_keytab_file }}"
+
+- name: Create vars
+  set_fact:
+    domain_controller: "{{ hostvars[groups['domain-controller'][0]].ldap_server_hostname }}"
+
+- name: Copy ca.crt to opt directory
+  copy:
+    src: ca.crt
+    dest: /opt
+
+- name: Copy {{ domain_controller }}.crt to opt directory
+  copy:
+    src: "{{ domain_controller }}.crt"
+    dest: /opt
+
+- name: Copy {{ domain_controller }}.key to opt directory
+  copy:
+    src: "{{ domain_controller }}.key"
+    dest: /opt
+
+- name: Change ownership of ca.crt
+  command: chown {{ ldap_system_user_ubuntu }}. {{ opt_directory }}/ca.crt
+
+- name: Change ownership of {{ domain_controller }} certificate
+  command: chown {{ ldap_system_user_ubuntu }}. {{ opt_directory }}/{{ domain_controller }}.crt
+
+- name: Change ownership of {{ domain_controller }} key
+  command: chown {{ ldap_system_user_ubuntu }}. {{ opt_directory }}/{{ domain_controller }}.key
+
+- name: Change mode of {{ domain_controller }} certificate
+  command: chmod 400 {{ opt_directory }}/{{ domain_controller }}.crt
+
+- name: Change mode of {{ domain_controller }} key
+  command: chmod 400 {{ opt_directory }}/{{ domain_controller }}.key
+
+- name: Generate tls.ldif file with the certificate and the private key
+  copy:
+    dest: "{{ ldap_tls_file_ubuntu }}"
+    content: |
+      dn: cn=config
+      replace: olcTLSCACertificateFile
+      olcTLSCACertificateFile: {{ opt_directory }}/ca.crt
+      -
+      replace: olcTLSCertificateFile
+      olcTLSCertificateFile: {{ opt_directory }}/{{ domain_controller }}.crt
+      -
+      replace: olcTLSCertificateKeyFile
+      olcTLSCertificateKeyFile: {{ opt_directory }}/{{ domain_controller }}.key
+
+- name: Apply the certificates
+  shell: "ldapmodify -Y EXTERNAL -H ldapi:/// -f {{ ldap_tls_file_ubuntu }}"
+
+- name: Remove the tls.ldif file from the system
+  shell: "rm {{ ldap_tls_file_ubuntu }}"
+
+- name: Configure LDAP to listen on both 389 and 636 ports
+  lineinfile:
+    path: "{{ ldap_daemon_config_file_ubuntu }}"
+    regexp: 'SLAPD_SERVICES=*'
+    line: 'SLAPD_SERVICES="ldaps:/// ldapi:///"'
+
+- name: restart krb5-kdc service
+  command: service krb5-kdc restart
+
+- name: restart krb5-admin-server service
+  command: service krb5-admin-server restart
+
+- name: Remove {{ domain_controller }}.crt from localhost
+  shell: "rm {{ domain_controller }}.crt"
+  become: no
+  delegate_to: localhost
+
+- name: Remove {{ domain_controller }}.key from localhost
+  shell: "rm {{ domain_controller }}.key"
+  become: no
+  delegate_to: localhost
+
+- name: Remove ca.crt from localhost
+  shell: "rm ca.crt"
+  become: no
+  delegate_to: localhost
+
+- name: Configure the ldap daemon to use the keytab
+  lineinfile:
+    dest: "{{ ldap_daemon_config_file_ubuntu }}"
+    line: "export KRB5_KTNAME={{ ldap_keytab_file }}"
+    insertbefore: EOF
+    state: present
+  notify: Restart ldap
+
+- meta: flush_handlers

@@ -1,0 +1,5 @@
+- name: Install cluster
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: install_cluster

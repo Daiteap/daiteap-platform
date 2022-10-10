@@ -1,0 +1,68 @@
+---
+- name: Load OS-specific variables
+  include_vars: "{{ item }}"
+  with_first_found:
+    - debian-ubuntu-16.yml
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution | lower }}.yml"
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_os_family | lower }}.yml"
+    - defaults.yml
+
+- name: Update apt-get
+  shell: "apt update"
+
+- name: Install sssd
+  shell: "{{ install_command }} {{ sssd_packages }}"
+
+- file:
+    path: "{{ sssd_config_file_parent_dir }}"
+    state: directory
+    owner: sssd
+    group: sssd
+    mode: 0711
+
+- name: Upload the sssd.conf file
+  template:
+    src: sssd.conf.j2
+    dest: "{{ sssd_config_file }}"
+    mode: 0600
+    force: yes
+
+- name: Add admins group in sudoers
+  lineinfile:
+    path: /etc/sudoers
+    state: present
+    regexp: "^%admins ALL="
+    line: "%admins ALL=(ALL) NOPASSWD: ALL"
+    validate: "/usr/sbin/visudo -cf %s"
+
+- name: Enable automatic creation of home dirs
+  lineinfile:
+    dest: "{{ pam_config_file }}"
+    line: "session required pam_mkhomedir.so skel=/etc/skel/ umask=0022"
+    insertbefore: EOF
+    state: present
+
+- name: Upload the sshd_config file
+  template:
+    src: sshd_config.j2
+    dest: "{{ sshd_config }}"
+    mode: 0644
+    force: yes
+
+- name: Restart the sshd service
+  service:
+    name: "{{ sshd_service_name }}"
+    state: restarted
+
+- name: Restart the sssd service
+  service:
+    name: "{{ sssd_service_name }}"
+    state: restarted
+
+- name: Make sure the sssd service is enabled
+  service:
+    name: "{{ sssd_service_name }}"
+    enabled: yes
+  # ignore_errors: true

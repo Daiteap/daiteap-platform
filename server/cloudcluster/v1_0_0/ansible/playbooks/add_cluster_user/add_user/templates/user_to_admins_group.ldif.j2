@@ -1,0 +1,4 @@
+dn: cn=admins,ou={{ groupsOU }},{{ ldap_base_dn }}
+changetype: modify
+add: memberUid
+memberUid: {{ username }}

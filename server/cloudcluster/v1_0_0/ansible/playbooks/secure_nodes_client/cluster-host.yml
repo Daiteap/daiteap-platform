@@ -1,0 +1,27 @@
+---
+- name: Add hosts and vars
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts_and_vars
+
+- name: Apply the kerberos-client role to the cluster-host group
+  hosts: cluster-host
+  any_errors_fatal: true
+  become: yes
+  roles:
+    - role: kerberos-client
+
+- name: Apply the sssd-client role to the cluster-host group
+  hosts: cluster-host
+  any_errors_fatal: true
+  become: yes
+  roles:
+    - role: sssd-client
+
+- name: Apply the ldap-client role to the cluster-host group
+  hosts: cluster-host
+  any_errors_fatal: true
+  become: yes
+  roles:
+    - role: ldap-client

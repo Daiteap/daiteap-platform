@@ -1,0 +1,5 @@
+---
+- name: Add host to group 'ipsec' "{{ node_address }}"
+  add_host:
+    name: "{{ node_address }}"
+    groups: ipsec

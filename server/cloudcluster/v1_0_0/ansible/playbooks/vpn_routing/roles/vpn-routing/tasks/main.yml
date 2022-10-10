@@ -1,0 +1,23 @@
+---
+- name: Get name of the default network interface
+  shell: ip route get $(ip route show 0.0.0.0/0 | grep -oP 'via \K\S+') | head -n 1 | awk '{print $3;}'
+  register: default_interface
+
+- name: Update dns resolve
+  template:
+    src: vpn-routes.yaml.j2
+    dest: "/etc/netplan/vpn-routes.yaml"
+    owner: root
+    group: root
+    mode: u=rw,g=r,o=r
+    force: yes
+
+- name: "Enable IP forwarding"
+  sysctl:
+    name: "net.ipv4.ip_forward"
+    value: "1"
+    state: present
+    sysctl_set: yes
+
+- name: Apply netplan changes
+  shell: netplan apply

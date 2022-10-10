@@ -1,0 +1,18 @@
+---
+- name: Copy fail2ban.local
+  copy:
+    remote_src: yes
+    src: /etc/fail2ban/jail.conf
+    dest: /etc/fail2ban/jail.local
+
+- name: Copy sshd-ubuntu.local
+  copy:
+    src: sshd-ubuntu.local
+    dest: /etc/fail2ban/jail.d/sshd.local
+  when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+- name: Restart and enable fail2ban service
+  service:
+    name: fail2ban
+    state: restarted
+    enabled: yes

@@ -1,0 +1,30 @@
+dn: uid={{ username }},ou={{ usersOU }},{{ ldap_base_dn }}
+cn: {{ firstname }} {{ lastname }}
+uid: {{ username }}
+objectClass: inetOrgPerson
+{% if sshPublicKey != "" %}
+objectClass: ldapPublicKey
+{% endif %}
+objectClass: posixAccount
+objectClass: shadowAccount
+objectClass: top
+loginShell: /bin/bash
+userPassword:: {{ ('{SASL}' + username + '@' + krb_realm) | b64encode  }}
+uidNumber: {{ idNumber }}
+shadowMax: 99999
+gidNumber: {{ idNumber }}
+gecos: {{ firstname }} {{ lastname }}
+sn: {{ lastname }}
+homeDirectory: /home/{{ username }}
+shadowLastChange: 16693
+shadowWarning: 7
+{% if sshPublicKey != "" %}
+sshPublicKey: {{ sshPublicKey }}
+{% endif %}
+mail: {{ mail }}
+
+dn: cn={{ username }},ou={{ groupsOU }},{{ ldap_base_dn }}
+objectClass: posixGroup
+objectClass: top
+gidNumber: {{ idNumber }}
+cn: {{ username }}

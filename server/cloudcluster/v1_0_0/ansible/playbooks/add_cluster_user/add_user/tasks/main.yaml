@@ -1,0 +1,76 @@
+---
+- name: Load OS-specific variables
+  include_vars: "{{ item }}"
+  with_first_found:
+    - debian-ubuntu.yml
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution | lower }}.yml"
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_os_family | lower }}.yml"
+    - defaults.yml
+
+- name: Update apt packages
+  apt:
+    update_cache: yes
+
+- name: Add the principal
+  shell: "kadmin.local -q \"add_principal -pw {{ user_password }} {{ username }}\""
+  register: addprinc_result
+
+- name: Fail if the principal could not be created
+  fail:
+    msg: The principal could not be created. Error is {{ addprinc_result.stderr }}
+  when: addprinc_result is failed or not (addprinc_result.stdout is search("Principal .* created") or addprinc_result.stderr is search("Principal or policy already exists while creating"))
+
+- name: Find available idNumber
+  shell: |
+        LINES=`ldapsearch -x -b ou={{ groupsOU }},{{ ldap_base_dn }} | sort | grep idNumber |cut -c12-`
+        if [[ -z $LINES ]]; then
+                echo 2002
+                exit
+        fi
+
+        for i in `seq 2002 10000`;
+        do
+            USED=false
+            while read -r CURRENTLINE;
+            do
+                if [ "$i" -eq "$CURRENTLINE" ]; then
+                    export USED=true
+                    break
+                fi
+            done <<< "$(echo -e "$LINES")"
+            if [ "$USED" = false ]; then
+                echo $i
+                exit
+            fi
+        done
+  register: free_idnumber
+  args:
+    executable: /bin/bash
+
+- name: Set idNumber
+  set_fact: idNumber={{ free_idnumber.stdout }}
+
+- name: Creates directory for ldif file
+  file: path=/var/tmp/ansible state=directory
+
+- name: Upload the ldif file
+  template:
+    src: user.ldif.j2
+    dest: "/var/tmp/ansible/user.ldif"
+    mode: 0600
+    force: yes
+
+- name: Add ldap user
+  shell: "ldapadd -x -D \"cn={{ krb_admin_principal }},{{ ldap_base_dn }}\" -w {{ ldap_admin_password }} -f /var/tmp/ansible/user.ldif"
+
+- name: Upload other ldif file
+  template:
+    src: user_to_admins_group.ldif.j2
+    dest: "/var/tmp/ansible/user_to_admins_group.ldif"
+    mode: 0600
+    force: yes
+
+- name: Add ldap user to admins group
+  shell: "ldapmodify -x -D \"cn={{ krb_admin_principal }},{{ ldap_base_dn }}\" -w {{ ldap_admin_password }} -f /var/tmp/ansible/user_to_admins_group.ldif"

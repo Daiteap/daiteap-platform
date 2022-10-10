@@ -1,0 +1,4 @@
+dn: cn={{ groupName }},ou={{ groupsOU }},{{ baseDN }}
+changetype: modify
+add: member
+member: uid={{ username }},ou={{ usersOU }},{{ baseDN }}

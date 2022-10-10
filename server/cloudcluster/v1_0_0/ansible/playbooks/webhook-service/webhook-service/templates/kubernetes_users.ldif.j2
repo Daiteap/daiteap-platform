@@ -1,0 +1,4 @@
+dn: cn={{ kubernetes_users_group_name }},{{ groupsOU }},{{ baseDN }}
+objectClass: groupOfNames
+cn: {{ kubernetes_users_group_name }}
+member: cn=admin,{{ groupsOU }},{{ baseDN }}

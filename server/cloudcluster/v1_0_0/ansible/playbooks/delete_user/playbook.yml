@@ -1,0 +1,12 @@
+- name: Add hosts
+  hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - role: add_hosts
+
+- name: Delete user
+  hosts: nodes
+  become: yes
+  any_errors_fatal: true
+  roles:
+    - role: delete_user

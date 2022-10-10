@@ -1,0 +1,6 @@
+---
+- name: Add host to group 'vpn-routing' "{{ item }}"
+  add_host:
+    name: "{{ item }}"
+    groups: vpn-routing
+  with_items: "{{ nodes_addresses }}"

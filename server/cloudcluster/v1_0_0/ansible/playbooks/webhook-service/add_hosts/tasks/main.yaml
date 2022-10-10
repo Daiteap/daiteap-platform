@@ -1,0 +1,5 @@
+---
+- name: Add host to group 'master'
+  add_host:
+    name: "{{ master_public_ip }}"
+    groups: master

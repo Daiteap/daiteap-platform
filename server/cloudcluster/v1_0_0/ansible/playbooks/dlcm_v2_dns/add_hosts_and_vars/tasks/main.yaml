@@ -1,0 +1,15 @@
+---
+- name: Add host to group 'provider-client-nodes' "{{ provider_nodes }}"
+  add_host:
+    name: "{{ item }}"
+    groups: provider-client-nodes
+    serverIP: "{{ provider_server_private_ip }}"
+  loop: "{{ provider_nodes|flatten(levels=1) }}"
+  when: provider_nodes != ["user@0.0.0.0","user@0.0.0.0"]
+
+- name: Add host to group 'provider-server-node' "{{ provider_server_private_ip }}"
+  add_host:
+    name: "{{ provider_server_ip }}"
+    groups: provider-server-node
+    dns_servers: "{{ dns_servers }}"
+    serverPrivateIP: "{{ provider_server_private_ip }}"

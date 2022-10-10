@@ -1,0 +1,27 @@
+---
+haveged_package: haveged
+kdc_package: krb5-kdc
+kadmin_package: krb5-admin-server
+
+haveged_service_name: haveged
+kdc_service_name: krb5-kdc
+kdc_service_name_centOS: krb5kdc
+kadmin_service_name: krb5-admin-server
+kadmin_service_name_centOS: kadmin.service
+
+install_command: DEBIAN_FRONTEND=noninteractive apt install -y
+install_command_centOS: yum -y install
+kdc_init_command: kdb5_util create -s
+kadmin_command: kadmin.local
+clean_kerberos_packages_command: apt purge -y krb5-admin-server krb5-config krb5-kdc krb5-kdc-ldap krb5-locales krb5-multidev krb5-user; rm -rf /etc/krb5kdc; rm -rf /var/lib/krb5kdc; rm /etc/krb5.conf; rm /etc/krb5.keytab;
+
+clean_kerberos_packages_command_centOS: yum purge -y krb5-admin-server krb5-config krb5-kdc krb5-kdc-ldap krb5-locales krb5-multidev krb5-user; rm -rf /etc/krb5kdc; rm -rf /var/lib/krb5kdc; rm /etc/krb5.conf; rm /etc/krb5.keytab;
+kdc_acl_file: /etc/krb5kdc/kadm5.acl
+
+redhat_pkg:
+  - krb5-server
+  - krb5-libs
+
+redhat_service:
+  - krb5kdc
+  - kadmin

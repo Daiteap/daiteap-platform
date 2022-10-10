@@ -1,0 +1,53 @@
+---
+- name: Update apt-get
+  shell: "apt update"
+
+- name: Install openssl
+  package:
+    name: openssl
+    state: latest
+  register: result
+  retries: 10
+  until: result is succeeded
+  delay: 30
+
+
+- name: Download and install easy-rsa
+  unarchive: src=https://github.com/OpenVPN/easy-rsa/archive/3.0.1.tar.gz dest=/root remote_src=yes validate_certs=no
+  register: result
+  retries: 10
+  until: result is succeeded
+  delay: 30
+
+- name: Init PKI
+  shell: printf "yes" | ./easyrsa init-pki
+  args:
+    chdir: /root/easy-rsa-3.0.1/easyrsa3
+
+- name: Install python3-pip
+  package:
+    name: python3-pip
+    state: present
+  become: yes
+
+- name: Install pexpect
+  pip:
+    name: pexpect
+  become: yes
+
+- name: Build CA
+  expect:
+    command: ./easyrsa build-ca
+    responses:
+      "Enter PEM pass phrase:": "{{ ca_password }}"
+      "Verifying - Enter PEM pass phrase:": "{{ ca_password }}"
+      "Common Name": "dc"
+  args:
+    chdir: /root/easy-rsa-3.0.1/easyrsa3
+
+- name: Fetch ca.crt
+  fetch:
+    src: /root/easy-rsa-3.0.1/easyrsa3/pki/ca.crt
+    dest: "{{ playbook_dir }}/"
+    flat: yes
+  become: yes
