@@ -21,7 +21,6 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django_crypto_fields.apps.AppConfig',
     # 'django.contrib.staticfiles',
     'django.contrib.staticfiles',  # required for serving swagger ui's css/js files
     'drf_yasg',
@@ -179,12 +178,6 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/2.2/howto/static-files/
 
 STATIC_URL = '/static/'
-
-# crypto_fields settings
-
-KEY_PATH = '/var/django_crypto_fields'
-KEY_PREFIX = 'cloudcluster'
-AUTO_CREATE_KEYS = os.environ.get('AUTO_CREATE_KEYS', False)
 
 # email config
 

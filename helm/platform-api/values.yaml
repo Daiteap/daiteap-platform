@@ -65,8 +65,6 @@ serverEmailAddress:
 sshIdRsa: 
 sshIdRsaPub: 
 
-# django_crypto_fields keys
-
 keycloakServerUrl: https://dev.daiteap.com/auth
 keycloakRealm: Daiteap
 keycloakClientId: django-backend
@@ -76,16 +74,6 @@ daiteapImageCredentials:
 
 vaultAddr: http://vault:8200
 vaultToken:
-
-djangoCryptoFields:
-  userAesLocalKey:
-  userAesRestrictedKey:
-  userRsaLocalPrivatePem:
-  userRsaLocalPublicPem:
-  userRsaRestrictedPrivatePem:
-  userRsaRestrictedPublicPem:
-  userSaltLocalKey:
-  userSaltRestrictedKey:
 
 awsDaiteapImageOwner: "905898490707"
 awsDaiteapImageName: "dlcmv2-ubuntu-1804-1"

@@ -31,8 +31,7 @@ ENV API_GIT_COMMIT_INFO="${GIT_SHA} | ${BUILD_TIME_INFO} UTC"
 EXPOSE 8080
 COPY . .
 
-RUN mkdir -p /var/django_crypto_fields
-RUN AUTO_CREATE_KEYS=True python3 manage.py collectstatic --noinput
+RUN python3 manage.py collectstatic --noinput
 
 ENTRYPOINT ["tini", "--"]
 CMD ["bash", "-c", "./start.sh"]

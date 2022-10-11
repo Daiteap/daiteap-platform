@@ -217,8 +217,6 @@ spec:
           volumeMounts:
             - name: cloudcluster-ssh
               mountPath: "/var/.ssh"
-            - name: cloudcluster-keys
-              mountPath: "/var/django_crypto_fields"
             - name: google-app-secret
               mountPath: "/var/credentials"
             - name: daiteap-dns-secret
@@ -232,9 +230,6 @@ spec:
           secret:
             secretName: cloudcluster-ssh
             defaultMode: 256
-        - name: cloudcluster-keys
-          secret:
-            secretName: cloudcluster-keys
         - name: google-app-secret
           secret:
             secretName: google-app-secret
