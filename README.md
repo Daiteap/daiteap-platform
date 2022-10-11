@@ -17,10 +17,10 @@ Requirements:
 
 ```shell
 # clone daiteap-ui (make sure it is in the same directory as this repository)
-git clone https://github.com/Daiteap/daiteap-ui
+git clone git@github.com:Daiteap/daiteap-ui.git
 
 # clone and cd into this repository
-git clone https://github.com/Daiteap/daiteap-platform
+git clone git@github.com:Daiteap/daiteap-platform.git
 cd daiteap-platform
 
 # build images
