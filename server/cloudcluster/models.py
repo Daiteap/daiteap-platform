@@ -289,6 +289,8 @@ class Machine(models.Model):
     ram = models.IntegerField(blank=True, null=True)
     hdd = models.IntegerField(blank=True, null=True)
     # dns_server = models.BooleanField(blank=False, null=False, default=False)
+    sync_ssh_status = models.IntegerField(default=0, blank=True, null=True)
+    sync_ssh_error_message = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return self.name + ' - ' + str(self.publicIP)
@@ -372,6 +374,7 @@ class Profile(models.Model):
     phone = models.TextField(blank=True, null=True)
 
     sshpubkey = models.TextField(blank=True, null=True)
+    ssh_synchronized_machines = models.ManyToManyField(Machine, blank=True)
     wireguard_public_key = models.TextField(blank=True, null=True)
 
     news_subscribbed = models.BooleanField(blank=False, null=False, default=True)

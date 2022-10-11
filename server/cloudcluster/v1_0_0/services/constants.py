@@ -356,3 +356,10 @@ class ClusterType(Enum):
     COMPUTE_VMS = 6
     DLCM_V2 = 7
     YAOOKCAPI = 8
+
+class SyncUserTaskStatus(Enum):
+    ADD = 1
+    REMOVE = 2
+    ADD_ERROR = -1
+    REMOVE_ERROR = -2
+    SYNCHRONIZED = 0
