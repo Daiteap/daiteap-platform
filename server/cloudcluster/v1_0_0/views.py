@@ -326,9 +326,10 @@ def profile(request):
         if serializer.is_valid():
             serializer.save()
             # check if sshpubkey is changed
-            if (current_ssh_key != new_ssh_key) and new_ssh_key:
-                synchronized_user = models.SynchronizedUsers.objects.filter(daiteapuser=request.daiteap_user)
-                synchronized_user.delete()
+            if current_ssh_key != new_ssh_key:
+                request.user.profile.ssh_synchronized_machines.clear()
+                request.user.profile.save()
+
             sync_users()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1467,8 +1468,7 @@ def oauth_google_get_auth_url_projects(request):
     google_auth_client = GoogleAuthClient()
 
     try:
-        auth_url = {'auth_url': google_auth_client.get_auth_url_projects(
-            payload['origin'])}
+        auth_url = {'auth_url': google_auth_client.get_auth_url_projects(payload['origin'])}
     except Exception as e:
         log_data = {
             'level': 'ERROR',
@@ -2767,10 +2767,8 @@ def get_cluster_details(request):
 
     # Get user's cluster
     try:
-
-
         cluster = models.Clusters.objects.filter(id=payload['clusterID'])
-        
+
         if len(cluster) != 1:
             cluster = models.CapiCluster.objects.filter(id=payload['clusterID'])
             if len(cluster) != 1:
@@ -10462,8 +10460,9 @@ def remove_user_from_project(request):
 
     return JsonResponse({'success': True})
 
-def sync_users():
+def sync_users(task_delay=True):
     print("Syncing users")
+
     # find out which users must be assigned to which resources
     for project in models.Project.objects.all():
         # get all DaiteapUser members in the project
@@ -10480,28 +10479,24 @@ def sync_users():
 
         for daiteap_user in daiteap_users:
             for cluster in clusters:
-                u = models.SynchronizedUsers.objects.filter(daiteapuser=daiteap_user, cluster=cluster)
-                if len(u) == 0:
-                    if cluster.status == 0 and cluster.installstep == 0 and len(models.Machine.objects.filter(cluster=cluster).exclude(status=0)) == 0:
-                        if cluster.type in [constants.ClusterType.DLCM.value, constants.ClusterType.K3S.value]:
-                            tasks.create_kubernetes_user.delay(daiteap_user.id, cluster.id, daiteap_user.user.username, cluster.kubeconfig, cluster.type)
-                            new_sync_user = models.SynchronizedUsers(daiteapuser=daiteap_user, cluster=cluster)
-                            new_sync_user.save()
+                gw_address = models.Machine.objects.filter(cluster=cluster).exclude(publicIP=None)[0].publicIP
+                synchronized_machines = daiteap_user.user.profile.ssh_synchronized_machines.all()
 
-                        elif cluster.type in [constants.ClusterType.VMS.value, constants.ClusterType.COMPUTE_VMS.value] and daiteap_user.user.profile.sshpubkey:
-                            gw_address = models.Machine.objects.filter(cluster=cluster).exclude(publicIP=None)[0].publicIP
-                            nodes_addresses = [i['privateIP'] for i in models.Machine.objects.filter(cluster=cluster).values("privateIP")]
+                if cluster.type in [constants.ClusterType.VMS.value, constants.ClusterType.COMPUTE_VMS.value]:
+                    cluster_machines = models.Machine.objects.filter(cluster_id=cluster.id, status=0)
 
-                            tasks.create_vm_user.delay(daiteap_user.id, cluster.id, nodes_addresses, daiteap_user.user.profile.sshpubkey, daiteap_user.user.username, gw_address)
-
-                            new_sync_user = models.SynchronizedUsers(daiteapuser=daiteap_user, cluster=cluster)
-                            new_sync_user.save()
-
-                elif len(u) == 1 and cluster.type in [constants.ClusterType.VMS.value, constants.ClusterType.COMPUTE_VMS.value] and not daiteap_user.user.profile.sshpubkey:
-                    nodes_addresses = [i['privateIP'] for i in models.Machine.objects.filter(cluster=cluster).values("privateIP")]
-                    gw_address = models.Machine.objects.filter(cluster=cluster).exclude(publicIP=None)[0].publicIP
-                    tasks.delete_vm_user.delay(daiteap_user.id, cluster.id, nodes_addresses, u[0].daiteapuser.user.username, gw_address)
-                    u.delete()
+                    for machine in cluster_machines:
+                        if machine not in synchronized_machines:
+                            if daiteap_user.user.profile.sshpubkey:
+                                if task_delay:
+                                    tasks.create_vm_user.delay(daiteap_user.id, cluster.id, machine.id, daiteap_user.user.profile.sshpubkey, daiteap_user.user.username, gw_address)
+                                else:
+                                    tasks.create_vm_user(daiteap_user.id, cluster.id, machine.id, daiteap_user.user.profile.sshpubkey, daiteap_user.user.username, gw_address)
+                            else:
+                                if task_delay:
+                                    tasks.delete_vm_user.delay(daiteap_user.id, cluster.id, machine.id, daiteap_user.user.username, gw_address)
+                                else:
+                                    tasks.delete_vm_user(daiteap_user.id, cluster.id, machine.id, daiteap_user.user.username, gw_address)
 
             for cluster in capiclusters:
                 u = models.SynchronizedUsers.objects.filter(daiteapuser=daiteap_user, capicluster=cluster)
@@ -10561,6 +10556,7 @@ def sync_users():
             cluster_user.delete()
 
     return True
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

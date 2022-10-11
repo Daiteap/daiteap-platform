@@ -6,7 +6,7 @@
 
 - name: Delete user
   hosts: nodes
-  become: yes
+  become: true
   any_errors_fatal: true
   roles:
     - role: delete_user

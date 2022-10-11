@@ -2,8 +2,6 @@ import yaml
 from cloudcluster.models import Clusters, CapiCluster, YaookCapiCluster
 import os
 
-from django.conf import settings
-
 from cloudcluster.settings import YAOOKCAPI_MANAGEMENT_CLUSTER_KUBECONFIG_PATH
 
 from ..services import run_shell
@@ -19,7 +17,7 @@ class AnsibleClient:
             '-i', inventory_path,
             '-e', extra_vars,
             '-u', user,
-            '--timeout', '1800'
+            '--timeout', '300'
         ]
 
         cmd += extra_cmd

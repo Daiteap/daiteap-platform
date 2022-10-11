@@ -1455,11 +1455,14 @@ def get_cluster_machines(cluster, request, payload, config):
             'ram',
             'hdd',
             'kube_master',
-            'kube_name'
+            'kube_name',
+            'sync_ssh_status',
+            'sync_ssh_error_message'
         )
         if cluster.installstep not in [1, -1, -100, 100] and len(cluster_machines) < 1 and cluster.type == constants.ClusterType.COMPUTE_VMS.value:
             raise Exception('Can\'t find any of the cluster\'s machines.')
-    except:
+    except Exception as e:
+        print(e)
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),

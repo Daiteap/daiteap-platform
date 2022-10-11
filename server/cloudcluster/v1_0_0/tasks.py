@@ -3304,6 +3304,8 @@ def worker_start_cluster(cluster_id, user_id):
     cluster.status = 0
     cluster.save()
 
+    views.sync_users()
+
 
 @shared_task(ignore_result=False)
 def worker_restart_cluster(cluster_id, user_id):
@@ -3335,6 +3337,8 @@ def worker_restart_cluster(cluster_id, user_id):
 
     cluster.status = 0
     cluster.save()
+
+    views.sync_users()
 
 @shared_task(ignore_result=False)
 def worker_stop_machine(cluster_id, machine_name, machine_provider, user_id):
@@ -3376,6 +3380,8 @@ def worker_start_machine(cluster_id, machine_name, machine_provider, user_id):
         cluster.status = 0
         cluster.save()
 
+    views.sync_users()
+
     return
 
 @shared_task(ignore_result=False)
@@ -3389,6 +3395,8 @@ def worker_restart_machine(cluster_id, machine_name, machine_provider, user_id):
 
     machine.status = 0
     machine.save()
+
+    views.sync_users()
 
 @shared_task(ignore_result=False)
 def worker_delete_service_kubernetes_cluster(name, namespace, clusterId):
@@ -3970,6 +3978,8 @@ def worker_create_compute_vms(resources, cluster_id, user_id, tag_values):
                     logger.error(str(traceback.format_exc()) + '\n' + str(e), extra=log_data)
 
                     raise Exception('Email notification error.')
+
+                views.sync_users(task_delay=False)
 
                 cluster.installstep = 0
                 cluster.save()
@@ -5248,46 +5258,130 @@ def worker_delete_cluster(cluster_id, user_id):
     return
 
 @shared_task(ignore_result=False)
-def create_vm_user(user_id, cluster_id, nodes, public_key, username, gw_address):
-    cluster = Clusters.objects.filter(id=cluster_id)[0]
+def create_vm_user(daiteap_user_id, cluster_id, machine_id, public_key, username, gw_address):
+    cluster = Clusters.objects.get(id=cluster_id)
+    daiteap_user = DaiteapUser.objects.get(id=daiteap_user_id)
+
+    if cluster.installstep < 0:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(daiteap_user.user.id),
+            'environment_id': str(cluster.id),
+            'environment_name': cluster.title,
+            'task': 'create_vm_user',
+        }
+        logger.error('Cluster status does not allow user creation.' + '\n', extra=log_data)
+        return
 
     ansible_client = AnsibleClient()
 
-    nodes_addresses = []
-
     gw_address = 'clouduser@' + gw_address
 
-    for node in nodes:
-        nodes_addresses.append('clouduser@' + node)
+    machine = Machine.objects.get(id=machine_id, cluster=cluster)
+    if machine.sync_ssh_status > constants.SyncUserTaskStatus.SYNCHRONIZED.value:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(daiteap_user.user.id),
+            'environment_id': str(cluster.id),
+            'environment_name': cluster.title,
+            'task': 'create_vm_user',
+        }
+        logger.error('Another user operation is in progress.' + '\n', extra=log_data)
 
-    ansible_client.run_create_user(user_id,
-                                   str(cluster.id),
-                                   cluster.title,
-                                   public_key,
-                                   username,
-                                   nodes_addresses,
-                                   gw_address)
+    try:
+        machine.sync_ssh_status = constants.SyncUserTaskStatus.ADD.value
+        machine.sync_ssh_error_message = ''
+        machine.save()
+
+        ansible_client.run_create_user(daiteap_user_id,
+                                    str(cluster.id),
+                                    cluster.title,
+                                    public_key,
+                                    username,
+                                    ['clouduser@' + machine.privateIP],
+                                    gw_address)
+
+        machine.sync_ssh_status = constants.SyncUserTaskStatus.SYNCHRONIZED.value
+        machine.sync_ssh_error_message = ''
+        machine.save()
+
+        daiteap_user.user.profile.ssh_synchronized_machines.add(machine)
+        daiteap_user.user.profile.save()
+    except Exception as e:
+        machine.sync_ssh_status = constants.SyncUserTaskStatus.ADD_ERROR.value
+        machine.sync_ssh_error_message = str(e)
+        machine.save()
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(daiteap_user.user.id),
+            'environment_id': str(cluster.id),
+            'environment_name': cluster.title,
+            'task': 'create_vm_user',
+        }
+        logger.error(str(traceback.format_exc()) + '\n' + str(e), extra=log_data)
+
     return
 
 @shared_task(ignore_result=False)
-def delete_vm_user(user_id, cluster_id, nodes, username, gw_address):
-    cluster = Clusters.objects.filter(id=cluster_id)[0]
+def delete_vm_user(daiteap_user_id, cluster_id, machine_id, username, gw_address):
+    cluster = Clusters.objects.get(id=cluster_id)
+    daiteap_user = DaiteapUser.objects.get(id=daiteap_user_id)
+    if cluster.installstep < 0:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(daiteap_user.user.id),
+            'environment_id': str(cluster.id),
+            'environment_name': cluster.title,
+            'task': 'delete_vm_user',
+        }
+        logger.error('Cluster status does not allow user deletion.' + '\n', extra=log_data)
+        return
 
     ansible_client = AnsibleClient()
 
     gw_address = 'clouduser@' + gw_address
 
-    nodes_addresses = []
+    machine = Machine.objects.get(id=machine_id, cluster=cluster)
+    if machine.sync_ssh_status > constants.SyncUserTaskStatus.SYNCHRONIZED.value:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(daiteap_user.user.id),
+            'environment_id': str(cluster.id),
+            'environment_name': cluster.title,
+            'task': 'delete_vm_user',
+        }
+        logger.error('Another user operation is in progress.' + '\n', extra=log_data)
 
-    for node in nodes:
-        nodes_addresses.append('clouduser@' + node)
+    try:
+        machine.sync_ssh_status = constants.SyncUserTaskStatus.REMOVE.value
+        machine.sync_ssh_error_message = ''
+        machine.save()
 
-    ansible_client.run_delete_user(user_id,
-                                   str(cluster.id),
-                                   cluster.title,
-                                   username,
-                                   nodes_addresses,
-                                   gw_address)
+        ansible_client.run_delete_user(daiteap_user_id,
+                                    str(cluster.id),
+                                    cluster.title,
+                                    username,
+                                    ['clouduser@' + machine.privateIP],
+                                    gw_address)
+
+        machine.sync_ssh_status = constants.SyncUserTaskStatus.SYNCHRONIZED.value
+        machine.sync_ssh_error_message = ''
+        machine.save()
+
+        daiteap_user.user.profile.ssh_synchronized_machines.add(machine)
+        daiteap_user.user.profile.save()
+    except Exception as e:
+        machine.sync_ssh_status = constants.SyncUserTaskStatus.REMOVE_ERROR.value
+        machine.sync_ssh_error_message = str(e)
+        machine.save()
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(daiteap_user.user.id),
+            'environment_id': str(cluster.id),
+            'environment_name': cluster.title,
+            'task': 'delete_vm_user',
+        }
+        logger.error(str(traceback.format_exc()) + '\n' + str(e), extra=log_data)
     return
 
 @shared_task(ignore_result=False)

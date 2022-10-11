@@ -5,7 +5,7 @@
     - role: add_hosts
 
 - name: Add ssh keys
-  become: yes
+  become: true
   hosts: nodes
   any_errors_fatal: true
   roles:
