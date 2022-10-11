@@ -33,7 +33,7 @@ ssh-keygen -o -a 100 -t rsa -f docker-compose/.ssh/id_rsa -C "user@server.com" -
 # start daiteap locally
 docker-compose -f docker-compose.yml up
 
-# Init environment (first start only - open new terminal and do)
+# Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
 sh docker-compose/init.sh
 
 # Navigate to http://localhost:1899
