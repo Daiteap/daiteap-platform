@@ -17,10 +17,10 @@ Requirements:
 
 ```shell
 # clone daiteap-ui (make sure it is in the same directory as this repository)
-git clone https://github.com/Daiteap/daiteap-ui
+git clone git@github.com:Daiteap/daiteap-ui.git
 
 # clone and cd into this repository
-git clone https://github.com/Daiteap/daiteap-platform
+git clone git@github.com:Daiteap/daiteap-platform.git
 cd daiteap-platform
 
 # build images
@@ -31,9 +31,9 @@ mkdir -p docker-compose/.ssh
 ssh-keygen -o -a 100 -t rsa -f docker-compose/.ssh/id_rsa -C "user@server.com" -N "" -m PEM
 
 # start daiteap locally
-docker-compose -f docker-compose.yml --log-level DEBUG up
+docker-compose -f docker-compose.yml up
 
-# Init environment (first start only)
+# Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
 sh docker-compose/init.sh
 
 # Navigate to http://localhost:1899
