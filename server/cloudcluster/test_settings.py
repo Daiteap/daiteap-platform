@@ -5,12 +5,6 @@ import os
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
-# crypto_fields settings
-
-KEY_PATH = '/var/django_crypto_fields'
-# KEY_PREFIX = 'cloudcluster'
-# AUTO_CREATE_KEYS = False
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -19,7 +13,6 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django_crypto_fields.apps.AppConfig',
     # 'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework.authtoken',

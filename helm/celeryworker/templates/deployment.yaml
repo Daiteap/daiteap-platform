@@ -160,8 +160,6 @@ spec:
           volumeMounts:
             - name: cloudcluster-ssh
               mountPath: "/var/.ssh"
-            - name: cloudcluster-keys
-              mountPath: "/var/django_crypto_fields"
             - name: daiteap-dns-secret
               mountPath: "/var/dns_credentials"
             - name: capi-management-kubeconfig
@@ -175,9 +173,6 @@ spec:
           secret:
             secretName: cloudcluster-ssh
             defaultMode: 256
-        - name: cloudcluster-keys
-          secret:
-            secretName: cloudcluster-keys
         - name: capi-management-kubeconfig
           secret:
             secretName: capi-management-kubeconfig

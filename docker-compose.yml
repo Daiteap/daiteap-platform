@@ -71,7 +71,6 @@ services:
       timeout: 10s
       retries: 5
     volumes:
-      - /var/django_crypto_fields:/var/django_crypto_fields
       - ./docker-compose:/docker-compose
     networks:
       - daiteapnet
@@ -183,7 +182,6 @@ services:
     networks:
       - daiteapnet
     volumes:
-      - /var/django_crypto_fields:/var/django_crypto_fields
       - ./docker-compose/.ssh:/var/.ssh
 
   daiteap-ui:

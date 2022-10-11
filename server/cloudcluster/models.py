@@ -7,7 +7,6 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django_crypto_fields.fields import EncryptedTextField
 from django.utils import timezone
 from cloudcluster.v1_0_0.services.constants import *
 # import cloudcluster.v1_0_0.services.constants
@@ -151,15 +150,15 @@ class Clusters(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     type = models.IntegerField(blank=True, null=True)
     status = models.IntegerField(default=0, blank=True, null=True)
-    grafana_admin_password = EncryptedTextField()
+    grafana_admin_password = models.TextField(blank=False, null=False)
     grafana_address = models.CharField(max_length=1024, blank=True, null=True)
     kibana_address = models.CharField(max_length=1024, blank=True, null=True)
-    es_admin_password = EncryptedTextField()
-    krb_admin_password = EncryptedTextField()
-    kdc_master_password = EncryptedTextField()
-    ldap_admin_password = EncryptedTextField()
-    vpn_secrets = EncryptedTextField()
-    ca_password = EncryptedTextField()
+    es_admin_password = models.TextField(blank=False, null=False)
+    krb_admin_password = models.TextField(blank=False, null=False)
+    kdc_master_password = models.TextField(blank=False, null=False)
+    ldap_admin_password = models.TextField(blank=False, null=False)
+    vpn_secrets = models.TextField(blank=False, null=False)
+    ca_password = models.TextField(blank=False, null=False)
     used_resources_graph_path = models.TextField(blank=True, null=True)
     terraform_graph_index = models.TextField(blank=True, null=True)
     canceled = models.BooleanField(default=False)
@@ -259,14 +258,14 @@ class YaookCapiCluster(models.Model):
     user = models.ForeignKey(User, on_delete=models.PROTECT, null=True)
     daiteap_user = models.ForeignKey(DaiteapUser, on_delete=models.CASCADE, null=True)
 
-    wireguard_public_key = EncryptedTextField()
-    wireguard_private_key = EncryptedTextField()
+    wireguard_public_key = models.TextField(blank=False, null=False)
+    wireguard_private_key = models.TextField(blank=False, null=False)
 
     wireguard_indent = models.TextField(blank=True, null=True)
 
-    wireguard_config = EncryptedTextField()
+    wireguard_config = models.TextField(blank=False, null=False)
 
-    wireguard_user_configs = EncryptedTextField()
+    wireguard_user_configs = models.TextField(blank=False, null=False)
 
 
 class Machine(models.Model):
@@ -318,7 +317,7 @@ class ClusterUser(models.Model):
     email = models.CharField(max_length=150, blank=True, null=True)
     status = models.IntegerField(blank=True, null=True)
     kubernetes_user = models.BooleanField(null=False)
-    kubeconfig = EncryptedTextField()
+    kubeconfig = models.TextField(blank=False, null=False)
 
     def __str__(self):
         return self.username + ' - ' + self.cluster.name
