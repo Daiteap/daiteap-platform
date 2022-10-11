@@ -36,6 +36,10 @@ docker-compose -f docker-compose.yml up
 
 ```shell
 # Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
+# start daiteap locally
+docker-compose -f docker-compose.yml up
+
+# Init environment (first start only - open new terminal and do)
 sh docker-compose/init.sh
 
 # set VAULT_TOKEN variable
