@@ -103,16 +103,18 @@ services:
     environment:
       VAULT_DEV_ROOT_TOKEN_ID: myroot
       VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+      # VAULT_LOCAL_CONFIG: '{"backend": {"file": {"path": "/vault/file"}}}'
     ports:
       - "8200:8200"
     networks:
       - daiteapnet
+    # volumes:
+    #   - ./docker-compose/vault:/vault/file
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8200/v1/sys/health" ]
       interval: 30s
       timeout: 10s
       retries: 5
-    
 
   rabbitmqbroker:
     image: rabbitmq:3-management

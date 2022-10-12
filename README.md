@@ -29,14 +29,34 @@ docker-compose build
 # generate ssh keys
 mkdir -p docker-compose/.ssh
 ssh-keygen -o -a 100 -t rsa -f docker-compose/.ssh/id_rsa -C "user@server.com" -N "" -m PEM
+```
+___
+### Start daiteap with DNS for services
+#### Requirements:
+- Existing [Google Cloud DNS Zone](https://cloud.google.com/dns/docs/zones#create-pub-zone)
+- [Service account](https://cloud.google.com/iam/docs/creating-managing-service-accounts#creating) with [DNS Administrator](https://cloud.google.com/iam/docs/understanding-roles#dns-roles) permissions
+- Service account key in JSON format
 
-# start daiteap locally
+```shell
+# replace docker-compose/daiteap_dns_credentials.json with your service account key
+cp <path to service account key> docker-compose/daiteap_dns_credentials.json
+
+# start daiteap
+USE_DNS_FOR_SERVICES=True SERVICES_DNS_DOMAIN=<replace with dns zone> docker-compose up -d
+```
+
+### Or
+### Start daiteap without DNS for services
+```shell
 docker-compose up -d
-
-# Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
+```
+___
+### Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
+```shell
 sh docker-compose/init.sh
+```
 
-# Navigate to http://localhost:1899
+### Navigate to http://localhost:1899
 
 # (optional) see container logs
 docker-compose logs -f
