@@ -10,7 +10,7 @@ metadata:
 spec:
   secretName: "cert-${name}"
   dnsNames:
-  - "${name}.${clusterId}.app.daiteap.com"
+  - "${name}.${clusterId}.${domain}"
   issuerRef:
     name: daiteap-clusterissuer
     kind: ClusterIssuer
@@ -24,14 +24,14 @@ metadata:
   name: "${name}"
   namespace: "${namespace}"
   annotations:
-    kubernetes.io/ingress.class: "nginx"    
+    kubernetes.io/ingress.class: "nginx"
 spec:
   tls:
   - hosts:
-    - "${name}.${clusterId}.app.daiteap.com"
+    - "${name}.${clusterId}.${domain}"
     secretName: "cert-${name}"
   rules:
-  - host: "${name}.${clusterId}.app.daiteap.com"
+  - host: "${name}.${clusterId}.${domain}"
     http:
       paths:
       - path: /
