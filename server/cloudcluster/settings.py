@@ -348,6 +348,8 @@ AUTOSUGGEST_OPENSTACK_REGION = os.getenv('AUTOSUGGEST_OPENSTACK_REGION', '')
 VAULT_ADDR = os.getenv('VAULT_ADDR', 'http://localhost:8200')
 VAULT_TOKEN = os.getenv('VAULT_TOKEN', 'myroot')
 
+USE_DNS_FOR_SERVICES = os.getenv('USE_DNS_FOR_SERVICES', 'False') == 'True'
+
 FORCE_SCRIPT_NAME = "/server/"
 
 SWAGGER_SETTINGS = {
