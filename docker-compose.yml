@@ -125,6 +125,9 @@ services:
 
   celery-worker:
     image: celery-worker:v0.0.2
+    # deploy:
+    #   mode: replicated
+    #   replicas: 3
     build:
       context: server
       dockerfile: Dockerfile_Celery_Worker
