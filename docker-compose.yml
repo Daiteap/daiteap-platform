@@ -134,6 +134,8 @@ services:
       - "vault"
     container_name: daiteap-celery-worker
     environment:
+      USE_DNS_FOR_SERVICES: ${USE_DNS_FOR_SERVICES}
+      SERVICES_DNS_DOMAIN: ${SERVICES_DNS_DOMAIN}
       MYSQL_DATABASE: daiteapapi
       MYSQL_USER: root
       MYSQL_PASS: password
@@ -183,6 +185,7 @@ services:
       - daiteapnet
     volumes:
       - ./docker-compose/.ssh:/var/.ssh
+      - ./docker-compose/daiteap_dns_credentials.json:/var/dns_credentials/daiteap_dns_credentials.json
 
   daiteap-ui:
     image: daiteap-ui:v0.0.2

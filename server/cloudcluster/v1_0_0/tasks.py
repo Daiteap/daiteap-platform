@@ -74,7 +74,7 @@ FILE_BASE_DIR = str(pathlib.Path(__file__).parent.absolute())
 
 def create_service_addresses(credentials_path, service_name, service_namespace, clusterId, kubeconfig_path):
     if settings.USE_DNS_FOR_SERVICES:
-        domain = str(service_name + '.' + str(clusterId).replace('-','')[:10] + settings.SERVICES_DNS_DOMAIN)
+        domain = str(service_name + '.' + str(clusterId).replace('-','')[:10] + '.' + settings.SERVICES_DNS_DOMAIN)
         cmd = [
             'kubectl',
             '--kubeconfig',
@@ -94,7 +94,7 @@ def create_service_addresses(credentials_path, service_name, service_namespace, 
             name=service_name,
             namespace=service_namespace,
             clusterId=str(clusterId).replace('-','')[:10],
-            domain=settings.SERVICE_CERTIFICATE_MANIFEST,
+            domain=settings.SERVICES_DNS_DOMAIN,
         )
         with open(credentials_path + 'certificate.yaml', 'a') as text_file:
             text_file.write(certificate_file)
@@ -137,7 +137,7 @@ def create_service_addresses(credentials_path, service_name, service_namespace, 
             namespace=service_namespace,
             clusterId=str(clusterId).replace('-','')[:10],
             service_port=service_port['stdout'][0].strip('"'),
-            domain=settings.SERVICE_CERTIFICATE_MANIFEST,
+            domain=settings.SERVICES_DNS_DOMAIN,
         )
         with open(credentials_path + 'ingress.yaml', 'a') as text_file:
             text_file.write(ingress_file)
