@@ -3,7 +3,7 @@
 docker-compose up -d
 
 # Wait for the database to be ready
-sleep 10
+sleep 25
 
 docker exec daiteap-ui mkdir -p /app/cloudcluster_media
 docker cp docker-compose/service_logo daiteap-ui:/app/cloudcluster_media/
