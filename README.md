@@ -58,6 +58,7 @@ sh docker-compose/init.sh
 
 ### Navigate to http://localhost:1899
 
+```shell
 # (optional) see container logs
 docker-compose logs -f
 
@@ -67,7 +68,7 @@ docker-compose ps
 
 ## Tear-down commands
 ```shell
-docker-compose down
+docker-compose down --rmi local -v
 sudo rm -rf docker-compose/.ssh
 sudo rm -rf docker-compose/mysql
 ```
