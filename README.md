@@ -11,7 +11,7 @@ Follow the steps below to run Daiteap locally.
 Requirements:
 - docker/docker-compose
 - GIT
-
+- DNS zone in GCP (optional)
 
 [daiteap-ui](https://github.com/Daiteap/daiteap-ui) clone into the same folder where this repository is cloned
 
@@ -31,8 +31,8 @@ mkdir -p docker-compose/.ssh
 ssh-keygen -o -a 100 -t rsa -f docker-compose/.ssh/id_rsa -C "user@server.com" -N "" -m PEM
 ```
 
-### Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
 ```shell
+# Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
 sh docker-compose/init.sh
 
 # set VAULT_TOKEN variable
