@@ -31,6 +31,8 @@ mkdir -p docker-compose/.ssh
 ssh-keygen -o -a 100 -t rsa -f docker-compose/.ssh/id_rsa -C "user@server.com" -N "" -m PEM
 ```
 
+```shell
+# Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
 # start daiteap locally
 docker-compose -f docker-compose.yml up
 
