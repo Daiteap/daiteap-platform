@@ -5294,30 +5294,48 @@ def worker_delete_cluster_user(cluster_user_username, clusterId, user_id, payloa
 
 @shared_task(ignore_result=False)
 def worker_delete_cluster(cluster_id, user_id):
-    cluster = Clusters.objects.filter(id=cluster_id)[0]
-    cluster.config = json.dumps(add_node_names_to_config(cluster, copy.deepcopy(json.loads(cluster.config))))
-    cluster.save()
+    try:
+        cluster = Clusters.objects.filter(id=cluster_id)[0]
+        cluster.config = json.dumps(add_node_names_to_config(cluster, copy.deepcopy(json.loads(cluster.config))))
+        cluster.save()
 
-    if settings.USE_DNS_FOR_SERVICES:
-        try:
-            environment_creation_steps.delete_daiteap_dns_record(cluster.id)
-        except Exception as e:
-            cluster.installstep = -100
-            cluster.save()
-            log_data = {
-                'level': 'ERROR',
-                'user_id': user_id,
-                'environment_id': str(cluster.id),
-                'environment_name': cluster.title,
-                'task': 'worker_delete_cluster',
-            }
-            logger.error(str(traceback.format_exc()) + '\n' + str(e), extra=log_data)
-            return
+        if settings.USE_DNS_FOR_SERVICES:
+            try:
+                environment_creation_steps.delete_daiteap_dns_record(cluster.id)
+            except Exception as e:
+                cluster.installstep = -100
+                cluster.save()
+                log_data = {
+                    'level': 'ERROR',
+                    'user_id': user_id,
+                    'environment_id': str(cluster.id),
+                    'environment_name': cluster.title,
+                    'task': 'worker_delete_cluster',
+                }
+                logger.error(str(traceback.format_exc()) + '\n' + str(e), extra=log_data)
+                return
 
-    destroyed = environment_providers.destroy_resources(cluster_id, user_id)
+        destroyed = environment_providers.destroy_resources(cluster_id, user_id)
 
-    if destroyed:
-        cluster.delete()
+        if destroyed:
+            cluster.delete()
+
+    except Exception as e:
+        encoded_error_bytes = base64.b64encode(str(e).encode("utf-8"))
+        encoded_error = str(encoded_error_bytes, "utf-8")
+
+        cluster.error_msg_delete = encoded_error
+
+        cluster.installstep = -100
+        cluster.save()
+        log_data = {
+            'level': 'ERROR',
+            'user_id': user_id,
+            'environment_id': str(cluster.id),
+            'environment_name': cluster.title,
+            'task': 'worker_delete_cluster',
+        }
+        logger.error(str(traceback.format_exc()) + '\n' + str(e), extra=log_data)
 
     return
 
