@@ -39,6 +39,7 @@ docker-compose -f docker-compose.yml up
 # start daiteap locally
 docker-compose -f docker-compose.yml up
 
+```shell
 # Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
 sh docker-compose/init.sh
 
