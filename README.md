@@ -30,6 +30,14 @@ docker-compose build
 mkdir -p docker-compose/.ssh
 ssh-keygen -o -a 100 -t rsa -f docker-compose/.ssh/id_rsa -C "user@server.com" -N "" -m PEM
 ```
+
+### Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
+```shell
+sh docker-compose/init.sh
+
+# set VAULT_TOKEN variable
+export VAULT_TOKEN=$(jq -r .root_token docker-compose/vault/vault-init.json)
+```
 ___
 ### Start daiteap with DNS for services
 #### Requirements:
@@ -54,9 +62,9 @@ docker-compose up -d
 docker-compose up -d
 ```
 ___
-### Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
+### Unseal Vault (unseal after every restart)
 ```shell
-sh docker-compose/init.sh
+docker exec daiteap-vault vault operator unseal $(jq -r .unseal_keys_b64[0] docker-compose/vault/vault-init.json)
 ```
 
 ### Navigate to http://localhost:1899
@@ -74,6 +82,8 @@ docker-compose ps
 docker-compose down --rmi local -v
 sudo rm -rf docker-compose/.ssh
 sudo rm -rf docker-compose/mysql
+sudo rm -rf docker-compose/vault/data
+sudo rm -rf docker-compose/vault/vault-init.json
 ```
 
 # Building custom cloud images
