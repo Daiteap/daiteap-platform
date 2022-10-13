@@ -42,7 +42,10 @@ ___
 cp <path to service account key> docker-compose/daiteap_dns_credentials.json
 
 # start daiteap
-USE_DNS_FOR_SERVICES=True SERVICES_DNS_DOMAIN=<replace with dns zone> docker-compose up -d
+USE_DNS_FOR_SERVICES=True \
+SERVICES_DNS_DOMAIN=<replace with dns zone domain> \
+SERVICES_DNS_ZONE_NAME=<replace with zone name> \
+docker-compose up -d
 ```
 
 ### Or

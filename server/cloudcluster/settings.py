@@ -349,6 +349,7 @@ VAULT_TOKEN = os.getenv('VAULT_TOKEN', 'myroot')
 
 USE_DNS_FOR_SERVICES = os.getenv('USE_DNS_FOR_SERVICES', 'False') == 'True'
 SERVICES_DNS_DOMAIN = os.getenv('SERVICES_DNS_DOMAIN', 'app.daiteap.com')
+SERVICES_DNS_ZONE_NAME = os.getenv('SERVICES_DNS_ZONE_NAME', 'daiteap')
 DAITEAP_GOOGLE_KEY = os.getenv('DAITEAP_GCP_KEY_PATH', '/var/dns_credentials/daiteap_dns_credentials.json')
 
 FORCE_SCRIPT_NAME = "/server/"

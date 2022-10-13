@@ -931,7 +931,7 @@ def create_daiteap_dns_record_set(cluster_id, ip_list):
 
     credentials_json = json.loads(google_key)
     project = credentials_json['project_id']
-    zone_name = 'daiteap'
+    zone_name = settings.SERVICES_DNS_ZONE_NAME
 
     credentials = service_account.Credentials.from_service_account_info(credentials_json)
     service = discovery.build('dns', 'v1', credentials=credentials)
@@ -990,7 +990,7 @@ def delete_daiteap_dns_record_set(cluster_id):
     google_key = open(DAITEAP_GOOGLE_KEY).read()
     credentials_json = json.loads(google_key)
     project = credentials_json['project_id']
-    zone_name = 'daiteap'
+    zone_name = settings.SERVICES_DNS_ZONE_NAME
 
     credentials = service_account.Credentials.from_service_account_info(credentials_json)
     service = discovery.build('dns', 'v1', credentials=credentials)
