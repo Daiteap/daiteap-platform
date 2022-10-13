@@ -141,6 +141,7 @@ services:
     environment:
       USE_DNS_FOR_SERVICES: ${USE_DNS_FOR_SERVICES}
       SERVICES_DNS_DOMAIN: ${SERVICES_DNS_DOMAIN}
+      SERVICES_DNS_ZONE_NAME: ${SERVICES_DNS_ZONE_NAME}
       MYSQL_DATABASE: daiteapapi
       MYSQL_USER: root
       MYSQL_PASS: password
