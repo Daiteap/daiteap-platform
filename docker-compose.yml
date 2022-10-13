@@ -213,3 +213,4 @@ services:
       - daiteapnet
     volumes:
       -  ./docker-compose/nginx.conf:/etc/nginx/conf.d/nginx.conf
+      -  ./docker-compose/service_logo:/app/cloudcluster_media/service_logo
