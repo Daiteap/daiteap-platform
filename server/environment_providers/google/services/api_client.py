@@ -931,7 +931,7 @@ def create_daiteap_dns_record_set(cluster_id, ip_list):
 
     credentials_json = json.loads(google_key)
     project = credentials_json['project_id']
-    zone_name = 'daiteap'
+    zone_name = settings.SERVICES_DNS_ZONE_NAME
 
     credentials = service_account.Credentials.from_service_account_info(credentials_json)
     service = discovery.build('dns', 'v1', credentials=credentials)
@@ -939,7 +939,7 @@ def create_daiteap_dns_record_set(cluster_id, ip_list):
     entry = {
         'additions': [
             {
-            'name': '*.' + str(cluster_id).replace('-','')[:10] + '.app.daiteap.com.',
+            'name': '*.' + str(cluster_id).replace('-','')[:10] + '.' + settings.SERVICES_DNS_DOMAIN + '.',
             'type': 'A',
             'ttl': 300,
             'rrdata': ip_list
@@ -951,7 +951,7 @@ def create_daiteap_dns_record_set(cluster_id, ip_list):
     request = service.resourceRecordSets().get(
         project=project,
         managedZone=zone_name,
-        name='*.' + str(cluster_id) + '.app.daiteap.com.',
+        name='*.' + str(cluster_id) + '.' + settings.SERVICES_DNS_DOMAIN + '.',
         type='A'
     )
     try:
@@ -973,7 +973,7 @@ def create_daiteap_dns_record_set(cluster_id, ip_list):
         request = service.resourceRecordSets().get(
             project=project,
             managedZone=zone_name,
-            name='*.' + str(cluster_id).replace('-','')[:10] + '.app.daiteap.com.',
+            name='*.' + str(cluster_id).replace('-','')[:10] + '.' + settings.SERVICES_DNS_DOMAIN + '.',
             type='A'
         )
         try:
@@ -990,7 +990,7 @@ def delete_daiteap_dns_record_set(cluster_id):
     google_key = open(DAITEAP_GOOGLE_KEY).read()
     credentials_json = json.loads(google_key)
     project = credentials_json['project_id']
-    zone_name = 'daiteap'
+    zone_name = settings.SERVICES_DNS_ZONE_NAME
 
     credentials = service_account.Credentials.from_service_account_info(credentials_json)
     service = discovery.build('dns', 'v1', credentials=credentials)
@@ -999,7 +999,7 @@ def delete_daiteap_dns_record_set(cluster_id):
     request = service.resourceRecordSets().get(
         project=project,
         managedZone=zone_name,
-        name='*.' + str(cluster_id).replace('-','')[:10] + '.app.daiteap.com.',
+        name='*.' + str(cluster_id).replace('-','')[:10] + '.' + settings.SERVICES_DNS_DOMAIN + '.',
         type='A'
     )
     try:
@@ -1011,7 +1011,7 @@ def delete_daiteap_dns_record_set(cluster_id):
     request = service.resourceRecordSets().delete(
         project=project,
         managedZone=zone_name,
-        name='*.' + str(cluster_id).replace('-','')[:10] + '.app.daiteap.com.',
+        name='*.' + str(cluster_id).replace('-','')[:10] + '.' + settings.SERVICES_DNS_DOMAIN + '.',
         type='A'
     )
     try:

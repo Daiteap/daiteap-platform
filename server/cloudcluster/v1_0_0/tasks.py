@@ -73,76 +73,136 @@ GRAFANA_PORT = 31000
 FILE_BASE_DIR = str(pathlib.Path(__file__).parent.absolute())
 
 def create_service_addresses(credentials_path, service_name, service_namespace, clusterId, kubeconfig_path):
-    domain = str(service_name + '.' + str(clusterId).replace('-','')[:10] + '.app.daiteap.com')
-    cmd = [
-        'kubectl',
-        '--kubeconfig',
-        credentials_path + 'kubectl_config',
-        'get',
-        'service',
-        '--namespace',
-        service_namespace,
-        service_name,
-        '-o',
-        'jsonpath="{.spec.ports[0].port}"',
-    ]
-    service_port = run_shell.run_shell_with_subprocess_popen(cmd, workdir='./', return_stdout=True)
-
-    certificate_template = SERVICE_CERTIFICATE_MANIFEST
-    certificate_file = certificate_template.substitute(
-        name=service_name,
-        namespace=service_namespace,
-        clusterId=str(clusterId).replace('-','')[:10]
-    )
-    with open(credentials_path + 'certificate.yaml', 'a') as text_file:
-        text_file.write(certificate_file)
-
-    command = [
-        'kubectl',
-        '--kubeconfig=' + kubeconfig_path,
-        'apply',
-        '-f',
-        credentials_path + 'certificate.yaml'
-    ]
-    run_shell.run_shell_with_subprocess_call(command, workdir='./')
-
-
-    max_retries = 30
-    wait_seconds = 20
-    for i in range(0, max_retries):
-        time.sleep(wait_seconds)
-        cmd = ['kubectl',
-            '--kubeconfig=' + kubeconfig_path,
+    if settings.USE_DNS_FOR_SERVICES:
+        domain = str(service_name + '.' + str(clusterId).replace('-','')[:10] + '.' + settings.SERVICES_DNS_DOMAIN)
+        cmd = [
+            'kubectl',
+            '--kubeconfig',
+            credentials_path + 'kubectl_config',
             'get',
-            'certificate',
+            'service',
             '--namespace',
             service_namespace,
             service_name,
             '-o',
-            'jsonpath="{.status.conditions[0].message}"',
+            'jsonpath="{.spec.ports[0].port}"',
+        ]
+        service_port = run_shell.run_shell_with_subprocess_popen(cmd, workdir='./', return_stdout=True)
+
+        certificate_template = SERVICE_CERTIFICATE_MANIFEST
+        certificate_file = certificate_template.substitute(
+            name=service_name,
+            namespace=service_namespace,
+            clusterId=str(clusterId).replace('-','')[:10],
+            domain=settings.SERVICES_DNS_DOMAIN,
+        )
+        with open(credentials_path + 'certificate.yaml', 'a') as text_file:
+            text_file.write(certificate_file)
+
+        command = [
+            'kubectl',
+            '--kubeconfig=' + kubeconfig_path,
+            'apply',
+            '-f',
+            credentials_path + 'certificate.yaml'
+        ]
+        run_shell.run_shell_with_subprocess_call(command, workdir='./')
+
+
+        max_retries = 30
+        wait_seconds = 20
+        for i in range(0, max_retries):
+            time.sleep(wait_seconds)
+            cmd = ['kubectl',
+                '--kubeconfig=' + kubeconfig_path,
+                'get',
+                'certificate',
+                '--namespace',
+                service_namespace,
+                service_name,
+                '-o',
+                'jsonpath="{.status.conditions[0].message}"',
+            ]
+
+            output = run_shell.run_shell_with_subprocess_popen(cmd, workdir='./', return_stdout=True)
+            if output['stdout'] == ['"Certificate is up to date and has not expired"']:
+                break
+
+            if i == max_retries - 1:
+                raise Exception('Timeout while waiting service certificate to create')
+
+        ingress_template = SERVICE_INGRESS_MANIFEST
+        ingress_file = ingress_template.substitute(
+            name=service_name,
+            namespace=service_namespace,
+            clusterId=str(clusterId).replace('-','')[:10],
+            service_port=service_port['stdout'][0].strip('"'),
+            domain=settings.SERVICES_DNS_DOMAIN,
+        )
+        with open(credentials_path + 'ingress.yaml', 'a') as text_file:
+            text_file.write(ingress_file)
+
+        command[4] = credentials_path + 'ingress.yaml'
+        run_shell.run_shell_with_subprocess_call(command, workdir='./')
+
+        return [domain]
+    else:
+        cmd = [
+            'kubectl',
+            '--kubeconfig',
+            credentials_path + 'kubectl_config',
+            'patch',
+            'service',
+            '--namespace',
+            service_namespace,
+            service_name,
+            '-p',
+            '{"spec": {"type": "LoadBalancer"}}',
         ]
 
-        output = run_shell.run_shell_with_subprocess_popen(cmd, workdir='./', return_stdout=True)
-        if output['stdout'] == ['"Certificate is up to date and has not expired"']:
-            break
+        run_shell.run_shell_with_subprocess_call(cmd, workdir='./')
 
-        if i == max_retries - 1:
-            raise Exception('Timeout while waiting service certificate to create')
+        # get port
+        cmd = [
+            'kubectl',
+            '--kubeconfig',
+            credentials_path + 'kubectl_config',
+            'get',
+            'service',
+            '--namespace',
+            service_namespace,
+            service_name,
+            '-o',
+            'jsonpath="{.spec.ports[0].port}"',
+        ]
+        service_port = run_shell.run_shell_with_subprocess_popen(cmd, workdir='./', return_stdout=True)
 
-    ingress_template = SERVICE_INGRESS_MANIFEST
-    ingress_file = ingress_template.substitute(
-        name=service_name,
-        namespace=service_namespace,
-        clusterId=str(clusterId).replace('-','')[:10],
-        service_port=service_port['stdout'][0].strip('"'),
-    )
-    with open(credentials_path + 'ingress.yaml', 'a') as text_file:
-        text_file.write(ingress_file)
+        cmd = [
+            'kubectl',
+            '--kubeconfig',
+            credentials_path + 'kubectl_config',
+            'get',
+            'service',
+            '--namespace',
+            service_namespace,
+            service_name,
+            '-o',
+            'jsonpath="{.status.loadBalancer.ingress[0].*}"'
+        ]
 
-    command[4] = credentials_path + 'ingress.yaml'
-    run_shell.run_shell_with_subprocess_call(command, workdir='./')
+        max_retries = 30
+        wait_seconds = 20
+        for i in range(0, max_retries):
+            time.sleep(wait_seconds)
 
-    return [domain]
+            service_ip = run_shell.run_shell_with_subprocess_popen(cmd, workdir='./', return_stdout=True)
+            if service_ip['stdout'] != ['""']:
+                break
+
+            if i == max_retries - 1:
+                raise Exception('Timeout while waiting daiteap ingress controller to create')
+
+        return [service_ip['stdout'][0].strip('"') + ':' + service_port['stdout'][0].strip('"')]
 
 def create_machine_records(cloud_config, tfstate_resources, cluster_id):
     machines = environment_providers.get_machine_records(cloud_config, tfstate_resources, cluster_id)
@@ -1304,21 +1364,24 @@ def worker_create_dlcm_v2_environment(resources, cluster_id, user_id, tag_values
                 cluster.save()
 
             if cluster.installstep == 26:
-                ingress_ip_list = environment_creation_steps.install_ingress_controller(cluster.id)
+                if settings.USE_DNS_FOR_SERVICES:
+                    ingress_ip_list = environment_creation_steps.install_ingress_controller(cluster.id)
 
                 cluster = Clusters.objects.filter(id=cluster_id)[0]
                 cluster.installstep += 1
                 cluster.save()
 
             if cluster.installstep == 27:
-                environment_creation_steps.create_daiteap_dns_record(cluster.id, ingress_ip_list)
+                if settings.USE_DNS_FOR_SERVICES:
+                    environment_creation_steps.create_daiteap_dns_record(cluster.id, ingress_ip_list)
 
                 cluster = Clusters.objects.filter(id=cluster_id)[0]
                 cluster.installstep += 1
                 cluster.save()
 
             if cluster.installstep == 28:
-                environment_creation_steps.install_cert_manager(cluster.id)
+                if settings.USE_DNS_FOR_SERVICES:
+                    environment_creation_steps.install_cert_manager(cluster.id)
 
                 cluster = Clusters.objects.filter(id=cluster_id)[0]
                 cluster.installstep += 1
@@ -5231,13 +5294,38 @@ def worker_delete_cluster_user(cluster_user_username, clusterId, user_id, payloa
 
 @shared_task(ignore_result=False)
 def worker_delete_cluster(cluster_id, user_id):
-    cluster = Clusters.objects.filter(id=cluster_id)[0]
-    cluster.config = json.dumps(add_node_names_to_config(cluster, copy.deepcopy(json.loads(cluster.config))))
-    cluster.save()
-
     try:
-        environment_creation_steps.delete_daiteap_dns_record(cluster.id)
+        cluster = Clusters.objects.filter(id=cluster_id)[0]
+        cluster.config = json.dumps(add_node_names_to_config(cluster, copy.deepcopy(json.loads(cluster.config))))
+        cluster.save()
+
+        if settings.USE_DNS_FOR_SERVICES:
+            try:
+                environment_creation_steps.delete_daiteap_dns_record(cluster.id)
+            except Exception as e:
+                cluster.installstep = -100
+                cluster.save()
+                log_data = {
+                    'level': 'ERROR',
+                    'user_id': user_id,
+                    'environment_id': str(cluster.id),
+                    'environment_name': cluster.title,
+                    'task': 'worker_delete_cluster',
+                }
+                logger.error(str(traceback.format_exc()) + '\n' + str(e), extra=log_data)
+                return
+
+        destroyed = environment_providers.destroy_resources(cluster_id, user_id)
+
+        if destroyed:
+            cluster.delete()
+
     except Exception as e:
+        encoded_error_bytes = base64.b64encode(str(e).encode("utf-8"))
+        encoded_error = str(encoded_error_bytes, "utf-8")
+
+        cluster.error_msg_delete = encoded_error
+
         cluster.installstep = -100
         cluster.save()
         log_data = {
@@ -5248,12 +5336,6 @@ def worker_delete_cluster(cluster_id, user_id):
             'task': 'worker_delete_cluster',
         }
         logger.error(str(traceback.format_exc()) + '\n' + str(e), extra=log_data)
-        return
-
-    destroyed = environment_providers.destroy_resources(cluster_id, user_id)
-
-    if destroyed:
-        cluster.delete()
 
     return
 
