@@ -235,7 +235,6 @@ API_GIT_COMMIT_INFO = os.getenv('API_GIT_COMMIT_INFO', 'commit SHA | DATE | TIME
 
 SSH_USERNAME = os.getenv('SSH_USERNAME', 'clouduser')
 
-DAITEAP_GOOGLE_KEY = os.getenv('DAITEAP_GCP_KEY_PATH', '/var/dns_credentials/daiteap_dns_credentials.json')
 DAITEAP_GOOGLE_IMAGE_KEY = os.getenv('DAITEAP_GOOGLE_IMAGE_KEY', '/var/image_credentials/daiteap_image_credentials.json')
 
 CAPI_MANAGEMENT_CLUSTER_NAMESPACE = os.getenv('CAPI_MANAGEMENT_CLUSTER_NAMESPACE', 'default')
@@ -347,6 +346,11 @@ AUTOSUGGEST_OPENSTACK_REGION = os.getenv('AUTOSUGGEST_OPENSTACK_REGION', '')
 
 VAULT_ADDR = os.getenv('VAULT_ADDR', 'http://localhost:8200')
 VAULT_TOKEN = os.getenv('VAULT_TOKEN', 'myroot')
+
+USE_DNS_FOR_SERVICES = os.getenv('USE_DNS_FOR_SERVICES', 'False') == 'True'
+SERVICES_DNS_DOMAIN = os.getenv('SERVICES_DNS_DOMAIN', 'app.daiteap.com')
+SERVICES_DNS_ZONE_NAME = os.getenv('SERVICES_DNS_ZONE_NAME', 'daiteap')
+DAITEAP_GOOGLE_KEY = os.getenv('DAITEAP_GCP_KEY_PATH', '/var/dns_credentials/daiteap_dns_credentials.json')
 
 FORCE_SCRIPT_NAME = "/server/"
 
