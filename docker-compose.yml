@@ -130,9 +130,9 @@ services:
 
   celery-worker:
     image: celery-worker:v0.0.2
-    # deploy:
-    #   mode: replicated
-    #   replicas: 3
+    deploy:
+      mode: replicated
+      replicas: 3
     build:
       context: server
       dockerfile: Dockerfile_Celery_Worker
@@ -140,7 +140,7 @@ services:
       - "mysql"
       - "rabbitmqbroker"
       - "vault"
-    container_name: daiteap-celery-worker
+    # container_name: daiteap-celery-worker
     environment:
       USE_DNS_FOR_SERVICES: ${USE_DNS_FOR_SERVICES}
       SERVICES_DNS_DOMAIN: ${SERVICES_DNS_DOMAIN}
