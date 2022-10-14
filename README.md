@@ -37,7 +37,9 @@ sh docker-compose/init.sh
 export VAULT_TOKEN=$(jq -r .root_token docker-compose/vault/vault-init.json)
 ```
 ___
-### Start daiteap with DNS for services
+### Start daiteap with DNS for Service Applications
+Once you install an application from the service catalog you can access it by IP-Adress or using the DNS option to access the service by Domain Name.
+
 #### Requirements:
 - Existing [Google Cloud DNS Zone](https://cloud.google.com/dns/docs/zones#create-pub-zone)
 - [Service account](https://cloud.google.com/iam/docs/creating-managing-service-accounts#creating) with [DNS Administrator](https://cloud.google.com/iam/docs/understanding-roles#dns-roles) permissions
