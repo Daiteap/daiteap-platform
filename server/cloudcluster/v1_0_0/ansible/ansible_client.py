@@ -31,7 +31,7 @@ class AnsibleClient:
 
         log_data = {'user_id': user_id, 'environment_id': environment_id, 'environment_name': environment_name}
 
-        print('Running playbook: ' + str(cmd))
+        print('Running playbook: ' + playbook_path)
 
         run_shell.run_shell_with_subprocess_popen(cmd, return_stdout=True, raise_on_error=True, log_data=log_data)
 
