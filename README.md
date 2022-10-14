@@ -1,6 +1,7 @@
 # daiteap-platform
 
-daiteap-platform is an open-source technology which allows developers and IT pros to create and manage multi-cloud resources in an easy and efficient manner. Those resources include Kubernetes clusters, Compute (VMs) and S3 storage.
+daiteap-platform is the daiteap application logic which allows you to create and manage multi-cloud resources in an easy and efficient manner. 
+Currently you can setup Kubernetes clusters, Compute (VMs) and S3 storage on one or multiple providers.
 
 This repository contains the backend and API for daiteap. 
 
