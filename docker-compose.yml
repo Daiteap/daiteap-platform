@@ -63,7 +63,7 @@ services:
       AZURE_DAITEAP_IMAGE_PARAMETERS: Daiteap/Ubuntu/18.04
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: ${VAULT_TOKEN}
-      SERVICE_CATALOG_COMMAND: "fix_service_catalog"
+      # SERVICE_CATALOG_COMMAND: "fix_service_catalog"
     ports:
       - "8080:8080"
     healthcheck:

@@ -29,8 +29,11 @@ docker-compose build
 # generate ssh keys
 mkdir -p docker-compose/.ssh
 ssh-keygen -o -a 100 -t rsa -f docker-compose/.ssh/id_rsa -C "user@server.com" -N "" -m PEM
+```
 
+```shell
 # Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
+
 sh docker-compose/init.sh
 
 # set VAULT_TOKEN variable
