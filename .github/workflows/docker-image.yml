@@ -1,11 +1,9 @@
 name: Docker Image CI
 
 on:
-  push:
-  pull_request:
-    branches: []
-    types: [opened, reopened]
-  create
+  - push
+  - pull_request
+  - create
 
 jobs:
 
