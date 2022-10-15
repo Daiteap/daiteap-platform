@@ -24,3 +24,4 @@ docker-compose/.ssh
 docker-compose/vault/data
 docker-compose/vault/vault-init.json
 docker-compose/daiteap_dns_credentials.json
+docker-compose/daiteap_dns_credentials.json
