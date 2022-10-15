@@ -2,12 +2,10 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "*" ]
   pull_request:
     branches: []
     types: [opened, reopened]
   create
-  push
 
 jobs:
 
