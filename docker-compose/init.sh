@@ -16,3 +16,5 @@ export VAULT_TOKEN=$(jq -r .root_token docker-compose/vault/vault-init.json)
 docker exec -i daiteap-vault sh -c "export VAULT_TOKEN=$VAULT_TOKEN && echo a$VAULT_TOKEN && vault secrets enable -path=secret kv"
 
 docker-compose down
+
+echo "Setup complete. Please now proceed with the export token step."
