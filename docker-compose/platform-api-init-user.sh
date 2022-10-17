@@ -3,10 +3,10 @@ python3 manage.py shell << EOF
 from django.contrib.auth.models import User
 from cloudcluster import models
 
-user = User.objects.create_user('platformuser', password='platformpass')
+user = User.objects.create_user('default', password='platformpass')
 user.save()
 
-tenant=models.Tenant.objects.create(name='platformuser', owner='platformuser')
+tenant=models.Tenant.objects.create(name='default', owner='default')
 
 tenant_settings=models.TenantSettings.objects.create(tenant=tenant)
 tenant_settings.save()

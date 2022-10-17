@@ -33,7 +33,7 @@ INSTALLED_APPS = [
 ETC_DIR = '/etc'
 
 SINGLE_USER_MODE = os.getenv('SINGLE_USER_MODE', 'True')
-SINGLE_USER_MODE_USERNAME = os.getenv('SINGLE_USER_MODE_USERNAME', 'platformuser')
+SINGLE_USER_MODE_USERNAME = os.getenv('SINGLE_USER_MODE_USERNAME', 'default')
 
 if SINGLE_USER_MODE == 'True':
     REST_FRAMEWORK_AUTH_CLASS = 'cloudcluster.v1_0_0.middleware.single_user_authentication.SingleUserAuthentication'
