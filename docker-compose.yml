@@ -10,10 +10,10 @@ services:
       - "celery-worker"
       - "rabbitmqbroker"
       - "vault"
-    image: daiteap-platform:v0.0.2
-    build:
-      context: server
-      dockerfile: Dockerfile
+    image: gcr.io/cloudcluster-261712/daiteap-platform:latest
+    # build:
+    #   context: server
+    #   dockerfile: Dockerfile
     container_name: daiteap-platform
     environment:
       MYSQL_DATABASE: daiteapapi
@@ -121,7 +121,7 @@ services:
 
   rabbitmqbroker:
     image: rabbitmq:3-management
-    container_name: daiteap-reabbitmq-broker
+    container_name: daiteap-rabbitmq-broker
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -129,13 +129,13 @@ services:
       - daiteapnet
 
   celery-worker:
-    image: celery-worker:v0.0.2
+    image: gcr.io/cloudcluster-261712/daiteap-celery-worker:latest
     deploy:
       mode: replicated
       replicas: 3
-    build:
-      context: server
-      dockerfile: Dockerfile_Celery_Worker
+    # build:
+    #   context: server
+    #   dockerfile: Dockerfile_Celery_Worker
     links:
       - "mysql"
       - "rabbitmqbroker"
@@ -198,12 +198,12 @@ services:
       - ./docker-compose/daiteap_dns_credentials.json:/var/dns_credentials/daiteap_dns_credentials.json
 
   daiteap-ui:
-    image: daiteap-ui:v0.0.2
-    build:
-      context: ../daiteap-ui/app/
-      dockerfile: Dockerfile
-      args:
-        - VUE_APP_SINGLE_USER_MODE=True
+    image: gcr.io/cloudcluster-261712/daiteap-ui:latest
+    # build:
+    #   context: ../daiteap-ui/app/
+    #   dockerfile: Dockerfile
+    #   args:
+    #     - VUE_APP_SINGLE_USER_MODE=True
     container_name: daiteap-ui
     ports:
       - "1899:8080"

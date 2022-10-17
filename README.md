@@ -13,20 +13,14 @@ Requirements:
 - docker/docker-compose
 - GIT
 - DNS zone in GCP (optional)
-- jq
-
-[daiteap-ui](https://github.com/Daiteap/daiteap-ui) clone into the same folder where this repository is cloned
 
 ```shell
-# clone daiteap-ui (make sure it is in the same directory as this repository)
+# clone daiteap-ui
 git clone git@github.com:Daiteap/daiteap-ui.git
 
 # clone and cd into this repository
 git clone git@github.com:Daiteap/daiteap-platform.git
 cd daiteap-platform
-
-# build images
-docker-compose build
 
 # generate ssh keys
 mkdir -p docker-compose/.ssh
@@ -34,8 +28,10 @@ ssh-keygen -o -a 100 -t rsa -f docker-compose/.ssh/id_rsa -C "user@server.com" -
 ```
 
 ```shell
-# Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
+# Install jq
+sudo apt-get install jq
 
+# Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
 sh docker-compose/init.sh
 
 # set VAULT_TOKEN variable
