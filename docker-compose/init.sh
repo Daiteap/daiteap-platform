@@ -1,5 +1,6 @@
 #!/bin/sh
 
+docker-compose pull
 docker-compose up -d
 
 # Wait for the database to be ready
