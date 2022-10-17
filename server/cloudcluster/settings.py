@@ -88,7 +88,7 @@ LOGGING = {
         },
         'celery': {
             'handlers': ['console'],
-            'level': 'DEBUG',
+            'level': 'INFO',
             'propagate': True
         },
     }
