@@ -13,6 +13,7 @@ Requirements:
 - docker/docker-compose
 - GIT
 - DNS zone in GCP (optional)
+- jq
 
 [daiteap-ui](https://github.com/Daiteap/daiteap-ui) clone into the same folder where this repository is cloned
 
