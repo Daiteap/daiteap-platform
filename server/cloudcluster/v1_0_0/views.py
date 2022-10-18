@@ -8043,11 +8043,16 @@ def get_task_message(request):
             }
         }, status=500)
 
-    # return JSON response
-    return JsonResponse({
-        'msg': msg,
-        'status': status
-    })
+    if 'error' in msg and status == 'SUCCESS':
+        return JsonResponse({
+            'msg': msg,
+            'status': 'ERROR'
+        })
+    else:
+        return JsonResponse({
+            'msg': msg,
+            'status': status
+        })
 
 
 @api_view(['POST'])
