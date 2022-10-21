@@ -745,3 +745,6 @@ def delete_bucket_folder(payload, request):
 
 def get_bucket_details(payload, request):
     return {}
+
+def get_cloud_account_info(cloud_account):
+    return {}

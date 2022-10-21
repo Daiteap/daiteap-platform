@@ -37,6 +37,7 @@ urlpatterns = [
    path('isProjectNameFree', views.is_project_name_free),
    path('get_project_userlist', views.get_project_userlist),
    path('getSpecificUserInfo/<str:tenant>/<str:username>', views.get_specific_user_info),
+   path('getCloudAccountInfo/<str:credential_id>', views.get_cloud_account_info),
 
    path('getBucketFiles', views.get_bucket_files),
    path('addBucketFile', views.add_bucket_file),

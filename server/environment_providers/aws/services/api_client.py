@@ -179,6 +179,9 @@ def check_user_permissions(aws_access_key_id, aws_secret_access_key, region, sto
     if storage_enabled and 'AmazonS3FullAccess' not in user_policies:
         return 'Missing storage permissions.'
 
+    if 'AWSOrganizationsReadOnlyAccess' not in user_policies:
+        return 'Missing AWSOrganizationsReadOnlyAccess permission'
+
     return ''
 
 
@@ -1001,3 +1004,34 @@ def get_bucket_details(aws_credentials, bucket_name):
             })
 
     return response
+
+def get_cloud_account_info(aws_credentials):
+    iam_client = boto3.client(
+        'iam',
+        aws_access_key_id=aws_credentials['aws_access_key_id'],
+        aws_secret_access_key=aws_credentials['aws_secret_access_key']
+    )
+    sts_client = boto3.client(
+        'sts',
+        aws_access_key_id=aws_credentials['aws_access_key_id'],
+        aws_secret_access_key=aws_credentials['aws_secret_access_key']
+    )
+    org_client = boto3.client(
+        'organizations',
+        aws_access_key_id=aws_credentials['aws_access_key_id'],
+        aws_secret_access_key=aws_credentials['aws_secret_access_key']
+    )
+
+    user = iam_client.get_user()
+    identity = sts_client.get_caller_identity()
+    account = org_client.describe_account(AccountId=identity['Account'])
+    organization = org_client.describe_organization()
+
+    cloud_data = dict()
+    cloud_data['user'] = user['User']['UserName']
+    cloud_data['account'] = account['Account']['Name']
+    cloud_data['account_email'] = account['Account']['Email']
+    cloud_data['organization_id'] = organization['Organization']['Id']
+    cloud_data['organization_master_account_email'] = organization['Organization']['MasterAccountEmail']
+
+    return(cloud_data)

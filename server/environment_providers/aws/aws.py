@@ -1220,3 +1220,7 @@ def get_bucket_details(payload, request):
     aws_credentials = vault_service.read_secret(aws_account.credentials)
 
     return api_client.get_bucket_details(aws_credentials, payload['bucket_name'])
+
+def get_cloud_account_info(cloud_account):
+    aws_credentials = vault_service.read_secret(cloud_account.credentials)
+    return api_client.get_cloud_account_info(aws_credentials)

@@ -1838,3 +1838,9 @@ def get_bucket_details(payload, request):
         return supported_providers[payload['provider']]['provider'].get_bucket_details(payload, request)
     else:
         return {'error': "Invalid provider parameter."}
+
+def get_cloud_account_info(cloud_account):
+    if cloud_account.provider in supported_providers:
+        return supported_providers[cloud_account.provider]['provider'].get_cloud_account_info(cloud_account)
+    else:
+        return {'error': "Invalid provider parameter."}

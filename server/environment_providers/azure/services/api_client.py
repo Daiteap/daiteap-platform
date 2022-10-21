@@ -3,7 +3,9 @@ import json
 import os
 import time
 import traceback
+import jwt
 
+import msal
 from azure.common import credentials
 from azure.graphrbac import GraphRbacManagementClient
 from azure.identity import ClientSecretCredential
@@ -11,12 +13,13 @@ from azure.common.credentials import ServicePrincipalCredentials
 from azure.mgmt import network
 from azure.mgmt.authorization import AuthorizationManagementClient
 from azure.mgmt.compute import ComputeManagementClient
-from azure.mgmt.resource import ResourceManagementClient
+from azure.mgmt.resource import ResourceManagementClient, SubscriptionClient as SubsClient
 from azure.mgmt.resource.resources.models import ResourceGroup
 from azure.mgmt.storage import StorageManagementClient
 from azure.mgmt.storage.models import Kind, Sku, StorageAccountCreateParameters
 from azure.mgmt.subscription import SubscriptionClient
 from azure.storage.blob import BlobServiceClient, ContentSettings
+from msgraph.core import GraphClient
 from cloudcluster.models import *
 from environment_providers.azure import azure
 from environment_providers.azure.services.oauth import AZURE_PERMISSIONS
@@ -208,6 +211,17 @@ def get_missing_client_permissions(azure_tenant_id, azure_subscription_id, azure
                 all_client_permissions.append(action)
 
     missing_permissions = []
+
+    # Check permission for Microsoft Graph API
+    app = msal.ConfidentialClientApplication(
+        azure_client_id,
+        authority = 'https://login.microsoftonline.com/' + azure_tenant_id,
+        client_credential = azure_client_secret
+    )
+    accessToken = app.acquire_token_for_client(scopes=['https://graph.microsoft.com/.default'])
+    decodedAccessToken = jwt.decode(accessToken['access_token'], verify=False)
+    if 'Directory.Read.All' not in decodedAccessToken['roles']:
+        missing_permissions.append('Missing permission for Microsoft Graph')
 
     if '*' in all_client_permissions:
         return missing_permissions
@@ -907,3 +921,44 @@ def delete_resource_group(azure_credentials, resource_group_name):
 
     resource_client.resource_groups.delete(resource_group_name)
     return {'done': True}
+
+def get_cloud_account_info(azure_credentials):
+    graph_credentials = ClientSecretCredential(
+        azure_credentials['azure_tenant_id'],
+        azure_credentials['azure_client_id'],
+        azure_credentials['azure_client_secret']
+    )
+    subscription_credentials = ServicePrincipalCredentials(
+        tenant = azure_credentials['azure_tenant_id'],
+        client_id = azure_credentials['azure_client_id'],
+        secret = azure_credentials['azure_client_secret']
+    )
+
+    msgraph_client = GraphClient(credential=graph_credentials)
+    subscription_client = SubsClient(subscription_credentials)
+    
+    cloud_data = dict()
+
+    application = msgraph_client.get("/applications?$filter=appId eq '" + azure_credentials['azure_client_id'] + "'").json()
+    cloud_data['application'] = application['value'][0]['displayName']
+    app_id = application['value'][0]['id']
+
+    app_owners = msgraph_client.get('/applications/' + app_id + '/owners').json()
+    if len(app_owners['value']) > 0:
+        cloud_data['created_by'] = app_owners['value'][0]['displayName']
+        try:
+            cloud_data['user_principal_name'] = app_owners['value'][0]['userPrincipalName']
+        except:
+            pass
+
+    cloud_data['organization'] = msgraph_client.get('/organization').json()['value'][0]['displayName']
+
+    for subscription in subscription_client.subscriptions.list():
+        if subscription.subscription_id == azure_credentials['azure_subscription_id']:
+            cloud_data['subscription'] = subscription.display_name
+    for tenant in subscription_client.tenants.list():
+        if tenant.tenant_id == azure_credentials['azure_tenant_id']:
+            if tenant.display_name:
+                cloud_data['tenant'] = tenant.display_name
+
+    return cloud_data
