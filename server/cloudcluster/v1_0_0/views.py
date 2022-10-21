@@ -8023,13 +8023,34 @@ def get_task_message(request):
 
     res = AsyncResult(celerytask_id)
 
-    msg = ''
-    status = res.state
+    response = {
+        'status': '',
+        'error': False,
+        'errorMsg': '',
+        'lcmStatuses': []
+    }
+    response['status'] = res.state
 
-    if (status == 'SUCCESS'):
+    if (response['status'] == 'SUCCESS'):
         msg = res.get()
-    elif (status == 'PENDING'):
-        msg = {}
+
+        if 'error' in msg:
+            response['error'] = True
+            response['errorMsg'] = msg['error']
+            response['status'] = 'ERROR'
+
+        if 'dlcmV2Images' in msg:
+            response['lcmStatuses'].append({ 'dlcmV2Images': msg['dlcmV2Images'] })
+        if 'capiImages' in msg:
+            response['lcmStatuses'].append({ 'capiImages': msg['capiImages'] })
+        if 'yaookCapiImages' in msg:
+            response['lcmStatuses'].append({ 'yaookCapiImages': msg['yaookCapiImages'] })
+        if 'externalNetwork' in msg:
+            response['lcmStatuses'].append({ 'externalNetwork': msg['externalNetwork'] })
+
+    elif (response['status'] == 'PENDING'):
+        pass
+
     else:
         log_data = {
             'level': 'ERROR',
@@ -8043,16 +8064,7 @@ def get_task_message(request):
             }
         }, status=500)
 
-    if 'error' in msg and status == 'SUCCESS':
-        return JsonResponse({
-            'msg': msg,
-            'status': 'ERROR'
-        })
-    else:
-        return JsonResponse({
-            'msg': msg,
-            'status': status
-        })
+    return JsonResponse(response)
 
 
 @api_view(['POST'])

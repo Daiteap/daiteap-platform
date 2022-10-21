@@ -509,6 +509,9 @@ def validate_account_permissions(credentials, user_id, storage_enabled):
     else:
         api_client.remove_cloud_account_from_daiteap_project(credentials['google_key'])
 
+    if not dlcm_v2_images:
+        return {'error': 'Error in LCM statuses', 'dlcmV2Images': dlcm_v2_images}
+
     return {'dlcmV2Images': dlcm_v2_images}
 
 def update_provider_regions(account_id, user_id):
