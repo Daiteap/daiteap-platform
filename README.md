@@ -31,7 +31,7 @@ ssh-keygen -o -a 100 -t rsa -f docker-compose/.ssh/id_rsa -C "user@server.com" -
 # Install jq
 sudo apt-get install jq
 
-for Mac you can use alternatively
+Mac User can use alternatively
 brew install jq
 
 # Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
