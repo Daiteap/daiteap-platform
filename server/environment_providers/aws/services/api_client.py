@@ -404,7 +404,7 @@ def get_available_regions_parameters(aws_access_key_id, aws_secret_access_key):
 
                 if s_cpu_instances:
                     s_ram = min(s_cpu_instances, key = lambda x: abs(int(x['ram'])-8))
-                    s_ram['storage'] = '25'
+                    s_ram['storage'] = '50'
                     s_ram['description'] = f'Small (vCPU {int(s_ram["cpu"])} | Memory {int(s_ram["ram"])} GB | Storage {int(s_ram["storage"])} GB)'
                     zone['instances'].append(s_ram)
                 if m_cpu_instances:
