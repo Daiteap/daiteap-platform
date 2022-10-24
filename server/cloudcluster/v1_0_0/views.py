@@ -8027,7 +8027,7 @@ def get_task_message(request):
         'status': '',
         'error': False,
         'errorMsg': '',
-        'lcmStatuses': []
+        'lcmStatuses': dict()
     }
     response['status'] = res.state
 
@@ -8040,13 +8040,15 @@ def get_task_message(request):
             response['status'] = 'ERROR'
 
         if 'dlcmV2Images' in msg:
-            response['lcmStatuses'].append({ 'dlcmV2Images': msg['dlcmV2Images'] })
+            response['lcmStatuses']['dlcmV2Images'] = msg['dlcmV2Images']
         if 'capiImages' in msg:
-            response['lcmStatuses'].append({ 'capiImages': msg['capiImages'] })
+            response['lcmStatuses']['capiImages'] = msg['capiImages']
         if 'yaookCapiImages' in msg:
-            response['lcmStatuses'].append({ 'yaookCapiImages': msg['yaookCapiImages'] })
+            response['lcmStatuses']['yaookCapiImages'] = msg['yaookCapiImages']
         if 'externalNetwork' in msg:
-            response['lcmStatuses'].append({ 'externalNetwork': msg['externalNetwork'] })
+            response['lcmStatuses']['externalNetwork'] = msg['externalNetwork']
+        if 'nodes' in msg:
+            response['lcmStatuses']['nodes'] = msg['nodes']
 
     elif (response['status'] == 'PENDING'):
         pass
