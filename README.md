@@ -10,7 +10,7 @@ This repository contains the backend and API for daiteap.
 Follow the steps below to run Daiteap locally (Linux, Windows WSL2). 
 
 Requirements:
-- docker/docker-compose
+- docker/docker-compose (Docker Daemon must be running. Windows/Mac start Docker Desktop)
 - GIT
 - DNS zone in GCP (optional)
 
