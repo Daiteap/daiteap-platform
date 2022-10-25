@@ -15,9 +15,6 @@ Requirements:
 - DNS zone in GCP (optional)
 
 ```shell
-# clone daiteap-ui
-git clone git@github.com:Daiteap/daiteap-ui.git
-
 # clone and cd into this repository
 git clone git@github.com:Daiteap/daiteap-platform.git
 cd daiteap-platform
