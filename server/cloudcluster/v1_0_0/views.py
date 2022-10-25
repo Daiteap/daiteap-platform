@@ -717,20 +717,6 @@ def bucket_detail(request, bucket_id):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_cloud_account_info(request, credential_id):
-    try:
-        cloud_account = models.CloudAccount.objects.get(id=credential_id)
-    except models.CloudAccount.DoesNotExist:
-        return JsonResponse({
-            'error': {
-                'message': 'Cloud Credential doesn\'t exist.'
-            }
-        }, status.HTTP_404_NOT_FOUND)
-    
-    return JsonResponse(environment_providers.get_cloud_account_info(cloud_account))
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
 def get_specific_user_info(request, tenant, username):
     # check if account exists
     try:
