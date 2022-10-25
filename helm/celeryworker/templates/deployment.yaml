@@ -34,6 +34,8 @@ spec:
                 secretKeyRef:
                   key: VAULT_TOKEN
                   name: "{{ .Chart.Name }}"
+            - name: USE_DNS_FOR_SERVICES
+              value: "{{ .Values.useDNSforServices }}"
             - name: GOOGLE_SERVICE_OAUTH_ACCOUNTS_PREFIX
               value: "{{ .Values.googleServiceOauthAccountsPrefix }}"
             - name: AZURE_SERVICE_OAUTH_ACCOUNTS_PREFIX

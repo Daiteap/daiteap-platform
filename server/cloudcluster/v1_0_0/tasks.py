@@ -969,6 +969,15 @@ def worker_remove_compute_node(node_id, cluster_id, user_id, tag_values):
         delete_cluster_machine_records(cluster_id, [node.kube_name])
 
         cluster = Clusters.objects.filter(id=cluster_id)[0]
+
+        other_machines = Machine.objects.filter(cluster_id=cluster_id)
+        stopped_cluster = True
+        for other_machine in other_machines:
+            if other_machine.status != 10:
+                stopped_cluster = False
+        if stopped_cluster:
+            cluster.status = 10
+
         cluster.config = json.dumps(resize_config)
         cluster.resizestep = 0
         cluster.save()
@@ -3409,9 +3418,11 @@ def worker_stop_machine(cluster_id, machine_name, machine_provider, user_id):
 
     machine = Machine.objects.filter(cluster_id=cluster_id, name=machine_name, provider=machine_provider)[0]
     stop_cluster = True
-    other_machines = Machine.objects.filter(cluster_id=cluster_id).exclude(id=machine.id, status=10)
-    if len(other_machines) > 0:
-        stop_cluster = False
+    other_machines = Machine.objects.filter(cluster_id=cluster_id).exclude(id=machine.id)
+
+    for other_machine in other_machines:
+        if other_machine.status != 10:
+            stop_cluster = False
 
     environment_providers.stop_machine(machine, cluster_id, machine_provider, user_id)
 
@@ -3430,9 +3441,6 @@ def worker_start_machine(cluster_id, machine_name, machine_provider, user_id):
     
     machine = Machine.objects.filter(cluster_id=cluster_id, name=machine_name, provider=machine_provider)[0]
     start_cluster = True
-    other_machines = Machine.objects.filter(cluster_id=cluster_id).exclude(id=machine.id, status=0)
-    if len(other_machines) > 0:
-        start_cluster = False
 
     environment_providers.start_machine(machine, cluster_id, machine_provider, user_id)
 
