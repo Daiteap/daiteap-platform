@@ -1020,3 +1020,11 @@ def delete_daiteap_dns_record_set(cluster_id):
         raise Exception('Error while deleting daiteap dns record')
 
     return
+
+def get_cloud_account_info(google_credentials):
+    cloud_data = dict()
+
+    cloud_data['project_id'] = google_credentials['project_id']
+    cloud_data['email'] = google_credentials['client_email']
+
+    return cloud_data

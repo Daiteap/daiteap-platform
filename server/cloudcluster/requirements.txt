@@ -33,6 +33,7 @@ jmespath==0.9.5
 jsonschema==3.2.0
 mock==4.0.2
 msal==1.2.0
+msgraph-core==0.2.2
 mysqlclient==1.4.4
 netaddr==0.7.19
 openstacksdk==0.58.0

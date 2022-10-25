@@ -498,6 +498,11 @@ def cloud_account_list(request):
             except:
                 account.owner = None
 
+            try:
+                account.cloud_account_info = environment_providers.get_cloud_account_info(account)
+            except:
+                account.cloud_account_info = {'error': ''}
+
             if account.checkUserAccess(request.daiteap_user):
                 cloudaccounts_filtered.append(account)
 
