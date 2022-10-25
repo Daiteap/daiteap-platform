@@ -70,6 +70,7 @@ keycloakRealm: Daiteap
 keycloakClientId: django-backend
 keycloakClientSecretKey: 
 
+useDNSforServices: "True"
 daiteapImageCredentials:
 
 vaultAddr: http://vault:8200
