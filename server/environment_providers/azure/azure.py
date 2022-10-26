@@ -1305,3 +1305,7 @@ def get_bucket_details(payload, request):
     azure_credentials = vault_service.read_secret(azure_account.credentials)
 
     return api_client.get_bucket_details(azure_credentials, payload['storage_account_url'], payload['bucket_name'])
+
+def get_cloud_account_info(cloud_account):
+    azure_credentials = vault_service.read_secret(cloud_account.credentials)
+    return api_client.get_cloud_account_info(azure_credentials)

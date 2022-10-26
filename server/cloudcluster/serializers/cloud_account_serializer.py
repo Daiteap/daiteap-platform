@@ -11,10 +11,11 @@ class CloudAccountSerializer(serializers.ModelSerializer):
     sharedCredentials = serializers.BooleanField(required=False)
     label = serializers.CharField(required=False)
     credential_data = serializers.DictField(required=False)
+    cloud_account_info = serializers.DictField(required=False)
 
     class Meta:
         model = CloudAccount
-        fields = ("label", "description", "contact", "created_at", "tenant", "provider", "regions_update_status", "regions_failed_msg", "user", "valid", "shared", "sharedCredentials", "account_params", "id", "credential_data")
+        fields = ("label", "description", "contact", "created_at", "tenant", "provider", "regions_update_status", "regions_failed_msg", "user", "valid", "shared", "sharedCredentials", "account_params", "id", "credential_data", "cloud_account_info")
         read_only_fields = ("id", "regions_update_status", "regions_failed_msg", "regions")
 
     def update(self, instance, validated_data):

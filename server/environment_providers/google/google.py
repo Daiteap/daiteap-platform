@@ -1072,3 +1072,7 @@ def get_bucket_details(payload, request):
     google_project = json.loads(vault_service.read_secret(google_account.credentials)['google_key'])['project_id']
 
     return api_client.get_bucket_details(google_credentials, google_project, payload['bucket_name'])
+
+def get_cloud_account_info(cloud_account):
+    google_credentials = json.loads(vault_service.read_secret(cloud_account.credentials)['google_key'])
+    return api_client.get_cloud_account_info(google_credentials)
