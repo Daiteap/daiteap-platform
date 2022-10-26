@@ -550,6 +550,9 @@ def validate_account_permissions(credentials, user_id, storage_enabled):
         cloud_account.valid = valid
         cloud_account.save()
 
+    if not valid:
+        return {'error': 'Error in LCM statuses', 'dlcmV2Images': valid}
+
     return {'dlcmV2Images': valid}
 
 def update_provider_regions(account_id, user_id):
