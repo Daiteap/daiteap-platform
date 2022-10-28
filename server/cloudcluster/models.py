@@ -338,6 +338,7 @@ class Service(models.Model):
     accessible_from_browser = models.BooleanField(blank=True, null=True, default=True)
     implemented = models.BooleanField(blank=True, null=True, default=False)
     visible = models.BooleanField(blank=True, null=True, default=True)
+    supports_multiple_installs = models.BooleanField(blank=True, null=True, default=True)
 
     def __str__(self):
         return self.name

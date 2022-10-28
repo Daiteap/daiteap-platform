@@ -57,7 +57,8 @@ class Command(BaseCommand):
                     'description': 'Nextcloud is a suite of client-server software for creating and using file hosting services. It is enterprise-ready with comprehensive support options.',
                     'options': '{"name":{"choice":"custom","type":"string"},"namespace":{"choice":"custom","type":"string","default":"default"},"service_type":{"choice":"single","values":["NodePort","LoadBalancer"],"default":"NodePort"},"cloud_providers":{"choice":"single","values":["google","aws","azure","alicloud", "openstack"]},"yamlConfig":true}',
                     'categories': [],
-                    'implemented': True
+                    'implemented': True,
+                    'supports_multiple_installs': False
                 },
                 {
                     'name': 'kubeapps',
@@ -278,6 +279,8 @@ class Command(BaseCommand):
                         service_obj.accessible_from_browser = service['accessible_from_browser']
                     if 'implemented' in service:
                         service_obj.implemented = service['implemented']
+                    if 'supports_multiple_installs' in service:
+                        service_obj.supports_multiple_installs = service['supports_multiple_installs']
                     service_obj.save()
                     for category in service['categories']:
                         service_obj.categories.add(ServiceCategory.objects.filter(name=category)[0])

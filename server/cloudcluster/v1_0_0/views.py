@@ -8499,6 +8499,17 @@ def add_service(request):
             }
         }, status=500)
 
+    # Check if service can be installed more than once
+    if not service.supports_multiple_installs:
+        serviceList = models.ClusterService.objects.filter(cluster=cluster).values('service__name')
+        for srvc in serviceList:
+            if srvc['service__name'] == service.name:
+                return JsonResponse({
+                    'error': {
+                        'message': 'Service can\'t be installed more than once in a cluster.'
+                    }
+                }, status=500)
+
     service_options = json.loads(service.options)
 
     # Get service configuration
