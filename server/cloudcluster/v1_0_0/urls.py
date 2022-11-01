@@ -77,6 +77,7 @@ urlpatterns = [
    path('getServiceList', views.get_service_list),
    path('getServiceValues', views.get_service_values),
    path('getServiceConnectionInfo', views.get_service_connection_info),
+   path('getTerraformPlan', views.get_tf_plan),
 
    path('oauth/azure/createApp', views.oauth_azure_create_app),
    path('oauth/azure/getsubscriptions', views.oauth_azure_get_subscriptions),

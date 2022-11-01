@@ -757,6 +757,14 @@ def worker_create_dlcm_environment(resources, cluster_id, user_id, tag_values):
 
         return
 
+@shared_task(ignore_result=False)
+def worker_get_tf_plan(resize_config, cluster_id, user_id, tag_values):
+    cluster = Clusters.objects.filter(id=cluster_id)[0]
+    resize_config = add_node_names_to_config(cluster, copy.deepcopy(resize_config))
+
+    tf_plan = environment_providers.get_terraform(resize_config, user_id, cluster_id, tag_values)
+    return {'tf_plan': tf_plan}
+
 def worker_resize_dlcm_v2_environment_remove_nodes(resize_config_input, cluster_id, user_id, tag_values):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
     current_config = json.loads(cluster.config)
