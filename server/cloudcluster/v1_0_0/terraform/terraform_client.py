@@ -107,9 +107,13 @@ class TerraformClient:
 
             log_data = {'user_id': user_id}
             output = run_shell.run_shell_with_subprocess_popen(cmd, log_output=False, workdir=workdir, return_stdout=True, log_data=log_data)
-            tf_plan = ''.join(output['stdout'])
 
-            return tf_plan
+            cmd = ['terraform', 'show', '-json', 'plan.out', '-no-color']
+
+            log_data = {'user_id': user_id}
+            output = run_shell.run_shell_with_subprocess_popen(cmd, log_output=False, workdir=workdir, return_stdout=True, log_data=log_data)
+
+            return json.loads(output['stdout'][0])
 
     def destroy(self, user_id, environment_id, environment_name):
         '''Destroys cluster, tfstate needs to be set'''
