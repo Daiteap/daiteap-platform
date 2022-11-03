@@ -4854,6 +4854,82 @@ def create_dlcm(request):
     })
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def get_tf_plan(request):
+    # Validate request
+    payload, error = get_request_body(request)
+    if error:
+        return error
+    schema = constants.RESIZE_KUBERNETES_INPUT_VALIDATION_SCHEMA
+    schema = environment_providers.add_input_validation_schemas(schema, payload)
+    try:
+        validate(instance=payload, schema=schema)
+    except ValidationError as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
+
+    # Check if cluster exists
+    try:
+        cluster = models.Clusters.objects.get(id=payload['clusterID'])
+    except models.Clusters.DoesNotExist:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error('Cluster does not exist', extra=log_data)
+        return JsonResponse({
+            'error': {
+                'message': 'Cluster does not exist',
+            }
+        }, status=400)
+
+    # get cluster config
+    cluster_config = json.loads(cluster.config)
+
+    config = {
+        'kubernetesConfiguration': cluster_config['kubernetesConfiguration'],
+        'internal_dns_zone': cluster_config['internal_dns_zone'],
+    }
+
+    if 'load_balancer_integration' in cluster_config and len(cluster_config['load_balancer_integration']) > 0:
+        config['load_balancer_integration'] = cluster_config['load_balancer_integration']
+
+    config.update(environment_providers.get_providers_config_params(payload, request.user))
+
+    tag_values = dict()
+    tag_values['username'] = request.user.username
+    tag_values['email'] = request.user.email
+    tag_values['url'] = request.headers['Origin']
+    tag_values['tenant_name'] = request.daiteap_user.tenant.name
+
+    # submit kubernetes creation
+    task = tasks.worker_get_tf_plan.delay(config, cluster.id, request.user.id, tag_values)
+
+    # Remove user old entries
+    old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
+    old_celerytasks.delete()
+
+    # Create new entry
+    celerytask = models.CeleryTask(user=request.user, task_id=task.id, cluster=cluster)
+    celerytask.save()
+
+    # return JSON response
+    return JsonResponse({
+        'ID': cluster.id,
+        'taskId': celerytask.id
+    })
+
+@api_view(['POST'])
 @permission_classes([IsAuthenticated,custom_permissions.ProjectAccessPermission])
 def resize_dlcm_v2(request):
     # Validate request
@@ -8054,6 +8130,8 @@ def get_task_message(request):
             response['lcmStatuses']['externalNetwork'] = msg['externalNetwork']
         if 'nodes' in msg:
             response['lcmStatuses']['nodes'] = msg['nodes']
+        if 'tf_plan' in msg:
+            response['lcmStatuses']['tf_plan'] = msg['tf_plan']
 
     elif (response['status'] == 'PENDING'):
         pass

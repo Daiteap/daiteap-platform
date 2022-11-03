@@ -248,6 +248,42 @@ def create_new_machines(resources, user_id, cluster_id, machines, new_indices_co
         if supported_provider in filtered_environment_providers and len(filtered_environment_providers) > 1:
             supported_providers[supported_provider]['provider'].run_added_machines_vpn_routing(resources, user_id, cluster_id, machines)
 
+def get_terraform(cluster_config, user_id, cluster_id, tag_values):
+    platform = TerraformClient()
+    platform.tfstate = {}
+    platform.tfvars = {}
+    platform.tf_filepath = ''
+    platform.code = ''
+
+    cluster = Clusters.objects.filter(id=cluster_id)[0]
+
+    filtered_environment_providers = []
+
+    for supported_provider in supported_providers:
+        if supported_provider in cluster_config:
+            filtered_environment_providers.append(supported_provider)
+            envornment_tf_variables = supported_providers[supported_provider]['provider'].get_tf_variables(
+                cluster_config[supported_provider],
+                cluster,
+                cluster_config['internal_dns_zone'],
+                tag_values
+            )
+
+            platform.code += supported_providers[supported_provider]['provider'].get_tf_code(cluster.type)
+            platform.tfvars.update(envornment_tf_variables)
+
+    # Add vpn terraform configurations
+    platform.code += get_vpn_tf_code(filtered_environment_providers)
+
+    try:
+        if cluster.tfstate:
+            platform.tfstate = ast.literal_eval(cluster.tfstate)
+    except:
+        pass
+
+    terraform_plan = platform.get_plan(user_id)
+    return terraform_plan
+
 def apply_terraform(cluster_config, user_id, cluster_id, tag_values):
     platform = TerraformClient()
     platform.tfstate = {}
