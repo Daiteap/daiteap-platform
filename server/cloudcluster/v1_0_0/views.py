@@ -1381,7 +1381,14 @@ def oauth_azure_create_app(request):
     if error:
         return error
 
-    task = tasks.worker_create_azure_oauth_credentials.delay(payload, request.user.id, request.daiteap_user.id)
+    try:
+        task = tasks.worker_create_azure_oauth_credentials.delay(payload, request.user.id, request.daiteap_user.id)
+    except Exception as e:
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
     old_celerytasks.delete()
@@ -3107,7 +3114,14 @@ def get_cluster_storage(request):
         }, status=400)
 
     # submit deletion
-    task = tasks.get_longhorn_storage_info.delay(cluster_id=payload['clusterID'])
+    try:
+        task = tasks.get_longhorn_storage_info.delay(cluster_id=payload['clusterID'])
+    except Exception as e:
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -3802,18 +3816,38 @@ def delete_cluster(request):
             }
         }, status=400)
 
+    old_cluster_status = cluster.installstep
     cluster.installstep = 100
     cluster.save()
 
     cluster_machines = models.Machine.objects.filter(cluster_id=payload['clusterID'])
 
+    old_machines_statuses = []
     if cluster.type == constants.ClusterType.COMPUTE_VMS.value:
         for machine in cluster_machines:
+            old_machines_statuses.append(machine.status)
             machine.status = 100
             machine.save()
 
     # submit deletion
-    task = tasks.worker_delete_cluster.delay(payload['clusterID'], request.user.id)
+    try:
+        task = tasks.worker_delete_cluster.delay(payload['clusterID'], request.user.id)
+    except Exception as e:
+        cluster.installstep = old_cluster_status
+        cluster.save()
+
+        if cluster.type == constants.ClusterType.COMPUTE_VMS.value:
+            i = 0
+            for machine in cluster_machines:
+                machine.status = old_machines_statuses[i]
+                machine.save()
+                i += 1
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -3922,9 +3956,11 @@ def remove_compute_node(request):
             }
         }, status=400)
 
+    old_node_status = node.status
     node.status = 100
     node.save()
 
+    old_cluster_status = cluster.resizestep
     cluster.resizestep=1
     cluster.save()
 
@@ -3935,7 +3971,20 @@ def remove_compute_node(request):
     tag_values['tenant_name'] = request.daiteap_user.tenant.name
 
     # submit kubernetes creation
-    task = tasks.worker_remove_compute_node.delay(payload['nodeID'], cluster.id, request.user.id, tag_values)
+    try:
+        task = tasks.worker_remove_compute_node.delay(payload['nodeID'], cluster.id, request.user.id, tag_values)
+    except Exception as e:
+        node.status = old_node_status
+        node.save()
+
+        cluster.resizestep = old_cluster_status
+        cluster.save()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -4035,11 +4084,22 @@ def stop_cluster(request):
             }
         }, status=400)
 
+    old_cluster_status = cluster.status
     cluster.status = 2
     cluster.save()
 
     # submit stop
-    task = tasks.worker_stop_cluster.delay(payload['clusterID'], request.user.id)
+    try:
+        task = tasks.worker_stop_cluster.delay(payload['clusterID'], request.user.id)
+    except Exception as e:
+        cluster.status = old_cluster_status
+        cluster.save()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -4137,11 +4197,22 @@ def start_cluster(request):
             }
         }, status=400)
 
+    old_cluster_status = cluster.status
     cluster.status = 1
     cluster.save()
 
     # submit start
-    task = tasks.worker_start_cluster.delay(payload['clusterID'], request.user.id)
+    try:
+        task = tasks.worker_start_cluster.delay(payload['clusterID'], request.user.id)
+    except Exception as e:
+        cluster.status = old_cluster_status
+        cluster.save()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -4238,11 +4309,22 @@ def restart_cluster(request):
             }
         }, status=400)
 
+    old_cluster_status = cluster.status
     cluster.status = 3
     cluster.save()
 
     # submit restart
-    task = tasks.worker_restart_cluster.delay(payload['clusterID'], request.user.id)
+    try:
+        task = tasks.worker_restart_cluster.delay(payload['clusterID'], request.user.id)
+    except Exception as e:
+        cluster.status = old_cluster_status
+        cluster.save()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -4367,11 +4449,22 @@ def stop_machine(request):
             }
         }, status=400)
 
+    old_machine_status = machine.status
     machine.status = 2
     machine.save()
 
     # submit stop
-    task = tasks.worker_stop_machine.delay(payload['clusterID'], payload['machineName'], payload['machineProvider'], request.user.id)
+    try:
+        task = tasks.worker_stop_machine.delay(payload['clusterID'], payload['machineName'], payload['machineProvider'], request.user.id)
+    except Exception as e:
+        machine.status = old_machine_status
+        machine.save()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -4496,11 +4589,22 @@ def start_machine(request):
             }
         }, status=400)
 
+    old_machine_status = machine.status
     machine.status = 1
     machine.save()
 
     # submit start
-    task = tasks.worker_start_machine.delay(payload['clusterID'], payload['machineName'], payload['machineProvider'], request.user.id)
+    try:
+        task = tasks.worker_start_machine.delay(payload['clusterID'], payload['machineName'], payload['machineProvider'], request.user.id)
+    except Exception as e:
+        machine.status = old_machine_status
+        machine.save()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -4625,11 +4729,22 @@ def restart_machine(request):
             }
         }, status=400)
 
+    old_machine_status = machine.status
     machine.status = 3
     machine.save()
 
     # submit restart
-    task = tasks.worker_restart_machine.delay(payload['clusterID'], payload['machineName'], payload['machineProvider'], request.user.id)
+    try:
+        task = tasks.worker_restart_machine.delay(payload['clusterID'], payload['machineName'], payload['machineProvider'], request.user.id)
+    except Exception as e:
+        machine.status = old_machine_status
+        machine.save()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -4837,7 +4952,16 @@ def create_dlcm(request):
     tag_values['tenant_name'] = request.daiteap_user.tenant.name
 
     # submit kubernetes creation
-    task = tasks.worker_create_dlcm_environment.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
+    try:
+        task = tasks.worker_create_dlcm_environment.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
+    except Exception as e:
+        cluster.delete()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -4913,7 +5037,14 @@ def get_tf_plan(request):
     tag_values['tenant_name'] = request.daiteap_user.tenant.name
 
     # submit kubernetes creation
-    task = tasks.worker_get_tf_plan.delay(config, cluster.id, request.user.id, tag_values)
+    try:
+        task = tasks.worker_get_tf_plan.delay(config, cluster.id, request.user.id, tag_values)
+    except Exception as e:
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -5048,6 +5179,7 @@ def resize_dlcm_v2(request):
     if error:
         return error
 
+    old_cluster_status = cluster.resizestep
     cluster.resizestep=1
     cluster.resizeconfig=json.dumps(config)
     cluster.user = request.user
@@ -5061,7 +5193,17 @@ def resize_dlcm_v2(request):
     tag_values['tenant_name'] = request.daiteap_user.tenant.name
 
     # submit kubernetes creation
-    task = tasks.worker_resize_dlcm_v2_environment.delay(config, cluster.id, request.user.id, tag_values)
+    try:
+        task = tasks.worker_resize_dlcm_v2_environment.delay(config, cluster.id, request.user.id, tag_values)
+    except Exception as e:
+        cluster.resizestep = old_cluster_status
+        cluster.save()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -5249,7 +5391,12 @@ def create_dlcm_v2(request):
         task = tasks.worker_create_dlcm_v2_environment.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
     except Exception as e:
         cluster.delete()
-        raise e
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -5410,7 +5557,12 @@ def create_capi_cluster(request):
         task = tasks.worker_create_capi_cluster.delay(json.loads(cluster.capi_config), cluster.id, request.user.id)
     except Exception as e:
         cluster.delete()
-        raise e
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -5488,10 +5640,21 @@ def resize_capi_cluster(request):
             }
         }, status=500)
 
+    old_cluster_status = cluster.resizestep
     cluster.resizestep = 1
     cluster.save()
 
-    task = tasks.worker_resize_capi_cluster.delay(payload['openstack']['workerNodes'], cluster.id, request.user.id)
+    try:
+        task = tasks.worker_resize_capi_cluster.delay(payload['openstack']['workerNodes'], cluster.id, request.user.id)
+    except Exception as e:
+        cluster.resizestep = old_cluster_status
+        cluster.save()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -5566,7 +5729,14 @@ def retry_create_capi_cluster(request):
             }
         }, status=400)
 
-    task = tasks.worker_create_capi_cluster.delay(json.loads(cluster.capi_config), cluster.id, request.user.id)
+    try:
+        task = tasks.worker_create_capi_cluster.delay(json.loads(cluster.capi_config), cluster.id, request.user.id)
+    except Exception as e:
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -5649,11 +5819,22 @@ def delete_capi_cluster(request):
             }
         }, status=400)
 
+    old_cluster_status = cluster.installstep
     cluster.installstep = 100
     cluster.save()
 
     # submit deletion
-    task = tasks.worker_delete_capi_cluster.delay(payload['clusterID'], request.user.id)
+    try:
+        task = tasks.worker_delete_capi_cluster.delay(payload['clusterID'], request.user.id)
+    except Exception as e:
+        cluster.installstep = old_cluster_status
+        cluster.save()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -5803,7 +5984,12 @@ def create_yaookcapi_cluster(request):
         task = tasks.worker_create_yaookcapi_cluster.delay(cluster.id, request.user.id)
     except Exception as e:
         cluster.delete()
-        raise e
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -5881,10 +6067,21 @@ def resize_yaookcapi_cluster(request):
             }
         }, status=500)
 
+    old_cluster_status = cluster.resizestep
     cluster.resizestep = 1
     cluster.save()
 
-    task = tasks.worker_resize_yaookcapi_cluster.delay(payload['openstack']['workerNodes'], cluster.id, request.user.id)
+    try:
+        task = tasks.worker_resize_yaookcapi_cluster.delay(payload['openstack']['workerNodes'], cluster.id, request.user.id)
+    except Exception as e:
+        cluster.resizestep = old_cluster_status
+        cluster.save()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -5959,7 +6156,14 @@ def retry_create_yaookcapi_cluster(request):
             }
         }, status=400)
 
-    task = tasks.worker_create_yaookcapi_cluster.delay(json.loads(cluster.yaookcapi_config), cluster.id, request.user.id)
+    try:
+        task = tasks.worker_create_yaookcapi_cluster.delay(json.loads(cluster.yaookcapi_config), cluster.id, request.user.id)
+    except Exception as e:
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -6043,11 +6247,22 @@ def delete_yaookcapi_cluster(request):
             }
         }, status=400)
 
+    old_cluster_status = cluster.installstep
     cluster.installstep = 100
     cluster.save()
 
     # submit deletion
-    task = tasks.worker_delete_yaookcapi_cluster.delay(payload['clusterID'], request.user.id)
+    try:
+        task = tasks.worker_delete_yaookcapi_cluster.delay(payload['clusterID'], request.user.id)
+    except Exception as e:
+        cluster.installstep = old_cluster_status
+        cluster.save()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -6224,7 +6439,12 @@ def create_k3s_cluster(request):
         task = tasks.worker_create_k3s_cluster.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
     except Exception as e:
         cluster.delete()
-        raise e
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -6316,7 +6536,14 @@ def upgrade_kubernetes_cluster(request):
             }
         }, status=400)
 
-    task = tasks.worker_upgrade_kubernetes_cluster.delay(config, cluster.id, request.user.id, payload['version'])
+    try:
+        task = tasks.worker_upgrade_kubernetes_cluster.delay(config, cluster.id, request.user.id, payload['version'])
+    except Exception as e:
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -6408,7 +6635,14 @@ def upgrade_k3s_cluster(request):
             }
         }, status=400)
 
-    task = tasks.worker_upgrade_k3s_cluster.delay(config, cluster.id, request.user.id, payload['version'])
+    try:
+        task = tasks.worker_upgrade_k3s_cluster.delay(config, cluster.id, request.user.id, payload['version'])
+    except Exception as e:
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -6491,7 +6725,14 @@ def retry_create_k3s_cluster(request):
     tag_values['url'] = request.headers['Origin']
     tag_values['tenant_name'] = request.daiteap_user.tenant.name
 
-    task = tasks.worker_create_k3s_cluster.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
+    try:
+        task = tasks.worker_create_k3s_cluster.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
+    except Exception as e:
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -6606,10 +6847,17 @@ def retry_create_dlcm(request):
     tag_values['url'] = request.headers['Origin']
     tag_values['tenant_name'] = request.daiteap_user.tenant.name
 
-    if cluster.type == constants.ClusterType.DLCM_V2.value:
-        task = tasks.worker_create_dlcm_v2_environment.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
-    else:
-        task = tasks.worker_create_dlcm_environment.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
+    try:
+        if cluster.type == constants.ClusterType.DLCM_V2.value:
+            task = tasks.worker_create_dlcm_v2_environment.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
+        else:
+            task = tasks.worker_create_dlcm_environment.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
+    except Exception as e:
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -6693,7 +6941,14 @@ def retry_resize_dlcm(request):
             }
         }, status=500)
 
-    task = tasks.worker_add_machines_to_dlcm.delay(json.loads(cluster.config), cluster.id, request.user.id)
+    try:
+        task = tasks.worker_add_machines_to_dlcm.delay(json.loads(cluster.config), cluster.id, request.user.id)
+    except Exception as e:
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -6786,7 +7041,14 @@ def retry_resize_dlcm_v2(request):
             }
         }, status=500)
 
-    task = tasks.worker_add_machines_to_dlcm_v2.delay(json.loads(cluster.config), cluster.id, request.user.id)
+    try:
+        task = tasks.worker_add_machines_to_dlcm_v2.delay(json.loads(cluster.config), cluster.id, request.user.id)
+    except Exception as e:
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -6871,7 +7133,14 @@ def retry_resize_vms_cluster(request):
             }
         }, status=500)
 
-    task = tasks.worker_add_machines_to_vms.delay(json.loads(cluster.config), request.user.id)
+    try:
+        task = tasks.worker_add_machines_to_vms.delay(json.loads(cluster.config), request.user.id)
+    except Exception as e:
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -6950,7 +7219,14 @@ def retry_create_vms(request):
     tag_values['tenant_name'] = request.daiteap_user.tenant.name
 
     # submit VMs creation
-    task = tasks.worker_create_vms.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
+    try:
+        task = tasks.worker_create_vms.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
+    except Exception as e:
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -7029,7 +7305,14 @@ def retry_create_compute_vms(request):
     tag_values['tenant_name'] = request.daiteap_user.tenant.name
 
     # submit VMs creation
-    task = tasks.worker_create_compute_vms.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
+    try:
+        task = tasks.worker_create_compute_vms.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
+    except Exception as e:
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -7107,7 +7390,17 @@ def cancel_cluster_creation(request):
     cluster.canceled = True
     cluster.save()
 
-    task = tasks.worker_cancel_cluster_creation.delay(cluster.id, request.user.id)
+    try:
+        task = tasks.worker_cancel_cluster_creation.delay(cluster.id, request.user.id)
+    except Exception as e:
+        cluster.canceled = False
+        cluster.save()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -7287,9 +7580,21 @@ def add_machines_to_vms(request):
     if error:
         return error
 
+    old_cluster_status = cluster.resizestep
     cluster.resizestep = 1
     cluster.save()
-    task = tasks.worker_add_machines_to_vms.delay(payload, request.user.id)
+
+    try:
+        task = tasks.worker_add_machines_to_vms.delay(payload, request.user.id)
+    except Exception as e:
+        cluster.resizestep = old_cluster_status
+        cluster.save()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -7470,9 +7775,21 @@ def add_machines_to_k3s(request):
         return error
 
     # Submit cluster machine creation
+    old_cluster_status = cluster.resizestep
     cluster.resizestep = 1
     cluster.save()
-    task = tasks.worker_add_machines_to_k3s.delay(payload, request.user.id)
+
+    try:
+        task = tasks.worker_add_machines_to_k3s.delay(payload, request.user.id)
+    except Exception as e:
+        cluster.resizestep = old_cluster_status
+        cluster.save()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -7652,10 +7969,21 @@ def add_machines_to_dlcm(request):
         return error
 
     # Submit cluster machine creation
+    old_cluster_status = cluster.resizestep
     cluster.resizestep = 1
     cluster.save()
 
-    task = tasks.worker_add_machines_to_dlcm.delay(payload, request.user.id)
+    try:
+        task = tasks.worker_add_machines_to_dlcm.delay(payload, request.user.id)
+    except Exception as e:
+        cluster.resizestep = old_cluster_status
+        cluster.save()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -7842,10 +8170,21 @@ def add_machines_to_dlcm_v2(request):
         return error
 
     # Submit cluster machine creation
+    old_cluster_status = cluster.resizestep
     cluster.resizestep = 1
     cluster.save()
 
-    task = tasks.worker_add_machines_to_dlcm_v2.delay(payload, request.user.id)
+    try:
+        task = tasks.worker_add_machines_to_dlcm_v2.delay(payload, request.user.id)
+    except Exception as e:
+        cluster.resizestep = old_cluster_status
+        cluster.save()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -8267,7 +8606,16 @@ def create_VMs(request):
     tag_values['tenant_name'] = request.daiteap_user.tenant.name
 
     # submit VMs creation
-    task = tasks.worker_create_vms.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
+    try:
+        task = tasks.worker_create_vms.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
+    except Exception as e:
+        cluster.delete()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -8412,7 +8760,12 @@ def create_compute_VMs(request):
         task = tasks.worker_create_compute_vms.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
     except Exception as e:
         cluster.delete()
-        raise e
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -8732,12 +9085,19 @@ def add_service(request):
         return error
 
     # Submit service
-    task = tasks.worker_add_service_kubernetes_cluster.delay(
-        payload['serviceName'],
-        payload['configurationType'],
-        configuration,
-        cluster.id
-    )
+    try:
+        task = tasks.worker_add_service_kubernetes_cluster.delay(
+            payload['serviceName'],
+            payload['configurationType'],
+            configuration,
+            cluster.id
+        )
+    except Exception as e:
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -8899,7 +9259,14 @@ def delete_service(request):
         }, status=500)
 
     # Submit service deletion
-    task = tasks.worker_delete_service_kubernetes_cluster.delay(payload['name'], namespace, payload['clusterID'])
+    try:
+        task = tasks.worker_delete_service_kubernetes_cluster.delay(payload['name'], namespace, payload['clusterID'])
+    except Exception as e:
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -9225,7 +9592,16 @@ users:
         new_cluster_user.save()
 
     # Submit cluster user creation
-    task = tasks.worker_create_cluster_user.delay(cluster_user, cluster.id, request.user.id)
+    try:
+        task = tasks.worker_create_cluster_user.delay(cluster_user, cluster.id, request.user.id)
+    except Exception as e:
+        new_cluster_user.delete()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -9335,7 +9711,14 @@ def delete_user_from_cluster(request):
         }, status=500)
 
     # Submit cluster user deletion
-    task = tasks.worker_delete_cluster_user.delay(cluster_user.username, cluster.id, request.user.id, payload)
+    try:
+        task = tasks.worker_delete_cluster_user.delay(cluster_user.username, cluster.id, request.user.id, payload)
+    except Exception as e:
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
