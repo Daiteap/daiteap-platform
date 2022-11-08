@@ -19,6 +19,22 @@ schema_view = get_schema_view(
 
 urlpatterns = [
    re_path(r'^spec/$', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+
+   path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/details', views.get_cluster_details),
+   path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/storage', views.get_cluster_storage),
+   path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/config', views.get_cluster_config),
+   path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/kubeconfig', views.get_cluster_kubeconfig),
+   path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/wireguard-config', views.get_wireguard_config),
+   path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/installation-status', views.get_installation_status),
+   path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/resize-status', views.get_resize_status),
+   
+   path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/user/<str:username>/kubeconfig', views.get_user_kubeconfig),
+
+
+
+
+   # ------------------------------------------------------------------------------------
+
    path('profile', views.profile),
    path('user', views.user),
    path('profilepicture', views.user_profile_picture),
@@ -53,16 +69,7 @@ urlpatterns = [
    path('isAlive', views.is_alive),
    path('getVersion', views.get_version),
 
-   path('getInstallationStatus', views.get_installation_status),
-   path('getResizeStatus', views.get_resize_status),
    path('getClusterList', views.get_cluster_list),
-   path('getUserKubeconfig', views.get_user_kubeconfig),
-   path('getClusterKubeconfig', views.get_cluster_kubeconfig),
-   path('getWireguardConfig', views.get_wireguard_config),
-   path('getClusterDetails', views.get_cluster_details),
-   path('getClusterStorage', views.get_cluster_storage),
-   path('getClusterTfCode', views.get_cluster_tfcode),
-   path('getClusterConfig', views.get_cluster_config),
    path('getKubernetesAvailableUpgradeVersions', views.get_kubernetes_available_upgrade_versions),
    path('generateClusterServiceDefaultName', views.generate_cluster_service_default_name),
    path('isClusterNameFree', views.is_cluster_name_free),

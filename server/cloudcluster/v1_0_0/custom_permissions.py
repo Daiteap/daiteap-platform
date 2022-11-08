@@ -7,19 +7,146 @@ from . import views
 
 SAFE_METHODS = ('GET', 'HEAD', 'OPTIONS')
 
-# requires 'projectId' parameter within JSON-formatted payload in request
-class ProjectAccessPermission(permissions.BasePermission):
+
+class CloudAccountAccessPermission(permissions.BasePermission):
     def has_permission(self, request, view):
-        payload, error = views.get_request_body(request)
-        if error:
+        tenant_id = request.parser_context['kwargs']['tenant_id']
+        cloudaccount_id = request.parser_context['kwargs']['cloudaccount_id']
+        user = request.user
+
+        # check if tenant exists
+        try:
+            tenant = models.Tenant.objects.get(id=tenant_id)
+        except models.Tenant.DoesNotExist:
             return False
 
-        projects = models.Project.objects.filter(id=payload['projectId'])
-        if len(projects) == 0:
+        # check if user is in tenant
+        try:
+            daiteap_user = models.DaiteapUser.objects.get(
+                user=user, tenant=tenant)
+        except models.DaiteapUser.DoesNotExist:
             return False
-        project = projects[0]
-        
-        return project.checkUserAccess(request.daiteap_user)
+
+        # check if cloud credential exists in tenant
+        try:
+            cloudaccount = models.CloudAccount.objects.get(
+                id=cloudaccount_id, tenant_id=tenant_id)
+        except models.CloudAccount.DoesNotExist:
+            return False
+
+        # check if user can access cloud credential
+        if daiteap_user.isAdmin() or cloudaccount.shared or cloudaccount.user == user or cloudaccount.user == None:
+            return True
+        else:
+            return False
+
+
+class ProjectAccessPermission(permissions.BasePermission):
+    def has_permission(self, request, view):
+        tenant_id = request.parser_context['kwargs']['tenant_id']
+        project_id = request.parser_context['kwargs']['project_id']
+        user = request.user
+
+        # check if tenant exists
+        try:
+            tenant = models.Tenant.objects.get(id=tenant_id)
+        except models.Tenant.DoesNotExist:
+            return False
+
+        # check if user is in tenant
+        try:
+            daiteap_user = models.DaiteapUser.objects.get(
+                user=user, tenant=tenant)
+        except models.DaiteapUser.DoesNotExist:
+            return False
+
+        # check if project exists in tenant
+        try:
+            project = models.Project.objects.get(
+                id=project_id, tenant_id=tenant_id)
+        except models.Project.DoesNotExist:
+            return False
+
+        # check if user can access project
+        if daiteap_user.isAdmin() or project in daiteap_user.projects.all():
+            return True
+        else:
+            return False
+
+
+class ClusterAccessPermission(permissions.BasePermission):
+    def has_permission(self, request, view):
+        tenant_id = request.parser_context['kwargs']['tenant_id']
+        cluster_id = request.parser_context['kwargs']['cluster_id']
+        user = request.user
+
+        # check if tenant exists
+        try:
+            tenant = models.Tenant.objects.get(id=tenant_id)
+        except models.Tenant.DoesNotExist:
+            return False
+
+        # check if user is in tenant
+        try:
+            daiteap_user = models.DaiteapUser.objects.get(
+                user=user, tenant=tenant)
+        except models.DaiteapUser.DoesNotExist:
+            return False
+
+        # check if cluster exists in tenant
+        try:
+            cluster = models.Clusters.objects.get(
+                id=cluster_id, project__tenant_id=tenant_id)
+        except models.Clusters.DoesNotExist:
+            try:
+                cluster = models.CapiCluster.objects.get(
+                    id=cluster_id, project__tenant_id=tenant_id)
+            except models.CapiCluster.DoesNotExist:
+                try:
+                    cluster = models.YaookCapiCluster.objects.get(
+                        id=cluster_id, project__tenant_id=tenant_id)
+                except models.YaookCapiCluster.DoesNotExist:
+                    return False
+
+        # check if user can access cluster
+        if daiteap_user.isAdmin() or cluster.project in daiteap_user.projects.all():
+            return True
+        else:
+            return False
+
+
+class BucketAccessPermission(permissions.BasePermission):
+    def has_permission(self, request, view):
+        tenant_id = request.parser_context['kwargs']['tenant_id']
+        bucket_id = request.parser_context['kwargs']['bucket_id']
+        user = request.user
+
+        # check if tenant exists
+        try:
+            tenant = models.Tenant.objects.get(id=tenant_id)
+        except models.Tenant.DoesNotExist:
+            return False
+
+        # check if user is in tenant
+        try:
+            daiteap_user = models.DaiteapUser.objects.get(
+                user=user, tenant=tenant)
+        except models.DaiteapUser.DoesNotExist:
+            return False
+
+        # check if bucket exists in tenant
+        try:
+            bucket = models.Bucket.objects.get(
+                id=bucket_id, project__tenant_id=tenant_id)
+        except models.Bucket.DoesNotExist:
+            return False
+
+        # check if user can access bucket
+        if daiteap_user.isAdmin() or bucket.project in daiteap_user.projects.all():
+            return True
+        else:
+            return False
+
 
 class IsAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -29,8 +156,9 @@ class IsAdmin(permissions.BasePermission):
         daiteapuser = request.daiteap_user
         if daiteapuser.isBusinessAccountOwner():
             return True
-        
+
         return daiteapuser.isAdmin()
+
 
 class IsUnregistered(permissions.BasePermission):
     def has_permission(self, request, view):
