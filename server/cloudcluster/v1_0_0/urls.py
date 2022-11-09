@@ -20,6 +20,13 @@ schema_view = get_schema_view(
 urlpatterns = [
    re_path(r'^spec/$', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
 
+   path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>/storage-accounts', views.get_storage_accounts),
+
+   path('tenants/<str:tenant_id>/buckets', views.bucket_list),
+   path('tenants/<str:tenant_id>/buckets/<str:bucket_id>', views.bucket_detail),
+   path('tenants/<str:tenant_id>/buckets/<str:bucket_id>/files/<path:path>', views.bucket_files),
+   path('tenants/<str:tenant_id>/buckets/<str:bucket_id>/files/<path:path>/download', views.download_bucket_file),
+
    path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/details', views.get_cluster_details),
    path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/storage', views.get_cluster_storage),
    path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/config', views.get_cluster_config),
@@ -27,9 +34,7 @@ urlpatterns = [
    path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/wireguard-config', views.get_wireguard_config),
    path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/installation-status', views.get_installation_status),
    path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/resize-status', views.get_resize_status),
-   
    path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/user/<str:username>/kubeconfig', views.get_user_kubeconfig),
-
 
 
 
@@ -45,22 +50,11 @@ urlpatterns = [
    path('cloud-credentials', views.cloud_account_list),
    path('cloud-credentials/<str:cloudaccount_id>', views.cloud_account_detail),
 
-   path('buckets', views.bucket_list),
-   path('buckets/<str:bucket_id>', views.bucket_detail),
-
    path('userUserToProject', views.add_user_to_project),
    path('removeUserFromProject', views.remove_user_from_project),
    path('isProjectNameFree', views.is_project_name_free),
    path('get_project_userlist', views.get_project_userlist),
    path('getSpecificUserInfo/<str:tenant>/<str:username>', views.get_specific_user_info),
-
-   path('getBucketFiles', views.get_bucket_files),
-   path('addBucketFile', views.add_bucket_file),
-   path('deleteBucketFile', views.delete_bucket_file),
-   path('downloadBucketFile', views.download_bucket_file),
-   path('getStorageAccounts', views.get_storage_accounts),
-   path('deleteBucketFolder', views.delete_bucket_folder),
-   path('getBucketDetails', views.get_bucket_details),
 
    path('checkAccountRegionsUpdateStatus', views.check_account_regions_update_status),
 

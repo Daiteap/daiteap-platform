@@ -636,10 +636,10 @@ def cloud_account_detail(request, cloudaccount_id):
         operation_summary="Create bucket.")
 @permission_classes([IsAuthenticated])
 @api_view(['GET', 'POST'])
-def bucket_list(request):
+def bucket_list(request, tenant_id):
     if request.method == 'GET':
         buckets = []
-        bucket_records = models.Bucket.objects.filter(project__tenant_id=request.daiteap_user.tenant_id)
+        bucket_records = models.Bucket.objects.filter(project__tenant_id=tenant_id)
 
         for bucket in bucket_records:
             if bucket.checkUserAccess(request.daiteap_user):
@@ -668,17 +668,35 @@ def bucket_list(request):
 @swagger_auto_schema(method='delete',
         operation_description="Delete bucket.",
         operation_summary="Delete bucket.")
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, custom_permissions.BucketAccessPermission])
 @api_view(['GET', 'PUT', 'DELETE'])
-def bucket_detail(request, bucket_id):
+def bucket_detail(request, tenant_id, bucket_id):
     try:
-        bucket = models.Bucket.objects.get(id=bucket_id)
+        bucket = models.Bucket.objects.get(id=bucket_id, project__tenant_id=tenant_id)
     except models.Bucket.DoesNotExist:
         return Response(status=status.HTTP_404_NOT_FOUND)
 
+    if bucket.credential.valid != True:
+        return Response({
+            'error': {
+                'message': 'Credentials are not valid.'
+            }
+        }, status=400)
+
     if request.method == 'GET':
-        serializer = BucketSerializer(bucket)
-        return Response(serializer.data)
+        storage_bucket_data = {}
+
+        storage_bucket_data['provider'] = bucket.provider
+        storage_bucket_data['credential_id'] = bucket.credential.id
+        storage_bucket_data['bucket_name'] = bucket.name
+        storage_bucket_data['storage_account_url'] = bucket.storage_account
+
+        response = environment_providers.get_bucket_details(storage_bucket_data, request)
+        if 'error' in response.keys():
+            return JsonResponse(response, status=400)
+        else:
+            return JsonResponse(response, status=200)
+        
     if request.method == 'PUT':
         serializer = BucketSerializer(bucket, data=request.data)
         if serializer.is_valid():
@@ -686,21 +704,6 @@ def bucket_detail(request, bucket_id):
             return Response(serializer.data)
         return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
     if request.method == 'DELETE':
-        bucket = models.Bucket.objects.filter(id=bucket_id)[0]
-        if not bucket.checkUserAccess(request.daiteap_user):
-            return Response({
-                'error': {
-                    'message': 'You do not have access to this bucket'
-                }
-            }, status.HTTP_400_BAD_REQUEST)
-
-        if bucket.credential.valid != True:
-            return Response({
-                'error': {
-                    'message': 'Credentials are not valid.'
-                }
-            }, status=400)
-
         storage_bucket_data = {}
 
         storage_bucket_data['provider'] = bucket.provider
@@ -10509,59 +10512,137 @@ def update_user(request):
         'submitted': True
     })
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def get_storage_buckets(request):
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
+@api_view(['GET', 'POST', 'DELETE'])
+@permission_classes([IsAuthenticated, custom_permissions.BucketAccessPermission])
+def bucket_files(request, tenant_id, bucket_id, path):
+    bucket = models.Bucket.objects.get(id=bucket_id, project__tenant_id=tenant_id)
+    if bucket.credential.valid != True:
+        return JsonResponse({
+            'error': {
+                'message': 'Credentials are not valid.'
+            }
+        }, status=400)
 
-    schema = {
-        "type": "object",
-        "properties": {
-            "provider": {
-                "type": "string",
-                "minLength": 1
-            },
-            "credential_id": {
-                "type": "number"
-            },
-            "storage_account_url": {
-                "type": "string",
-                "minLength": 1
-            },
-        },
-        "required": ["provider", "credential_id"]
-    }
+    if len(path) < 0:
+        return JsonResponse({
+            'error': {
+                'message': 'Invalid path.'
+            }
+        }, status=400)
 
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
+    if request.method == 'GET':
+        storage_bucket_data = {}
+        storage_bucket_data['bucket_id'] = bucket_id
+        storage_bucket_data['path'] = path
+        storage_bucket_data['provider'] = bucket.provider
+        storage_bucket_data['credential_id'] = bucket.credential.id
+        storage_bucket_data['bucket_name'] = bucket.name
+        storage_bucket_data['storage_account_url'] = bucket.storage_account
+
+        response = environment_providers.get_bucket_files(storage_bucket_data, request)
+        if 'error' in response.keys():
+            return JsonResponse(response, status=400)
+        else:
+            return JsonResponse(response, status=200)
+
+    if request.method == 'POST':
+        payload, error = get_request_body(request)
+        if error is not None:
+            return error
+
+        payload['file_name'] = path
+
+        schema = {
+            "type": "object",
+            "properties": {
+                "file_name": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "content_type": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "contents": {},
+            },
+            "required": ["file_name", "content_type", "contents"]
         }
-        logger.error(str(e), extra=log_data)
+
+        try:
+            validate(instance=payload, schema=schema)
+        except ValidationError as e:
+            log_data = {
+                'level': 'ERROR',
+                'user_id': str(request.user.id),
+            }
+            logger.error(str(e), extra=log_data)
+            return JsonResponse({
+                'error': {
+                    'message': str(e),
+                }
+            }, status=400)
+
+        payload['bucket_id'] = bucket_id
+        payload['provider'] = bucket.provider
+        payload['credential_id'] = bucket.credential.id
+        payload['bucket_name'] = bucket.name
+        payload['storage_account_url'] = bucket.storage_account
+
+        response = environment_providers.add_bucket_file(payload, request)
+        if 'error' in response.keys():
+            return JsonResponse(response, status=400)
+        else:
+            return JsonResponse(response, status=200)
+
+    if request.method == 'DELETE':
+        storage_bucket_data = {}
+        storage_bucket_data['bucket_id'] = bucket_id
+        storage_bucket_data['provider'] = bucket.provider
+        storage_bucket_data['credential_id'] = bucket.credential.id
+        storage_bucket_data['bucket_name'] = bucket.name
+        storage_bucket_data['storage_account_url'] = bucket.storage_account
+
+        if path[len(path) - 1] == "/":
+            storage_bucket_data['folder_path'] = path
+            response = environment_providers.delete_bucket_folder(payload, request)
+        else:
+            storage_bucket_data['file_name'] = path
+            response = environment_providers.delete_bucket_file(payload, request)
+
+        if 'error' in response.keys():
+            return JsonResponse(response, status=400)
+        else:
+            return JsonResponse(response, status=200)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, custom_permissions.BucketAccessPermission])
+def download_bucket_file(request, tenant_id, bucket_id, path):
+    bucket = models.Bucket.objects.get(id=bucket_id, project__tenant_id=tenant_id)
+    if bucket.credential.valid != True:
         return JsonResponse({
             'error': {
-                'message': str(e),
+                'message': 'Credentials are not valid.'
             }
         }, status=400)
 
-    try:
-        account = models.CloudAccount.objects.filter(id=payload['credential_id'])[0]
-    except:
-        return JsonResponse({
-            'error': {
-                'message': 'Credentials dont exist.',
-            }
-        }, status=400)
-    if not account.checkUserAccess(request.daiteap_user):
-        return JsonResponse({
-            'error': {
-                'message': 'Credentials access denied.',
-            }
-        }, status=403)
+    storage_bucket_data = {}
+    storage_bucket_data['bucket_id'] = bucket_id
+    storage_bucket_data['file_name'] = path
+    storage_bucket_data['provider'] = bucket.provider
+    storage_bucket_data['credential_id'] = bucket.credential.id
+    storage_bucket_data['bucket_name'] = bucket.name
+    storage_bucket_data['storage_account_url'] = bucket.storage_account
+
+    response = environment_providers.download_bucket_file(storage_bucket_data, request)
+    if 'error' in response.keys():
+        return JsonResponse(response, status=400)
+    else:
+        return JsonResponse(response, status=200)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, custom_permissions.CloudAccountAccessPermission])
+def get_storage_accounts(request, tenant_id, cloudaccount_id):
+    account = models.CloudAccount.objects.get(id=cloudaccount_id, tenant_id=tenant_id)
     if account.valid != True:
         return JsonResponse({
             'error': {
@@ -10569,442 +10650,7 @@ def get_storage_buckets(request):
             }
         }, status=400)
 
-    response = environment_providers.get_storage_buckets(payload, request)
-    if 'error' in response.keys():
-        return JsonResponse(response, status=400)
-    else:
-        return JsonResponse(response, status=200)
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def get_bucket_files(request):
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "bucket_id": {
-                "type": "number"
-            },
-            "path": {
-                "type": "string",
-                "minLength": 1
-            },
-        },
-        "required": ["bucket_id", "path"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    bucket = models.Bucket.objects.filter(id=payload['bucket_id'])[0]
-    if not bucket.checkUserAccess(request.daiteap_user):
-        return JsonResponse({
-            'error': {
-                'message': 'Storage access denied.',
-            }
-        }, status=403)
-
-    if bucket.credential.valid != True:
-        return JsonResponse({
-            'error': {
-                'message': 'Credentials are not valid.'
-            }
-        }, status=400)
-
-    payload['provider'] = bucket.provider
-    payload['credential_id'] = bucket.credential.id
-    payload['bucket_name'] = bucket.name
-    payload['storage_account_url'] = bucket.storage_account
-
-    response = environment_providers.get_bucket_files(payload, request)
-    if 'error' in response.keys():
-        return JsonResponse(response, status=400)
-    else:
-        return JsonResponse(response, status=200)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def add_bucket_file(request):
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "bucket_id": {
-                "type": "number"
-            },
-            "file_name": {
-                "type": "string",
-                "minLength": 1
-            },
-            "content_type": {
-                "type": "string",
-                "minLength": 1
-            },
-            "contents": {},
-        },
-        "required": ["bucket_id", "file_name", "content_type", "contents"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    bucket = models.Bucket.objects.filter(id=payload['bucket_id'])[0]
-    if not bucket.checkUserAccess(request.daiteap_user):
-        return JsonResponse({
-            'error': {
-                'message': 'Storage access denied.',
-            }
-        }, status=403)
-
-    if bucket.credential.valid != True:
-        return JsonResponse({
-            'error': {
-                'message': 'Credentials are not valid.'
-            }
-        }, status=400)
-
-    payload['provider'] = bucket.provider
-    payload['credential_id'] = bucket.credential.id
-    payload['bucket_name'] = bucket.name
-    payload['storage_account_url'] = bucket.storage_account
-
-    response = environment_providers.add_bucket_file(payload, request)
-    if 'error' in response.keys():
-        return JsonResponse(response, status=400)
-    else:
-        return JsonResponse(response, status=200)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def delete_bucket_file(request):
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "bucket_id": {
-                "type": "number"
-            },
-            "file_name": {
-                "type": "string",
-                "minLength": 1
-            },
-        },
-        "required": ["bucket_id", "file_name"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    bucket = models.Bucket.objects.filter(id=payload['bucket_id'])[0]
-    if not bucket.checkUserAccess(request.daiteap_user):
-        return JsonResponse({
-            'error': {
-                'message': 'Storage access denied.',
-            }
-        }, status=403)
-
-    if bucket.credential.valid != True:
-        return JsonResponse({
-            'error': {
-                'message': 'Credentials are not valid.'
-            }
-        }, status=400)
-
-    payload['provider'] = bucket.provider
-    payload['credential_id'] = bucket.credential.id
-    payload['bucket_name'] = bucket.name
-    payload['storage_account_url'] = bucket.storage_account
-
-    response = environment_providers.delete_bucket_file(payload, request)
-    if 'error' in response.keys():
-        return JsonResponse(response, status=400)
-    else:
-        return JsonResponse(response, status=200)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def download_bucket_file(request):
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "bucket_id": {
-                "type": "number"
-            },
-            "file_name": {
-                "type": "string",
-                "minLength": 1
-            },
-        },
-        "required": ["bucket_id", "file_name"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    bucket = models.Bucket.objects.filter(id=payload['bucket_id'])[0]
-    if not bucket.checkUserAccess(request.daiteap_user):
-        return JsonResponse({
-            'error': {
-                'message': 'Storage access denied.',
-            }
-        }, status=403)
-
-    if bucket.credential.valid != True:
-        return JsonResponse({
-            'error': {
-                'message': 'Credentials are not valid.'
-            }
-        }, status=400)
-
-    payload['provider'] = bucket.provider
-    payload['credential_id'] = bucket.credential.id
-    payload['bucket_name'] = bucket.name
-    payload['storage_account_url'] = bucket.storage_account
-
-    response = environment_providers.download_bucket_file(payload, request)
-    if 'error' in response.keys():
-        return JsonResponse(response, status=400)
-    else:
-        return JsonResponse(response, status=200)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def get_storage_accounts(request):
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "provider": {
-                "type": "string",
-                "minLength": 1
-            },
-            "credential_id": {
-                "type": "number"
-            },
-        },
-        "required": ["provider", "credential_id"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    try:
-        account = models.CloudAccount.objects.filter(id=payload['credential_id'])[0]
-    except:
-        return JsonResponse({
-            'error': {
-                'message': 'Credentials dont exist.',
-            }
-        }, status=400)
-    if not account.checkUserAccess(request.daiteap_user):
-        return JsonResponse({
-            'error': {
-                'message': 'Credentials access denied.',
-            }
-        }, status=403)
-    if account.valid != True:
-        return JsonResponse({
-            'error': {
-                'message': 'Credentials are not valid.'
-            }
-        }, status=400)
-
-    response = environment_providers.get_storage_accounts(payload, request)
-    if 'error' in response.keys():
-        return JsonResponse(response, status=400)
-    else:
-        return JsonResponse(response, status=200)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def delete_bucket_folder(request):
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "bucket_id": {
-                "type": "number"
-            },
-            "folder_path": {
-                "type": "string",
-                "minLength": 1
-            },
-        },
-        "required": ["bucket_id", "folder_path"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    bucket = models.Bucket.objects.filter(id=payload['bucket_id'])[0]
-    if not bucket.checkUserAccess(request.daiteap_user):
-        return JsonResponse({
-            'error': {
-                'message': 'Storage access denied.',
-            }
-        }, status=403)
-
-    if bucket.credential.valid != True:
-        return JsonResponse({
-            'error': {
-                'message': 'Credentials are not valid.'
-            }
-        }, status=400)
-
-    payload['provider'] = bucket.provider
-    payload['credential_id'] = bucket.credential.id
-    payload['bucket_name'] = bucket.name
-    payload['storage_account_url'] = bucket.storage_account
-
-    response = environment_providers.delete_bucket_folder(payload, request)
-    if 'error' in response.keys():
-        return JsonResponse(response, status=400)
-    else:
-        return JsonResponse(response, status=200)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def get_bucket_details(request):
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "bucket_id": {
-                "type": "number"
-            },
-        },
-        "required": ["bucket_id"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    bucket = models.Bucket.objects.filter(id=payload['bucket_id'])[0]
-    if not bucket.checkUserAccess(request.daiteap_user):
-        return JsonResponse({
-            'error': {
-                'message': 'Storage access denied.',
-            }
-        }, status=403)
-
-    if bucket.credential.valid != True:
-        return JsonResponse({
-            'error': {
-                'message': 'Credentials are not valid.'
-            }
-        }, status=400)
-
-    payload['provider'] = bucket.provider
-    payload['credential_id'] = bucket.credential.id
-    payload['bucket_name'] = bucket.name
-    payload['storage_account_url'] = bucket.storage_account
-
-    response = environment_providers.get_bucket_details(payload, request)
+    response = environment_providers.get_storage_accounts(account.provider, cloudaccount_id)
     if 'error' in response.keys():
         return JsonResponse(response, status=400)
     else:

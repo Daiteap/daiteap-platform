@@ -1857,9 +1857,9 @@ def download_bucket_file(payload, request):
     else:
         return {'error': "Invalid provider parameter."}
 
-def get_storage_accounts(payload, request):
-    if payload['provider'] in supported_providers:
-        return supported_providers[payload['provider']]['provider'].get_storage_accounts(payload, request)
+def get_storage_accounts(provider, credential_id):
+    if provider in supported_providers:
+        return supported_providers[provider]['provider'].get_storage_accounts(credential_id)
     else:
         return {'error': "Invalid provider parameter."}
 

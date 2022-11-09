@@ -1288,11 +1288,11 @@ def download_bucket_file(payload, request):
 
     return api_client.download_bucket_file(azure_credentials, payload['storage_account_url'], payload['bucket_name'], payload['file_name'])
 
-def get_storage_accounts(payload, request):
-    azure_account = CloudAccount.objects.filter(id=payload['credential_id'])[0]
+def get_storage_accounts(credential_id):
+    azure_account = CloudAccount.objects.filter(id=credential_id)[0]
     azure_credentials = vault_service.read_secret(azure_account.credentials)
 
-    return api_client.get_storage_accounts(payload['credential_id'], azure_credentials)
+    return api_client.get_storage_accounts(credential_id, azure_credentials)
 
 def delete_bucket_folder(payload, request):
     azure_account = CloudAccount.objects.filter(id=payload['credential_id'])[0]
