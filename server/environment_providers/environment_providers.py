@@ -1344,7 +1344,7 @@ def get_provider_accounts(payload, request):
                 })
     return accounts
 
-def get_valid_regions(payload, request):
+def get_valid_regions(payload, request, tenant_id):
     """Returns a list of regions that are valid for the account
 
     Args:
@@ -1359,7 +1359,7 @@ def get_valid_regions(payload, request):
     """
     if payload['provider'] in supported_providers:
         try:
-            account = CloudAccount.objects.filter(id=payload['accountId'],tenant_id=request.daiteap_user.tenant_id, provider=payload['provider'])[0]
+            account = CloudAccount.objects.get(id=payload['accountId'],tenant_id=tenant_id, provider=payload['provider'])
         except:
             log_data = {
                 'level': 'ERROR',
@@ -1377,7 +1377,7 @@ def get_valid_regions(payload, request):
             regions.append(region['name'])
     return regions
 
-def get_valid_zones(payload, request):
+def get_valid_zones(payload, request, tenant_id):
     """Returns a list of zones that are valid for the account
 
     Args:
@@ -1392,7 +1392,7 @@ def get_valid_zones(payload, request):
     """
     if payload['provider'] in supported_providers:
         try:
-            account = CloudAccount.objects.filter(id=payload['accountId'],tenant_id=request.daiteap_user.tenant_id, provider=payload['provider'])[0]
+            account = CloudAccount.objects.get(id=payload['accountId'],tenant_id=tenant_id, provider=payload['provider'])
         except:
             log_data = {
                 'level': 'ERROR',
@@ -1412,7 +1412,7 @@ def get_valid_zones(payload, request):
     return zones
 
 
-def get_valid_instances(payload, request):
+def get_valid_instances(payload, request, tenant_id):
     """Returns a list of instance types that are valid for the account
 
     Args:
@@ -1427,7 +1427,7 @@ def get_valid_instances(payload, request):
     """
     if payload['provider'] in supported_providers:
         try:
-            account = CloudAccount.objects.filter(id=payload['accountId'], tenant_id=request.daiteap_user.tenant_id, provider=payload['provider'])[0]
+            account = CloudAccount.objects.get(id=payload['accountId'], tenant_id=tenant_id, provider=payload['provider'])
         except:
             log_data = {
                 'level': 'ERROR',

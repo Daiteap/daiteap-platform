@@ -743,90 +743,19 @@ def check_provided_credentials(request):
 
     return JsonResponse(response)
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def check_account_regions_update_status(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "provider": {
-                "type": "string",
-                "minLength": 3,
-                "maxLength": 9
-            },
-            "accountId": {
-                "type": "number",
-            },
-        },
-        "required": ["provider", "accountId"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    if not environment_providers.check_if_provider_is_supported(payload['provider']):
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid provider parameter.', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid provider parameter.'
-            }
-        }, status=400)
-
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, custom_permissions.CloudAccountAccessPermission])
+def check_account_regions_update_status(request, tenant_id, cloudaccount_id):
     # get regions update status
-
     response = {}
+    account = models.CloudAccount.objects.get(id=cloudaccount_id,tenant_id=tenant_id)
 
-    try:
-        account = models.CloudAccount.objects.filter(id=payload['accountId'],tenant_id=request.daiteap_user.tenant_id)[0]
-        
-        # check user access to CloudAccount
-        if not account.checkUserAccess(request.daiteap_user):
-            return JsonResponse({
-                'error': {
-                    'message': 'Access denied'
-                }
-            }, status=403)
-
-    except:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Internal Server Error.', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Internal Server Error.'
-            }
-        }, status=500)
     regions_update_status = account.regions_update_status
-    response[payload['provider']] = {
+    response[account.provider] = {
         'status': regions_update_status
     }
     if regions_update_status == -1:  # failed
-        response[payload['provider']]['error'] = account.regions_failed_msg
+        response[account.provider]['error'] = account.regions_failed_msg
 
     return JsonResponse(response)
 
@@ -1559,13 +1488,14 @@ def get_provider_accounts(request):
     return JsonResponse(response)
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def get_valid_regions(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, custom_permissions.CloudAccountAccessPermission])
+def get_valid_regions(request, tenant_id, cloudaccount_id):
+    account = models.CloudAccount.objects.get(id=cloudaccount_id, tenant_id=tenant_id)
+
+    payload = {}
+    payload['provider'] = account.provider
+    payload['accountId'] = cloudaccount_id
 
     schema = {
         "type": "object",
@@ -1613,7 +1543,7 @@ def get_valid_regions(request):
         }, status=400)
 
     try:
-        regions = environment_providers.get_valid_regions(payload, request)
+        regions = environment_providers.get_valid_regions(payload, request, tenant_id)
     except Exception as e:
         return JsonResponse({
             'error': {
@@ -1629,13 +1559,15 @@ def get_valid_regions(request):
     return JsonResponse(response)
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def get_valid_zones(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, custom_permissions.CloudAccountAccessPermission])
+def get_valid_zones(request, tenant_id, cloudaccount_id, region):
+    account = models.CloudAccount.objects.get(id=cloudaccount_id, tenant_id=tenant_id)
+
+    payload = {}
+    payload['provider'] = account.provider
+    payload['accountId'] = cloudaccount_id
+    payload['region'] = region
 
     schema = {
         "type": "object",
@@ -1687,7 +1619,7 @@ def get_valid_zones(request):
         }, status=400)
 
     try:
-        zones = environment_providers.get_valid_zones(payload, request)
+        zones = environment_providers.get_valid_zones(payload, request, tenant_id)
     except Exception as e:
         return JsonResponse({
             'error': {
@@ -1703,13 +1635,17 @@ def get_valid_zones(request):
     return JsonResponse(response)
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def get_valid_instances(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, custom_permissions.CloudAccountAccessPermission])
+def get_valid_instances(request, tenant_id, cloudaccount_id, region, zone = None):
+    account = models.CloudAccount.objects.get(id=cloudaccount_id, tenant_id=tenant_id)
+
+    payload = {}
+    payload['provider'] = account.provider
+    payload['accountId'] = cloudaccount_id
+    payload['region'] = region
+    if zone:
+        payload['zone'] = zone
 
     schema = {
         "type": "object",
@@ -1766,7 +1702,7 @@ def get_valid_instances(request):
         }, status=400)
 
     try:
-        instances = environment_providers.get_valid_instances(payload, request)
+        instances = environment_providers.get_valid_instances(payload, request, tenant_id)
     except Exception as e:
         return JsonResponse({
             'error': {
@@ -1783,17 +1719,17 @@ def get_valid_instances(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
-#@cache_page(60 * 15)
-def get_valid_operating_systems(request, username, provider, accountId, environmentType, region):
-    # Validate request
+@permission_classes([IsAuthenticated, custom_permissions.CloudAccountAccessPermission])
+@cache_page(60 * 15)
+def get_valid_operating_systems(request, tenant_id, cloudaccount_id, region, environment_type):
+    account = models.CloudAccount.objects.get(id=cloudaccount_id, tenant_id=tenant_id)
 
     payload = {
-        'accountId': accountId,
-        'provider': provider,
+        'accountId': cloudaccount_id,
+        'provider': account.provider,
         'region': region,
-        'environmentType': environmentType,
-        'username': username
+        'environmentType': environment_type,
+        'username': request.user
     }
 
     schema = {
@@ -1835,8 +1771,6 @@ def get_valid_operating_systems(request, username, provider, accountId, environm
                 'message': str(e),
             }
         }, status=400)
-
-    username = request.user
 
     # Get zone's instance types
     if not environment_providers.check_if_provider_is_supported(payload['provider']):

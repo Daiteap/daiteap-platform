@@ -32,6 +32,12 @@ urlpatterns = [
    path('tenants/<str:tenant_id>/cloud-credentials', views.cloud_account_list),
    path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>', views.cloud_account_detail),
    path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>/storage-accounts', views.get_storage_accounts),
+   path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>/regions', views.get_valid_regions),
+   path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>/regions/<str:region>/zones', views.get_valid_zones),
+   path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>/regions/<str:region>/zones/<str:zone>/instances', views.get_valid_instances),
+   path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>/regions/<str:region>/instances', views.get_valid_instances),
+   path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>/regions/<str:region>/environment-type/<str:environment_type>/operating-systems', views.get_valid_operating_systems),
+   path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>/regions/update-status', views.check_account_regions_update_status),
 
    path('tenants/<str:tenant_id>/buckets', views.bucket_list),
    path('tenants/<str:tenant_id>/buckets/<str:bucket_id>', views.bucket_detail),
@@ -51,14 +57,15 @@ urlpatterns = [
 
    # ------------------------------------------------------------------------------------
 
+   path('checkProvidedCredentials', views.check_provided_credentials),
+   path('getProviderAccounts', views.get_provider_accounts),
+   path('validateCredentials', views.validate_credentials),
+   path('suggestAccountParams/<str:provider>', views.suggest_account_params),
+
    path('profile', views.profile),
    path('user', views.user),
    path('profilepicture', views.user_profile_picture),
    path('getSpecificUserInfo/<str:tenant>/<str:username>', views.get_specific_user_info),
-
-   path('checkAccountRegionsUpdateStatus', views.check_account_regions_update_status),
-   path('checkProvidedCredentials', views.check_provided_credentials),
-
 
    path('getClusterList', views.get_cluster_list),
    path('getKubernetesAvailableUpgradeVersions', views.get_kubernetes_available_upgrade_versions),
@@ -67,11 +74,6 @@ urlpatterns = [
    path('isComputeNameFree', views.is_compute_name_free),
    path('isDLCMv2NameFree', views.is_dlcmv2_name_free),
    path('getServiceOptions', views.get_service_options),
-   path('getProviderAccounts', views.get_provider_accounts),
-   path('getValidRegions', views.get_valid_regions),
-   path('getValidZones', views.get_valid_zones),
-   path('getValidInstances', views.get_valid_instances),
-   path('getValidOperatingSystems/<str:username>/<str:provider>/<str:accountId>/<int:environmentType>/<str:region>', views.get_valid_operating_systems),
    path('getServiceList', views.get_service_list),
    path('getServiceValues', views.get_service_values),
    path('getServiceConnectionInfo', views.get_service_connection_info),
@@ -90,8 +92,6 @@ urlpatterns = [
    path('oauth/google/createserviceaccount', views.oauth_google_create_service_account),
    path('oauth/google/getprojects', views.oauth_google_get_projects),
    path('googleoauth', views.oauth_google),
-
-   path('validateCredentials', views.validate_credentials),
 
    path('addService', views.add_service),
    path('deleteService', views.delete_service),
@@ -181,5 +181,4 @@ urlpatterns = [
    path('account/tenant', views.account_tenant),
    path('account/tenant/<str:tenantId>', views.account_tenant_id),
 
-   path('suggestAccountParams/<str:provider>', views.suggest_account_params),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
