@@ -20,6 +20,17 @@ schema_view = get_schema_view(
 urlpatterns = [
    re_path(r'^spec/$', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
 
+   path('is-alive', views.is_alive),
+   path('get-version', views.get_version),
+
+   path('tenants/<str:tenant_id>/projects', views.project_list),
+   path('tenants/<str:tenant_id>/projects/<str:project_id>', views.project_detail),
+   path('tenants/<str:tenant_id>/projects/<str:project_id>/users', views.project_users),
+   path('tenants/<str:tenant_id>/projects/<str:project_id>/users/<str:username>', views.project_users_detail),
+   path('tenants/<str:tenant_id>/projects/name-available/<str:name>', views.is_project_name_free),
+
+   path('tenants/<str:tenant_id>/cloud-credentials', views.cloud_account_list),
+   path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>', views.cloud_account_detail),
    path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>/storage-accounts', views.get_storage_accounts),
 
    path('tenants/<str:tenant_id>/buckets', views.bucket_list),
@@ -43,25 +54,11 @@ urlpatterns = [
    path('profile', views.profile),
    path('user', views.user),
    path('profilepicture', views.user_profile_picture),
-
-   path('projects', views.project_list),
-   path('projects/<str:project_id>', views.project_detail),
-
-   path('cloud-credentials', views.cloud_account_list),
-   path('cloud-credentials/<str:cloudaccount_id>', views.cloud_account_detail),
-
-   path('userUserToProject', views.add_user_to_project),
-   path('removeUserFromProject', views.remove_user_from_project),
-   path('isProjectNameFree', views.is_project_name_free),
-   path('get_project_userlist', views.get_project_userlist),
    path('getSpecificUserInfo/<str:tenant>/<str:username>', views.get_specific_user_info),
 
    path('checkAccountRegionsUpdateStatus', views.check_account_regions_update_status),
-
    path('checkProvidedCredentials', views.check_provided_credentials),
 
-   path('isAlive', views.is_alive),
-   path('getVersion', views.get_version),
 
    path('getClusterList', views.get_cluster_list),
    path('getKubernetesAvailableUpgradeVersions', views.get_kubernetes_available_upgrade_versions),
@@ -170,7 +167,6 @@ urlpatterns = [
    path('updateuserpassword', views.change_user_password),
    path('gettaskmessage', views.get_task_message),
 
-   path('gettimezones', views.get_timezones),
    path('tenant/<str:tenantId>/getUnregisteredUsers', views.get_unregistered_users),
    path('isRegistered', views.is_registered),
    path('registerTenantUser', views.register_tenant_user),
@@ -178,7 +174,6 @@ urlpatterns = [
    path('addnewuser', views.add_newuser),
    path('getuserslist', views.get_userslist),
    path('delete_user', views.delete_user),
-   path('isUserNameFree/<str:usrname>', views.is_username_free),
    path('isEmailFree/<str:mail>', views.is_email_free),
 
 

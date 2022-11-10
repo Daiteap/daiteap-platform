@@ -7,6 +7,25 @@ from . import views
 
 SAFE_METHODS = ('GET', 'HEAD', 'OPTIONS')
 
+class TenantAccessPermission(permissions.BasePermission):
+    def has_permission(self, request, view):
+        tenant_id = request.parser_context['kwargs']['tenant_id']
+        user = request.user
+
+        # check if tenant exists
+        try:
+            tenant = models.Tenant.objects.get(id=tenant_id)
+        except models.Tenant.DoesNotExist:
+            return False
+
+        # check if user is in tenant
+        try:
+            daiteap_user = models.DaiteapUser.objects.get(
+                user=user, tenant=tenant)
+        except models.DaiteapUser.DoesNotExist:
+            return False
+
+        return True
 
 class CloudAccountAccessPermission(permissions.BasePermission):
     def has_permission(self, request, view):

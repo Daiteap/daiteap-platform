@@ -371,9 +371,9 @@ def user(request):
         operation_summary="Create project.")
 @permission_classes([IsAuthenticated])
 @api_view(['GET', 'POST'])
-def project_list(request):
+def project_list(request, tenant_id):
     if request.method == 'GET':
-        projects = models.Project.objects.filter(tenant=request.daiteap_user.tenant).all()
+        projects = models.Project.objects.filter(tenant=tenant_id).all()
 
         user_projects = []
         for project in projects:
@@ -411,11 +411,11 @@ def project_list(request):
 @swagger_auto_schema(method='delete',
         operation_description="Delete project.",
         operation_summary="Delete project.")
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, custom_permissions.ProjectAccessPermission])
 @api_view(['GET', 'PUT', 'DELETE'])
-def project_detail(request, project_id):
+def project_detail(request, tenant_id, project_id):
     try:
-        project = models.Project.objects.get(id=project_id)
+        project = models.Project.objects.get(id=project_id, tenant_id=tenant_id)
     except models.Project.DoesNotExist:
         return Response(status=status.HTTP_404_NOT_FOUND)
 
@@ -486,9 +486,9 @@ def project_detail(request, project_id):
         operation_summary="Create cloud credentials.")
 @permission_classes([IsAuthenticated])
 @api_view(['GET', 'POST'])
-def cloud_account_list(request):
+def cloud_account_list(request, tenant_id):
     if request.method == 'GET':
-        cloudaccounts = models.CloudAccount.objects.filter(tenant=request.daiteap_user.tenant).all()
+        cloudaccounts = models.CloudAccount.objects.filter(tenant=tenant_id).all()
 
         cloudaccounts_filtered = []
 
@@ -529,19 +529,10 @@ def cloud_account_list(request):
 @swagger_auto_schema(method='delete',
         operation_description="Delete cloud credential.",
         operation_summary="Delete cloud credential.")
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, custom_permissions.CloudAccountAccessPermission])
 @api_view(['GET', 'PUT', 'DELETE'])
-def cloud_account_detail(request, cloudaccount_id):
-    try:
-        cloudaccount = models.CloudAccount.objects.get(id=cloudaccount_id)
-        if not cloudaccount.checkUserAccess(request.daiteap_user):
-            return Response({
-                'error': {
-                    'message': 'You do not have access to this cloud account'
-                }
-            }, status.HTTP_400_BAD_REQUEST)
-    except models.CloudAccount.DoesNotExist:
-        return Response(status=status.HTTP_404_NOT_FOUND)
+def cloud_account_detail(request, tenant_id, cloudaccount_id):
+    cloudaccount = models.CloudAccount.objects.get(id=cloudaccount_id, tenant_id=tenant_id)
 
     if request.method == 'GET':
         credentials = vault_service.read_secret(cloudaccount.credentials)
@@ -2531,43 +2522,16 @@ def is_dlcmv2_name_free(request):
         'free': True
     })
 
-@api_view(['POST'])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def is_project_name_free(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "projectName": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 1024
-            }
-        },
-        "required": ["projectName"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
+def is_project_name_free(request, tenant_id, name):
+    if len(name) < 1 or len(name) > 1024:
         return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
+            'free': False
+        })
 
     # check if name is occupied by other environment
-    projects_for_tenant = models.Project.objects.filter(tenant_id=request.daiteap_user.tenant_id, name=payload['projectName'].strip()).count()
+    projects_for_tenant = models.Project.objects.filter(tenant_id=tenant_id, name=name.strip()).count()
     if projects_for_tenant != 0:
         return JsonResponse({
             'free': False
@@ -10056,73 +10020,62 @@ def delete_user(request):
     return _delete_user_from_tenant(request.daiteap_user.tenant_id, request)
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def get_project_userlist(request):
-    payload, error = get_request_body(request)
-    if error:
-        return error
-
-    userslist = []
-
-    users = models.DaiteapUser.objects.filter(projects__id=payload['project_id'])
-
-    project_owner = models.Project.objects.filter(id=payload['project_id'])[0].user
-
-    for daiteap_user in users:
-        role = ""
-        if daiteap_user.user.id == project_owner.id:
-            role = "Owner"
-        else:
-            role = daiteap_user.role
-
-        userslist.append({
-            'username': daiteap_user.user.username,
-            'firstname': daiteap_user.user.first_name,
-            'lastname': daiteap_user.user.last_name,
-            'projects': list(daiteap_user.projects.all().values_list('name', flat=True)),
-            'email': daiteap_user.user.email,
-            'role': role,
-            'phone': daiteap_user.user.profile.phone,
-        })
-
-    return JsonResponse({'users_list': userslist})
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def add_user_to_project(request):
-    payload, error = get_request_body(request)
-    if error:
-        return error
-
-    username = payload['username']
-    project_id = payload['project_id']
-
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated, custom_permissions.ProjectAccessPermission])
+def project_users(request, tenant_id, project_id):
     project = models.Project.objects.get(id=project_id)
-    daiteapuser = models.DaiteapUser.objects.filter(user__username=username,tenant_id=project.tenant_id)[0]
 
-    if error:
-        return error
+    if request.method == 'GET':
+        userslist = []
+        users = models.DaiteapUser.objects.filter(projects__id=project_id)
+        project_owner = project.user
 
-    daiteapuser.projects.add(project)
-    daiteapuser.save()
+        for daiteap_user in users:
+            role = ""
+            if daiteap_user.user.id == project_owner.id:
+                role = "Owner"
+            else:
+                role = daiteap_user.role
 
-    sync_users()
+            userslist.append({
+                'username': daiteap_user.user.username,
+                'firstname': daiteap_user.user.first_name,
+                'lastname': daiteap_user.user.last_name,
+                'projects': list(daiteap_user.projects.all().values_list('name', flat=True)),
+                'email': daiteap_user.user.email,
+                'role': role,
+                'phone': daiteap_user.user.profile.phone,
+            })
 
-    return JsonResponse({'success': True})
+        return JsonResponse({'users_list': userslist})
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def remove_user_from_project(request):
-    payload, error = get_request_body(request)
-    if error:
-        return error
+    if request.method == 'POST':
+        payload, error = get_request_body(request)
+        if error:
+            return error
 
-    username = payload['username']
-    project_id = payload['project_id']
+        username = payload['username']
+        try:
+            daiteapuser = models.DaiteapUser.objects.get(user__username=username,tenant_id=tenant_id)
+        except models.DaiteapUser.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
-    project = models.Project.objects.get(id=project_id)
-    daiteapuser = models.DaiteapUser.objects.filter(user__username=username,tenant_id=project.tenant_id)[0]
+        daiteapuser.projects.add(project)
+        daiteapuser.save()
+
+        sync_users()
+
+        return JsonResponse({'success': True})
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated, custom_permissions.ProjectAccessPermission])
+def project_users_detail(request, tenant_id, project_id, username):
+    project = models.Project.objects.get(id=project_id, tenant_id=tenant_id)
+
+    try:
+        daiteapuser = models.DaiteapUser.objects.get(user__username=username,tenant_id=tenant_id)
+    except models.DaiteapUser.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
     daiteapuser.projects.remove(project)
     daiteapuser.save()
