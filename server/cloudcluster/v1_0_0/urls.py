@@ -31,6 +31,10 @@ urlpatterns = [
 
    path('tenants/<str:tenant_id>/cloud-credentials', views.cloud_account_list),
    path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>', views.cloud_account_detail),
+   path('tenants/<str:tenant_id>/cloud-credentials/validate', views.validate_credentials),
+   path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>/validate', views.validate_credentials),
+   path('tenants/<str:tenant_id>/cloud-credentials/providers/<str:provider>', views.get_provider_accounts),
+   path('cloud-credentials/providers/<str:provider>/account-params', views.suggest_account_params),
    path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>/storage-accounts', views.get_storage_accounts),
    path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>/regions', views.get_valid_regions),
    path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>/regions/<str:region>/zones', views.get_valid_zones),
@@ -38,6 +42,7 @@ urlpatterns = [
    path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>/regions/<str:region>/instances', views.get_valid_instances),
    path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>/regions/<str:region>/environment-type/<str:environment_type>/operating-systems', views.get_valid_operating_systems),
    path('tenants/<str:tenant_id>/cloud-credentials/<str:cloudaccount_id>/regions/update-status', views.check_account_regions_update_status),
+   path('tenants/<str:tenant_id>/cloud-credentials/check-provided-credentials', views.check_provided_credentials),
 
    path('tenants/<str:tenant_id>/buckets', views.bucket_list),
    path('tenants/<str:tenant_id>/buckets/<str:bucket_id>', views.bucket_detail),
@@ -57,15 +62,27 @@ urlpatterns = [
 
    # ------------------------------------------------------------------------------------
 
-   path('checkProvidedCredentials', views.check_provided_credentials),
-   path('getProviderAccounts', views.get_provider_accounts),
-   path('validateCredentials', views.validate_credentials),
-   path('suggestAccountParams/<str:provider>', views.suggest_account_params),
-
    path('profile', views.profile),
    path('user', views.user),
    path('profilepicture', views.user_profile_picture),
    path('getSpecificUserInfo/<str:tenant>/<str:username>', views.get_specific_user_info),
+   path('canUpdateUserPassword', views.can_update_user_password),
+   path('updateuserpassword', views.change_user_password),
+   path('gettaskmessage', views.get_task_message),
+   path('getusage', views.get_usage),
+   path('updateUser', views.update_user),
+   path('getActiveTenants', views.get_active_tenants),
+   path('selectTenant', views.select_tenant),
+   path('tenant/<str:tenantId>/getUnregisteredUsers', views.get_unregistered_users),
+   path('isRegistered', views.is_registered),
+   path('registerTenantUser', views.register_tenant_user),
+   path('addnewuser', views.add_newuser),
+   path('getuserslist', views.get_userslist),
+   path('delete_user', views.delete_user),
+   path('isEmailFree/<str:mail>', views.is_email_free),
+   path('account/get/settings', views.account_get_settings),
+   path('account/tenant', views.account_tenant),
+   path('account/tenant/<str:tenantId>', views.account_tenant_id),
 
    path('getClusterList', views.get_cluster_list),
    path('getKubernetesAvailableUpgradeVersions', views.get_kubernetes_available_upgrade_versions),
@@ -130,30 +147,20 @@ urlpatterns = [
    path('createComputeVMs', views.create_compute_VMs),
    path('retryCreateComputeVMs', views.retry_create_compute_vms),
    path('cancelClusterCreation', views.cancel_cluster_creation),
-
    path('updateCluster/<str:cluster_id>', views.update_cluster),
-   path('updateUser', views.update_user),
-
    path('createCapiCluster', views.create_capi_cluster),
    path('resizeCapiCluster', views.resize_capi_cluster),
    path('retryCreateCapiCluster', views.retry_create_capi_cluster),
    path('deleteCapiCluster', views.delete_capi_cluster),
-
    path('createYaookCluster', views.create_yaookcapi_cluster),
    path('resizeYaookCluster', views.resize_yaookcapi_cluster),
    path('retryCreateYaookCluster', views.retry_create_yaookcapi_cluster),
    path('deleteYaookCluster', views.delete_yaookcapi_cluster),
-
    path('createK3sCluster', views.create_k3s_cluster),
    path('getsupportedk3sconfigurations', views.get_supported_k3s_configurations),
    path('retryCreateK3sCluster', views.retry_create_k3s_cluster),
    path('getK3sAvailableUpgradeVersions', views.get_k3s_available_upgrade_versions),
    path('upgradeK3sCluster', views.upgrade_k3s_cluster),
-
-   path('getusage', views.get_usage),
-
-   path('getActiveTenants', views.get_active_tenants),
-   path('selectTenant', views.select_tenant),
 
    path('environmenttemplates/save', views.save_environment_template),
    path('environmenttemplates/create', views.create_environment_template),
@@ -162,23 +169,5 @@ urlpatterns = [
    path('environmenttemplates/get/<str:environmentTemplateId>', views.get_environment_template),
    path('environmenttemplates/isnamefree', views.is_environment_template_name_free),
    path('addMachinesToK3s', views.add_machines_to_k3s),
-
-   path('canUpdateUserPassword', views.can_update_user_password),
-   path('updateuserpassword', views.change_user_password),
-   path('gettaskmessage', views.get_task_message),
-
-   path('tenant/<str:tenantId>/getUnregisteredUsers', views.get_unregistered_users),
-   path('isRegistered', views.is_registered),
-   path('registerTenantUser', views.register_tenant_user),
-
-   path('addnewuser', views.add_newuser),
-   path('getuserslist', views.get_userslist),
-   path('delete_user', views.delete_user),
-   path('isEmailFree/<str:mail>', views.is_email_free),
-
-
-   path('account/get/settings', views.account_get_settings),
-   path('account/tenant', views.account_tenant),
-   path('account/tenant/<str:tenantId>', views.account_tenant_id),
 
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

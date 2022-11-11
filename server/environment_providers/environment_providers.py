@@ -8,7 +8,7 @@ import time
 import traceback
 
 from cloudcluster import settings
-from cloudcluster.models import CloudAccount, Clusters, Machine
+from cloudcluster.models import CloudAccount, Clusters, Machine, DaiteapUser
 from cloudcluster.v1_0_0.ansible.ansible_client import AnsibleClient
 from cloudcluster.v1_0_0.terraform.terraform_client import TerraformClient
 from cloudcluster.v1_0_0.services import constants
@@ -1323,7 +1323,7 @@ def delete_cloud_credentials(cloudaccount):
         logger.error('Invalid provider parameter.', extra=log_data)
         raise Exception('Invalid provider parameter.')
 
-def get_provider_accounts(payload, request):
+def get_provider_accounts(payload, request, tenant_id):
     """Get user cloud provider accounts
 
     Args:
@@ -1333,11 +1333,12 @@ def get_provider_accounts(payload, request):
     Returns:
         list: List of user cloud provider accounts
     """
+    daiteap_user = DaiteapUser.objects.get(user=request.user,tenant_id=tenant_id)
     accounts = []
     if payload['provider'] in supported_providers:
-        provider_accounts = CloudAccount.objects.filter(provider=payload['provider'], valid=True)
+        provider_accounts = CloudAccount.objects.filter(provider=payload['provider'], valid=True, tenant_id=tenant_id)
         for provider_account in provider_accounts:
-            if provider_account.checkUserAccess(request.daiteap_user):
+            if provider_account.checkUserAccess(daiteap_user):
                 accounts.append({
                     'label': provider_account.label,
                     'id': provider_account.id,
@@ -1541,7 +1542,7 @@ def get_providers_networks(payload):
 
     return networks
 
-def check_provided_credentials(request):
+def check_provided_credentials(tenant_id):
     """Checks if credentials for each cloud provider are provided
 
     Args:
@@ -1553,7 +1554,7 @@ def check_provided_credentials(request):
     response = {}
 
     for supported_provider in supported_providers:
-        if len(CloudAccount.objects.filter(tenant_id=request.daiteap_user.tenant_id, provider=supported_provider, valid=True).exclude(credentials='')) > 0:
+        if len(CloudAccount.objects.filter(tenant_id=tenant_id, provider=supported_provider, valid=True).exclude(credentials='')) > 0:
             response[supported_provider + '_key_provided'] = True
         else:
             response[supported_provider + '_key_provided'] = False

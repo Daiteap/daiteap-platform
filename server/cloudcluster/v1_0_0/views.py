@@ -737,9 +737,9 @@ def get_specific_user_info(request, tenant, username):
     return JsonResponse(user)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def check_provided_credentials(request):
-    response = environment_providers.check_provided_credentials(request)
+@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+def check_provided_credentials(request, tenant_id):
+    response = environment_providers.check_provided_credentials(tenant_id)
 
     return JsonResponse(response)
 
@@ -761,26 +761,32 @@ def check_account_regions_update_status(request, tenant_id, cloudaccount_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def validate_credentials(request):
+@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+def validate_credentials(request, tenant_id, cloudaccount_id = None):
     # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
+    if cloudaccount_id:
+        payload = {}
+        payload['tenant_id'] = tenant_id
+        payload['account_id'] = cloudaccount_id
+    else:
+        payload, error = get_request_body(request)
+        if error:
+            return error
+        payload['tenant_id'] = tenant_id
 
     schema = {
         "type": "object",
         "properties": {
-                "account_id": {
-                    "type": "number",
-                },
-                "tenant_id": {
-                    "type": "string",
-                },
-                "credentials": {
-                        "type": "object",
-                        "properties": {}
-                }
+            "account_id": {
+                "type": "number",
+            },
+            "tenant_id": {
+                "type": "string",
+            },
+            "credentials": {
+                "type": "object",
+                "properties": {}
+            }
         },
     }
 
@@ -802,15 +808,14 @@ def validate_credentials(request):
         }, status=400)
 
 
-    if 'tenant_id' in payload:
-        storage_enabled = models.TenantSettings.objects.filter(tenant__id=payload['tenant_id'])[0].enable_storage
-    else:
-        storage_enabled = models.TenantSettings.objects.filter(tenant__id=request.daiteap_user.tenant_id)[0].enable_storage
+    storage_enabled = models.TenantSettings.objects.get(tenant__id=payload['tenant_id']).enable_storage
 
     if 'account_id' in payload:
         if len(models.CloudAccount.objects.filter(id=payload['account_id'])) > 0:
-            account = models.CloudAccount.objects.filter(id=payload['account_id'])[0]
-            if not account.checkUserAccess(request.daiteap_user):
+            account = models.CloudAccount.objects.get(id=payload['account_id'], tenant_id=payload['tenant_id'])
+
+            daiteap_user = models.DaiteapUser.objects.get(user=request.user,tenant_id=tenant_id)
+            if not account.checkUserAccess(daiteap_user):
                 return JsonResponse({
                     'error': {
                         'message': 'Access denied'
@@ -1430,13 +1435,11 @@ def oauth_google_get_projects(request):
     return JsonResponse(projects)
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def get_provider_accounts(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+def get_provider_accounts(request, tenant_id, provider):
+    payload = {}
+    payload['provider'] = provider
 
     schema = {
         "type": "object",
@@ -1478,7 +1481,7 @@ def get_provider_accounts(request):
             }
         }, status=400)
 
-    accounts = environment_providers.get_provider_accounts(payload, request)
+    accounts = environment_providers.get_provider_accounts(payload, request, tenant_id)
 
     response = {
         'accounts': accounts
