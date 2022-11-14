@@ -7,6 +7,7 @@ from . import views
 
 SAFE_METHODS = ('GET', 'HEAD', 'OPTIONS')
 
+
 class TenantAccessPermission(permissions.BasePermission):
     def has_permission(self, request, view):
         tenant_id = request.parser_context['kwargs']['tenant_id']
@@ -25,10 +26,7 @@ class TenantAccessPermission(permissions.BasePermission):
         except models.DaiteapUser.DoesNotExist:
             return False
 
-        if request.method in SAFE_METHODS:
-            return True
-        else:
-            return daiteap_user.isAdmin()
+        return True
 
 
 class CloudAccountAccessPermission(permissions.BasePermission):
@@ -136,6 +134,39 @@ class ClusterAccessPermission(permissions.BasePermission):
             return True
         else:
             return False
+
+
+class EnvironmentTemplateAccessPermission(permissions.BasePermission):
+    def has_permission(self, request, view):
+        tenant_id = request.parser_context['kwargs']['tenant_id']
+        template_id = request.parser_context['kwargs']['template_id']
+        user = request.user
+
+        # check if tenant exists
+        try:
+            tenant = models.Tenant.objects.get(id=tenant_id)
+        except models.Tenant.DoesNotExist:
+            return False
+
+        # check if user is in tenant
+        try:
+            daiteap_user = models.DaiteapUser.objects.get(
+                user=user, tenant=tenant)
+        except models.DaiteapUser.DoesNotExist:
+            return False
+
+        # check if template exists in tenant
+        try:
+            template = models.EnvironmentTemplate.objects.get(
+                id=template_id, project__tenant_id=tenant_id)
+        except models.EnvironmentTemplate.DoesNotExist:
+            return False
+
+        # check if user can access template
+        if daiteap_user.isAdmin() or template.daiteap_user == daiteap_user:
+            return True
+
+        return False
 
 
 class BucketAccessPermission(permissions.BasePermission):

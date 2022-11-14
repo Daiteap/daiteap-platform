@@ -2282,15 +2282,15 @@ def generate_cluster_service_default_name(request):
     return JsonResponse(response)
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def get_cluster_list(request):
-
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+def get_cluster_list(request, tenant_id):
     # Get user's clusters
     try:
-        daiteapuser = request.daiteap_user
+        daiteapuser = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
+
         if daiteapuser.role == "Admin":
-            user_projects = models.Project.objects.filter(tenant=daiteapuser.tenant).all()
+            user_projects = models.Project.objects.filter(tenant_id=tenant_id).all()
 
         else:
             user_projects = daiteapuser.projects.all()
@@ -2427,13 +2427,12 @@ def get_cluster_list(request):
     # return JSON response
     return JsonResponse(cluster_list, safe=False)
 
-@api_view(['POST'])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def is_cluster_name_free(request):
+def is_cluster_name_free(request, tenant_id, name):
     # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
+    payload = {}
+    payload['clusterName'] = name
 
     schema = {
         "type": "object",
@@ -2463,19 +2462,19 @@ def is_cluster_name_free(request):
         }, status=400)
 
     # check if name is occupied by other environment
-    env_with_same_name = models.Clusters.objects.filter(project__tenant_id=request.daiteap_user.tenant_id, title=payload['clusterName'].strip()).count()
+    env_with_same_name = models.Clusters.objects.filter(project__tenant_id=tenant_id, title=payload['clusterName'].strip()).count()
     if env_with_same_name != 0:
         return JsonResponse({
             'free': False
         })
 
-    env_with_same_name = models.CapiCluster.objects.filter(project__tenant_id=request.daiteap_user.tenant_id, title=payload['clusterName'].strip()).count()
+    env_with_same_name = models.CapiCluster.objects.filter(project__tenant_id=tenant_id, title=payload['clusterName'].strip()).count()
     if env_with_same_name != 0:
         return JsonResponse({
             'free': False
         })
 
-    env_with_same_name = models.YaookCapiCluster.objects.filter(project__tenant_id=request.daiteap_user.tenant_id, title=payload['clusterName'].strip()).count()
+    env_with_same_name = models.YaookCapiCluster.objects.filter(project__tenant_id=tenant_id, title=payload['clusterName'].strip()).count()
     if env_with_same_name != 0:
         return JsonResponse({
             'free': False
@@ -2485,13 +2484,12 @@ def is_cluster_name_free(request):
         'free': True
     })
 
-@api_view(['POST'])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def is_compute_name_free(request):
+def is_compute_name_free(request, tenant_id, name):
     # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
+    payload = {}
+    payload['clusterName'] = name
 
     schema = {
         "type": "object",
@@ -2521,7 +2519,7 @@ def is_compute_name_free(request):
         }, status=400)
 
     # check if name is occupied by other environment
-    env_with_same_name = models.Clusters.objects.filter(type=constants.ClusterType.COMPUTE_VMS.value, project__tenant_id=request.daiteap_user.tenant_id, title=payload['clusterName'].strip()).count()
+    env_with_same_name = models.Clusters.objects.filter(type=constants.ClusterType.COMPUTE_VMS.value, project__tenant_id=tenant_id, title=payload['clusterName'].strip()).count()
     if env_with_same_name != 0:
         return JsonResponse({
             'free': False
@@ -2531,13 +2529,12 @@ def is_compute_name_free(request):
         'free': True
     })
 
-@api_view(['POST'])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def is_dlcmv2_name_free(request):
+def is_dlcmv2_name_free(request, tenant_id, name):
     # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
+    payload = {}
+    payload['clusterName'] = name
 
     schema = {
         "type": "object",
@@ -2567,7 +2564,7 @@ def is_dlcmv2_name_free(request):
         }, status=400)
 
     # check if name is occupied by other environment
-    env_with_same_name = models.Clusters.objects.filter(type=constants.ClusterType.DLCM_V2.value, project__tenant_id=request.daiteap_user.tenant_id, title=payload['clusterName'].strip()).count()
+    env_with_same_name = models.Clusters.objects.filter(type=constants.ClusterType.DLCM_V2.value, project__tenant_id=tenant_id, title=payload['clusterName'].strip()).count()
     if env_with_same_name != 0:
         return JsonResponse({
             'free': False
@@ -3016,59 +3013,13 @@ def get_cluster_config(request, tenant_id, cluster_id):
     return JsonResponse(response)
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def get_kubernetes_available_upgrade_versions(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            }
-        },
-        "required": ["clusterID"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid clusterID parameter.', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def get_kubernetes_available_upgrade_versions(request, tenant_id, cluster_id):
     username = request.user
 
     # Get user's cluster
-    try:
-        cluster = models.Clusters.objects.filter(project__tenant__daiteapuser__user=username, id=payload['clusterID'])[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
+    cluster = models.Clusters.objects.get(project__tenant_id=tenant_id, id=cluster_id)
 
     config = json.loads(cluster.config)
 
@@ -9346,437 +9297,317 @@ def save_environment_template(request):
     return HttpResponse(status=201)
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def create_environment_template(request):
-    request_body, error = get_request_body(request)
-    if error is not None:
-        return error
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+def environment_templates_list(request, tenant_id):
+    if request.method == 'GET':
+        environment_templates = models.EnvironmentTemplate.objects.filter(tenant_id=tenant_id)
+        daiteap_user = models.DaiteapUser.objects.get(user=request.daiteap_user,tenant_id=tenant_id)
 
-    schema = {
-        "type": "object",
-        "properties": {
-            "name": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 1024
-            },
-            "type": {
-                "type": "number",
-                "minValue": 1,
-                "maxValue": 6
-            },
-            "description": {
-                "type": "string",
-                "maxLength": 1024
-            },
-        },
-        "required": ["type", "name"]
-    }
+        response = {'environmentTemplates': []}
 
-    try:
-        validate(instance=request_body, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e)
-            }
-        }, status=400)
+        for environment_template in environment_templates:
+            
+            if environment_template.checkUserAccess(daiteap_user):
+                response['environmentTemplates'].append({
+                    'name': environment_template.name,
+                    'id': environment_template.id,
+                    'created_at': environment_template.created_at,
+                    'type': environment_template.type,
+                    'providers': environment_template.providers,
+                    'description': environment_template.description,
+                    'contact': environment_template.contact,
+                })
 
-    if request_body['type'] == constants.ClusterType.CAPI.value:
-        schema = constants.CREATE_CAPI_INPUT_VALIDATION_SCHEMA
-        schema['required'] = ["clusterName", "kubernetesConfiguration"]
-    elif request_body['type'] == constants.ClusterType.CAPI.value:
-        schema = constants.CREATE_YAOOKCAPI_INPUT_VALIDATION_SCHEMA
-        schema['required'] = ["clusterName", "kubernetesConfiguration"]
-    elif request_body['type'] == constants.ClusterType.DLCM.value:
-        schema = constants.CREATE_KUBERNETES_INPUT_VALIDATION_SCHEMA
-        schema['required'] = ["clusterName", "kubernetesConfiguration", "internal_dns_zone"]
-    elif request_body['type'] == constants.ClusterType.K3S.value:
-        schema = constants.CREATE_K3S_INPUT_VALIDATION_SCHEMA
-        schema['required'] = ["clusterName", "kubernetesConfiguration", "internal_dns_zone"]
-    elif request_body['type'] == constants.ClusterType.VMS.value or request_body['type'] == constants.ClusterType.COMPUTE_VMS.value:
-        schema = constants.CREATE_VMS_INPUT_VALIDATION_SCHEMA
-        schema['required'] = ["clusterName", "internal_dns_zone"]
+        return JsonResponse(response, status=200)
 
-    try:
-        validate(instance=request_body, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    if request_body['type'] == constants.ClusterType.CAPI.value:
-        if request_body['kubernetesConfiguration']['version'] not in SUPPORTED_CAPI_KUBERNETES_VERSIONS:
-            log_data = {
-                'level': 'ERROR',
-                'user_id': str(request.user.id),
-                'client_request': json.loads(request.body.decode('utf-8')),
-            }
-            logger.error('Invalid parameter kubernetes version',
-                         extra=log_data)
-            return JsonResponse({
-                'error': {
-                    'message': 'Invalid parameter kubernetes version'
-                }
-            }, status=400)
-
-    if request_body['type'] == constants.ClusterType.YAOOKCAPI.value:
-        if request_body['kubernetesConfiguration']['version'] not in SUPPORTED_YAOOKCAPI_KUBERNETES_VERSIONS:
-            log_data = {
-                'level': 'ERROR',
-                'user_id': str(request.user.id),
-                'client_request': json.loads(request.body.decode('utf-8')),
-            }
-            logger.error('Invalid parameter kubernetes version',
-                         extra=log_data)
-            return JsonResponse({
-                'error': {
-                    'message': 'Invalid parameter kubernetes version'
-                }
-            }, status=400)
-
-    if request_body['type'] == constants.ClusterType.K3S.value:
-        if request_body['kubernetesConfiguration']['version'] not in SUPPORTED_K3S_VERSIONS:
-            log_data = {
-                'level': 'ERROR',
-                'user_id': str(request.user.id),
-                'client_request': json.loads(request.body.decode('utf-8')),
-            }
-            logger.error('Invalid parameter kubernetes version', extra=log_data)
-            return JsonResponse({
-                'error': {
-                    'message': 'Invalid parameter kubernetes version'
-                }
-            }, status=400)
-
-        if request_body['kubernetesConfiguration']['networkPlugin'] not in SUPPORTED_K3S_NETWORK_PLUGINS:
-            log_data = {
-                'level': 'ERROR',
-                'user_id': str(request.user.id),
-                'client_request': json.loads(request.body.decode('utf-8')),
-            }
-            logger.error('Invalid parameter ', extra=log_data)
-            return JsonResponse({
-                'error': {
-                    'message': 'Invalid parameter network plugin'
-                }
-            }, status=400)
-
-    if request_body['type'] == constants.ClusterType.K3S.value or request_body['type'] == constants.ClusterType.DLCM.value:
-        networks = environment_providers.get_providers_networks(request_body)
-        networks.append(request_body['kubernetesConfiguration']['serviceAddresses'])
-        networks.append(request_body['kubernetesConfiguration']['podsSubnet'])
-
-        error = check_ip_addresses(networks)
-
-        if error:
+    if request.method == 'POST':
+        request_body, error = get_request_body(request)
+        if error is not None:
             return error
 
-    if not environment_providers.check_if_at_least_one_provider_is_selected(request_body):
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                },
+                "type": {
+                    "type": "number",
+                    "minValue": 1,
+                    "maxValue": 6
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 1024
+                },
+            },
+            "required": ["type", "name"]
         }
-        logger.error('No provider is selected.', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'No provider is selected.'
+
+        try:
+            validate(instance=request_body, schema=schema)
+        except ValidationError as e:
+            log_data = {
+                'level': 'ERROR',
+                'user_id': str(request.user.id),
+                'client_request': json.loads(request.body.decode('utf-8')),
             }
-        }, status=400)
+            logger.error(str(e), extra=log_data)
+            return JsonResponse({
+                'error': {
+                    'message': str(e)
+                }
+            }, status=400)
 
-    try:
-        environment_providers.validate_regions_zones_instance_types(
-            request_body, request.user, request_body['type'])
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e)
+        if request_body['type'] == constants.ClusterType.CAPI.value:
+            schema = constants.CREATE_CAPI_INPUT_VALIDATION_SCHEMA
+            schema['required'] = ["clusterName", "kubernetesConfiguration"]
+        elif request_body['type'] == constants.ClusterType.CAPI.value:
+            schema = constants.CREATE_YAOOKCAPI_INPUT_VALIDATION_SCHEMA
+            schema['required'] = ["clusterName", "kubernetesConfiguration"]
+        elif request_body['type'] == constants.ClusterType.DLCM.value:
+            schema = constants.CREATE_KUBERNETES_INPUT_VALIDATION_SCHEMA
+            schema['required'] = ["clusterName", "kubernetesConfiguration", "internal_dns_zone"]
+        elif request_body['type'] == constants.ClusterType.K3S.value:
+            schema = constants.CREATE_K3S_INPUT_VALIDATION_SCHEMA
+            schema['required'] = ["clusterName", "kubernetesConfiguration", "internal_dns_zone"]
+        elif request_body['type'] == constants.ClusterType.VMS.value or request_body['type'] == constants.ClusterType.COMPUTE_VMS.value:
+            schema = constants.CREATE_VMS_INPUT_VALIDATION_SCHEMA
+            schema['required'] = ["clusterName", "internal_dns_zone"]
+
+        try:
+            validate(instance=request_body, schema=schema)
+        except ValidationError as e:
+            log_data = {
+                'level': 'ERROR',
+                'user_id': str(request.user.id),
+                'client_request': json.loads(request.body.decode('utf-8')),
             }
-        }, status=400)
+            logger.error(str(e), extra=log_data)
+            return JsonResponse({
+                'error': {
+                    'message': str(e),
+                }
+            }, status=400)
 
-    if request_body['type'] == constants.ClusterType.CAPI.value:
-        cluster_config = {
-            'kubernetesConfiguration': request_body['kubernetesConfiguration'],
-        }
+        if request_body['type'] == constants.ClusterType.CAPI.value:
+            if request_body['kubernetesConfiguration']['version'] not in SUPPORTED_CAPI_KUBERNETES_VERSIONS:
+                log_data = {
+                    'level': 'ERROR',
+                    'user_id': str(request.user.id),
+                    'client_request': json.loads(request.body.decode('utf-8')),
+                }
+                logger.error('Invalid parameter kubernetes version',
+                            extra=log_data)
+                return JsonResponse({
+                    'error': {
+                        'message': 'Invalid parameter kubernetes version'
+                    }
+                }, status=400)
 
-        cluster_config.update(environment_providers.get_providers_yaookcapi_config_params(
-            request_body, request.user))
+        if request_body['type'] == constants.ClusterType.YAOOKCAPI.value:
+            if request_body['kubernetesConfiguration']['version'] not in SUPPORTED_YAOOKCAPI_KUBERNETES_VERSIONS:
+                log_data = {
+                    'level': 'ERROR',
+                    'user_id': str(request.user.id),
+                    'client_request': json.loads(request.body.decode('utf-8')),
+                }
+                logger.error('Invalid parameter kubernetes version',
+                            extra=log_data)
+                return JsonResponse({
+                    'error': {
+                        'message': 'Invalid parameter kubernetes version'
+                    }
+                }, status=400)
 
-    elif request_body['type'] in [constants.ClusterType.DLCM.value, constants.ClusterType.K3S.value, constants.ClusterType.DLCM_V2.value]:
-        cluster_config = {
-            'kubernetesConfiguration': request_body['kubernetesConfiguration'],
-            'internal_dns_zone': request_body['internal_dns_zone'],
-        }
+        if request_body['type'] == constants.ClusterType.K3S.value:
+            if request_body['kubernetesConfiguration']['version'] not in SUPPORTED_K3S_VERSIONS:
+                log_data = {
+                    'level': 'ERROR',
+                    'user_id': str(request.user.id),
+                    'client_request': json.loads(request.body.decode('utf-8')),
+                }
+                logger.error('Invalid parameter kubernetes version', extra=log_data)
+                return JsonResponse({
+                    'error': {
+                        'message': 'Invalid parameter kubernetes version'
+                    }
+                }, status=400)
 
-        if 'load_balancer_integration' in request_body and len(request_body['load_balancer_integration']) > 0:
-            cluster_config['load_balancer_integration'] = request_body['load_balancer_integration']
+            if request_body['kubernetesConfiguration']['networkPlugin'] not in SUPPORTED_K3S_NETWORK_PLUGINS:
+                log_data = {
+                    'level': 'ERROR',
+                    'user_id': str(request.user.id),
+                    'client_request': json.loads(request.body.decode('utf-8')),
+                }
+                logger.error('Invalid parameter ', extra=log_data)
+                return JsonResponse({
+                    'error': {
+                        'message': 'Invalid parameter network plugin'
+                    }
+                }, status=400)
 
-        cluster_config.update(environment_providers.get_providers_config_params(request_body, request.user))
+        if request_body['type'] == constants.ClusterType.K3S.value or request_body['type'] == constants.ClusterType.DLCM.value:
+            networks = environment_providers.get_providers_networks(request_body)
+            networks.append(request_body['kubernetesConfiguration']['serviceAddresses'])
+            networks.append(request_body['kubernetesConfiguration']['podsSubnet'])
 
-    elif request_body['type'] in [constants.ClusterType.VMS.value, constants.ClusterType.COMPUTE_VMS.value]:
-        cluster_config = {
-            'internal_dns_zone': request_body['internal_dns_zone']
-        }
+            error = check_ip_addresses(networks)
 
-        cluster_config.update(environment_providers.get_providers_config_params(request_body, request.user))
+            if error:
+                return error
 
-    env_template_with_same_name = models.EnvironmentTemplate.objects.filter(
-        tenant_id=request.daiteap_user.tenant_id, name=request_body['name'].strip()).count()
-    if env_template_with_same_name != 0:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(
-            'Environment template with that name already exists', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Environment template with that name already exists'
+        if not environment_providers.check_if_at_least_one_provider_is_selected(request_body):
+            log_data = {
+                'level': 'ERROR',
+                'user_id': str(request.user.id),
+                'client_request': json.loads(request.body.decode('utf-8')),
             }
-        }, status=400)
+            logger.error('No provider is selected.', extra=log_data)
+            return JsonResponse({
+                'error': {
+                    'message': 'No provider is selected.'
+                }
+            }, status=400)
 
-    daiteap_user = request.daiteap_user
-    tenant_id = daiteap_user.tenant_id
+        try:
+            environment_providers.validate_regions_zones_instance_types(
+                request_body, request.user, request_body['type'])
+        except Exception as e:
+            log_data = {
+                'level': 'ERROR',
+                'user_id': str(request.user.id),
+                'client_request': json.loads(request.body.decode('utf-8')),
+            }
+            logger.error(str(e), extra=log_data)
+            return JsonResponse({
+                'error': {
+                    'message': str(e)
+                }
+            }, status=400)
 
-    is_capi = False
-    is_yaookcapi = False
-    if request_body['type'] == constants.ClusterType.CAPI.value:
-        is_capi = True
-    if request_body['type'] == constants.ClusterType.YAOOKCAPI.value:
-        is_yaookcapi = True
+        if request_body['type'] == constants.ClusterType.CAPI.value:
+            cluster_config = {
+                'kubernetesConfiguration': request_body['kubernetesConfiguration'],
+            }
 
-    environment_template = models.EnvironmentTemplate(
-        name=request_body['name'],
-        config=json.dumps(cluster_config),
-        providers=json.dumps(environment_providers.get_selected_providers(request_body)),
-        type=request_body['type'],
-        tenant_id=tenant_id
-    )
+            cluster_config.update(environment_providers.get_providers_yaookcapi_config_params(
+                request_body, request.user))
 
-    if request_body['description']:
-        environment_template.description = request_body['description']
+        elif request_body['type'] in [constants.ClusterType.DLCM.value, constants.ClusterType.K3S.value, constants.ClusterType.DLCM_V2.value]:
+            cluster_config = {
+                'kubernetesConfiguration': request_body['kubernetesConfiguration'],
+                'internal_dns_zone': request_body['internal_dns_zone'],
+            }
 
-    environment_template.daiteap_user = daiteap_user
-    environment_template.contact = daiteap_user.user.email
+            if 'load_balancer_integration' in request_body and len(request_body['load_balancer_integration']) > 0:
+                cluster_config['load_balancer_integration'] = request_body['load_balancer_integration']
 
-    environment_template.save()
+            cluster_config.update(environment_providers.get_providers_config_params(request_body, request.user))
 
-    tasks.worker_set_template_user_friendly_params.delay(environment_template.id)
+        elif request_body['type'] in [constants.ClusterType.VMS.value, constants.ClusterType.COMPUTE_VMS.value]:
+            cluster_config = {
+                'internal_dns_zone': request_body['internal_dns_zone']
+            }
 
-    return HttpResponse(status=201)
+            cluster_config.update(environment_providers.get_providers_config_params(request_body, request.user))
+
+        env_template_with_same_name = models.EnvironmentTemplate.objects.filter(
+            tenant_id=tenant_id, name=request_body['name'].strip()).count()
+        if env_template_with_same_name != 0:
+            log_data = {
+                'level': 'ERROR',
+                'user_id': str(request.user.id),
+                'client_request': json.loads(request.body.decode('utf-8')),
+            }
+            logger.error(
+                'Environment template with that name already exists', extra=log_data)
+            return JsonResponse({
+                'error': {
+                    'message': 'Environment template with that name already exists'
+                }
+            }, status=400)
+
+        daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
+
+        is_capi = False
+        is_yaookcapi = False
+        if request_body['type'] == constants.ClusterType.CAPI.value:
+            is_capi = True
+        if request_body['type'] == constants.ClusterType.YAOOKCAPI.value:
+            is_yaookcapi = True
+
+        environment_template = models.EnvironmentTemplate(
+            name=request_body['name'],
+            config=json.dumps(cluster_config),
+            providers=json.dumps(environment_providers.get_selected_providers(request_body)),
+            type=request_body['type'],
+            tenant_id=tenant_id
+        )
+
+        if request_body['description']:
+            environment_template.description = request_body['description']
+
+        environment_template.daiteap_user = daiteap_user
+        environment_template.contact = daiteap_user.user.email
+
+        environment_template.save()
+
+        tasks.worker_set_template_user_friendly_params.delay(environment_template.id)
+
+        return HttpResponse(status=201)
+
+
+@api_view(['GET', 'DELETE'])
+@permission_classes([IsAuthenticated, custom_permissions.EnvironmentTemplateAccessPermission])
+def environment_template_detail(request, tenant_id, environment_template_id):
+    environment_template = models.EnvironmentTemplate.objects.get(id=environment_template_id, tenant_id=tenant_id)
+
+    if request.method == 'GET':
+        config = json.loads(environment_template.config)
+
+        response = {
+            'name': environment_template.name,
+            'id': environment_template.id,
+            'created_at': environment_template.created_at,
+            'contact': environment_template.contact,
+            'description': environment_template.description,
+            'type': environment_template.type,
+            'providers': environment_template.providers,
+            'config': config,
+        }
+
+        return JsonResponse(response, status=200)
+
+    if request.method == 'DELETE':
+        try:
+            environment_template.delete()
+        except Exception as e:
+            log_data = {
+                'level': 'ERROR',
+                'user_id': str(request.user.id),
+            }
+            logger.error(str(e), extra=log_data)
+            return JsonResponse({
+                'error': {
+                    'message': 'Internal server error'
+                }
+            }, status=400)
+
+        return JsonResponse({
+            'submitted': True
+        })
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def list_environment_templates(request):
-    try:
-        environment_templates = models.EnvironmentTemplate.objects.filter(tenant__daiteapuser=request.daiteap_user)
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Internal server error'
-            }
-        }, status=500)
-
-    response = {'environmentTemplates': []}
-
-    for environment_template in environment_templates:
-        if environment_template.checkUserAccess(request.daiteap_user):
-            response['environmentTemplates'].append({
-                'name': environment_template.name,
-                'id': environment_template.id,
-                'created_at': environment_template.created_at,
-                'type': environment_template.type,
-                'providers': environment_template.providers,
-                'description': environment_template.description,
-                'contact': environment_template.contact,
-            })
-
-    return JsonResponse(response, status=200)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_environment_template(request, environmentTemplateId):
-    payload = {
-        'environmentTemplateId': environmentTemplateId
-    }
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "environmentTemplateId": {
-                "type": "string",
-                "minLength": 20,
-                "maxLength": 60
-            },
-        },
-        "required": ["environmentTemplateId"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    environment_template_id = payload['environmentTemplateId']
-
-    try:
-        environment_template = models.EnvironmentTemplate.objects.filter(id=environment_template_id)[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter environmentTemplateId'
-            }
-        }, status=400)
-
-    if not environment_template.checkUserAccess(request.daiteap_user):
-        return JsonResponse({
-            'error': {
-                'message': 'Access denied'
-            }
-        }, status=403)        
-
-    config = json.loads(environment_template.config)
-
-    response = {
-        'name': environment_template.name,
-        'id': environment_template.id,
-        'created_at': environment_template.created_at,
-        'contact': environment_template.contact,
-        'description': environment_template.description,
-        'type': environment_template.type,
-        'providers': environment_template.providers,
-        'config': config,
-    }
-
-    return JsonResponse(response, status=200)
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def delete_environment_template(request):
+@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+def is_environment_template_name_free(request, tenant_id, name):
     # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "environmentTemplateId": {
-                "type": "string",
-                "minLength": 20,
-                "maxLength": 60
-            },
-        },
-        "required": ["environmentTemplateId"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    environment_template_id = payload['environmentTemplateId']
-
-    try:
-        environment_template = models.EnvironmentTemplate.objects.filter(id=environment_template_id)[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter environmentTemplateId'
-            }
-        }, status=400)
-
-    if not environment_template.checkUserAccess(request.daiteap_user):
-        return JsonResponse({
-            'error': {
-                'message': 'Access denied'
-            }
-        }, status=403)        
-
-    try:
-        environment_template.delete()
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Internal server error'
-            }
-        }, status=400)
-
-    return JsonResponse({
-        'submitted': True
-    })
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def is_environment_template_name_free(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
+    payload = {}
+    payload['name'] = name
 
     schema = {
         "type": "object",
@@ -9807,7 +9638,7 @@ def is_environment_template_name_free(request):
 
     # check if name is occupied by other environment
     env_template_with_same_name = models.EnvironmentTemplate.objects.filter(
-        tenant_id=request.daiteap_user.tenant_id,
+        tenant_id=tenant_id,
         name=payload['name']
         .strip()).count()
     if env_template_with_same_name != 0:
@@ -10228,9 +10059,9 @@ def suggest_account_params(request, provider):
     return JsonResponse(autosuggested_params)
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def update_cluster(request, cluster_id):
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def update_cluster(request, tenant_id, cluster_id):
     # Validate request
     payload, error = get_request_body(request)
     if error is not None:
@@ -10274,7 +10105,7 @@ def update_cluster(request, cluster_id):
 
     if payload['isCapi']:
         try:
-            cluster = models.CapiCluster.objects.filter(id=cluster_id)[0]
+            cluster = models.CapiCluster.objects.get(id=cluster_id, tenant_id=tenant_id)
         except:
             return JsonResponse({
                 'error': {
@@ -10283,7 +10114,7 @@ def update_cluster(request, cluster_id):
             }, status=400)
     elif payload['isYaookCapi']:
         try:
-            cluster = models.YaookCapiCluster.objects.filter(id=cluster_id)[0]
+            cluster = models.YaookCapiCluster.objects.get(id=cluster_id, tenant_id=tenant_id)
         except:
             return JsonResponse({
                 'error': {
@@ -10292,7 +10123,7 @@ def update_cluster(request, cluster_id):
             }, status=400)
     else:
         try:
-            cluster = models.Clusters.objects.filter(id=cluster_id)[0]
+            cluster = models.Clusters.objects.get(id=cluster_id, tenant_id=tenant_id)
         except:
             return JsonResponse({
                 'error': {
@@ -10301,8 +10132,6 @@ def update_cluster(request, cluster_id):
             }, status=400)
 
     payload['name'] = payload['name'].strip()
-
-    tenant_id = cluster.project.tenant.id
 
     if payload['name'] != cluster.title:
         if payload['isCapi'] and len(models.CapiCluster.objects.filter(project__tenant_id=tenant_id, title=payload['name'])) > 0:

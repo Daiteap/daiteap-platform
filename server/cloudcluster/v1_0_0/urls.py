@@ -68,6 +68,12 @@ urlpatterns = [
    path('tenants/<str:tenant_id>/buckets/<str:bucket_id>/files/<path:path>', views.bucket_files),
    path('tenants/<str:tenant_id>/buckets/<str:bucket_id>/files/<path:path>/download', views.download_bucket_file),
 
+   path('tenants/<str:tenant_id>/environmenttemplates', views.environment_templates_list),
+   path('tenants/<str:tenant_id>/environmenttemplates/<str:environment_template_id>', views.environment_template_detail),
+   path('tenants/<str:tenant_id>/environmenttemplates/name-available/<str:name>', views.is_environment_template_name_free),
+
+   path('tenants/<str:tenant_id>/clusters', views.get_cluster_list),
+   path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/update', views.update_cluster),
    path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/details', views.get_cluster_details),
    path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/storage', views.get_cluster_storage),
    path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/config', views.get_cluster_config),
@@ -75,7 +81,11 @@ urlpatterns = [
    path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/wireguard-config', views.get_wireguard_config),
    path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/installation-status', views.get_installation_status),
    path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/resize-status', views.get_resize_status),
+   path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/upgrade-versions', views.get_kubernetes_available_upgrade_versions),
    path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/user/<str:username>/kubeconfig', views.get_user_kubeconfig),
+   path('tenants/<str:tenant_id>/clusters/cluster-name-available/<str:name>', views.is_cluster_name_free),
+   path('tenants/<str:tenant_id>/clusters/compute-name-available/<str:name>', views.is_compute_name_free),
+   path('tenants/<str:tenant_id>/clusters/dlcmv2-name-available/<str:name>', views.is_dlcmv2_name_free),
 
    path('oauth/azure/createApp', views.oauth_azure_create_app),
    path('oauth/azure/getsubscriptions', views.oauth_azure_get_subscriptions),
@@ -93,18 +103,7 @@ urlpatterns = [
    # ------------------------------------------------------------------------------------
 
    path('environmenttemplates/save', views.save_environment_template),
-   path('environmenttemplates/create', views.create_environment_template),
-   path('environmenttemplates/list', views.list_environment_templates),
-   path('environmenttemplates/delete', views.delete_environment_template),
-   path('environmenttemplates/get/<str:environmentTemplateId>', views.get_environment_template),
-   path('environmenttemplates/isnamefree', views.is_environment_template_name_free),
-
-   path('getClusterList', views.get_cluster_list),
-   path('getKubernetesAvailableUpgradeVersions', views.get_kubernetes_available_upgrade_versions),
    path('generateClusterServiceDefaultName', views.generate_cluster_service_default_name),
-   path('isClusterNameFree', views.is_cluster_name_free),
-   path('isComputeNameFree', views.is_compute_name_free),
-   path('isDLCMv2NameFree', views.is_dlcmv2_name_free),
    path('getServiceOptions', views.get_service_options),
    path('getServiceList', views.get_service_list),
    path('getServiceValues', views.get_service_values),
@@ -147,7 +146,6 @@ urlpatterns = [
    path('createComputeVMs', views.create_compute_VMs),
    path('retryCreateComputeVMs', views.retry_create_compute_vms),
    path('cancelClusterCreation', views.cancel_cluster_creation),
-   path('updateCluster/<str:cluster_id>', views.update_cluster),
    path('createCapiCluster', views.create_capi_cluster),
    path('resizeCapiCluster', views.resize_capi_cluster),
    path('retryCreateCapiCluster', views.retry_create_capi_cluster),
