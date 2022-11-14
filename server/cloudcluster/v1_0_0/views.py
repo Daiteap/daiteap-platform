@@ -3044,59 +3044,11 @@ def get_kubernetes_available_upgrade_versions(request, tenant_id, cluster_id):
     # return JSON response
     return JsonResponse(response)
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def get_k3s_available_upgrade_versions(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            }
-        },
-        "required": ["clusterID"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid clusterID parameter.', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    username = request.user
-
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def get_k3s_available_upgrade_versions(request, tenant_id, cluster_id):
     # Get user's cluster
-    try:
-        cluster = models.Clusters.objects.filter(project__tenant__daiteapuser__user=username, id=payload['clusterID'])[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
+    cluster = models.Clusters.objects.get(project__tenant_id=tenant_id, id=cluster_id)
 
     config = json.loads(cluster.config)
 
@@ -3265,63 +3217,10 @@ def rename_cluster(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def delete_cluster(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            }
-        },
-        "required": ["clusterID"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def delete_cluster(request, tenant_id, cluster_id):
     # change cluster install step if cluster exists
-    try:
-        cluster = models.Clusters.objects.filter(id=payload['clusterID'])[0]
-
-        if not cluster.checkUserAccess(request.daiteap_user):
-            return JsonResponse({
-                'error': {
-                    'message': 'Invalid parameter clusterID'
-                }
-            }, status=403)
-    except:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Cluster doesn\'t exist.', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Cluster doesn\'t exist.'
-            }
-        }, status=400)
+    cluster = models.Clusters.objects.get(id=cluster_id, project__tenant_id=tenant_id)
 
     if not cluster.installstep <= 0:
         return JsonResponse({
@@ -3333,7 +3232,7 @@ def delete_cluster(request):
     cluster.installstep = 100
     cluster.save()
 
-    cluster_machines = models.Machine.objects.filter(cluster_id=payload['clusterID'])
+    cluster_machines = models.Machine.objects.filter(cluster_id=cluster_id)
 
     if cluster.type == constants.ClusterType.COMPUTE_VMS.value:
         for machine in cluster_machines:
@@ -3341,7 +3240,7 @@ def delete_cluster(request):
             machine.save()
 
     # submit deletion
-    task = tasks.worker_delete_cluster.delay(payload['clusterID'], request.user.id)
+    task = tasks.worker_delete_cluster.delay(cluster_id, request.user.id)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -3481,65 +3380,16 @@ def remove_compute_node(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def stop_cluster(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            }
-        },
-        "required": ["clusterID"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    username = request.user
-
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def stop_cluster(request, tenant_id, cluster_id):
     # change cluster status if cluster exists
-    try:
-        cluster = models.Clusters.objects.filter(
-            id=payload['clusterID'], project__tenant__daiteapuser__user=username)[0]
-    except:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Cluster doesn\'t exist.', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Cluster doesn\'t exist.'
-            }
-        }, status=400)
+    cluster = models.Clusters.objects.get(id=cluster_id, project__tenant_id=tenant_id)
 
     if cluster.installstep != 0:
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Cluster is not ready.', extra=log_data)
@@ -3553,7 +3403,7 @@ def stop_cluster(request):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Cluster is stopped/stopping.', extra=log_data)
@@ -3567,7 +3417,7 @@ def stop_cluster(request):
     cluster.save()
 
     # submit stop
-    task = tasks.worker_stop_cluster.delay(payload['clusterID'], request.user.id)
+    task = tasks.worker_stop_cluster.delay(cluster_id, request.user.id)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -3583,65 +3433,16 @@ def stop_cluster(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def start_cluster(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            }
-        },
-        "required": ["clusterID"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    username = request.user
-
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def start_cluster(request, tenant_id, cluster_id):
     # change cluster status if cluster exists
-    try:
-        cluster = models.Clusters.objects.filter(
-            id=payload['clusterID'], project__tenant__daiteapuser__user=username)[0]
-    except:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Cluster doesn\'t exist.', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Cluster doesn\'t exist.'
-            }
-        }, status=400)
+    cluster = models.Clusters.objects.get(id=cluster_id, project__tenant_id=tenant_id)
     
     if cluster.installstep != 0:
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Cluster is not ready.', extra=log_data)
@@ -3655,7 +3456,7 @@ def start_cluster(request):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Cluster is running/starting.', extra=log_data)
@@ -3669,7 +3470,7 @@ def start_cluster(request):
     cluster.save()
 
     # submit start
-    task = tasks.worker_start_cluster.delay(payload['clusterID'], request.user.id)
+    task = tasks.worker_start_cluster.delay(cluster_id, request.user.id)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -3684,65 +3485,16 @@ def start_cluster(request):
     })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def restart_cluster(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            }
-        },
-        "required": ["clusterID"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    username = request.user
-
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def restart_cluster(request, tenant_id, cluster_id):
     # change cluster status if cluster exists
-    try:
-        cluster = models.Clusters.objects.filter(
-            id=payload['clusterID'], project__tenant__daiteapuser__user=username)[0]
-    except:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Cluster doesn\'t exist.', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Cluster doesn\'t exist.'
-            }
-        }, status=400)
+    cluster = models.Clusters.objects.get(id=cluster_id, project__tenant_id=tenant_id)
     
     if cluster.installstep != 0:
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Cluster is not ready.', extra=log_data)
@@ -3756,7 +3508,7 @@ def restart_cluster(request):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Cluster is not running.', extra=log_data)
@@ -3770,7 +3522,7 @@ def restart_cluster(request):
     cluster.save()
 
     # submit restart
-    task = tasks.worker_restart_cluster.delay(payload['clusterID'], request.user.id)
+    task = tasks.worker_restart_cluster.delay(cluster_id, request.user.id)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -5111,64 +4863,10 @@ def retry_create_capi_cluster(request):
     })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def delete_capi_cluster(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            }
-        },
-        "required": ["clusterID"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def delete_capi_cluster(request, tenant_id, cluster_id):
     # change cluster install step if cluster exists
-    try:
-        cluster = models.CapiCluster.objects.filter(id=payload['clusterID'])[0]
-
-        if not cluster.checkUserAccess(request.daiteap_user):
-            return JsonResponse({
-                'error': {
-                    'message': 'Invalid parameter clusterID'
-                }
-            }, status=403)
-    except:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Cluster doesn\'t exist.', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Cluster doesn\'t exist.'
-            }
-        }, status=400)
+    cluster = models.CapiCluster.objects.get(id=cluster_id, project__tenant_id=tenant_id)
 
     if not cluster.installstep <= 0:
         return JsonResponse({
@@ -5181,7 +4879,7 @@ def delete_capi_cluster(request):
     cluster.save()
 
     # submit deletion
-    task = tasks.worker_delete_capi_cluster.delay(payload['clusterID'], request.user.id)
+    task = tasks.worker_delete_capi_cluster.delay(cluster_id, request.user.id)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -5504,65 +5202,10 @@ def retry_create_yaookcapi_cluster(request):
     })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def delete_yaookcapi_cluster(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            }
-        },
-        "required": ["clusterID"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    username = request.user
-
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def delete_yaookcapi_cluster(request, tenant_id, cluster_id):
     # change cluster install step if cluster exists
-    try:
-        cluster = models.YaookCapiCluster.objects.filter(id=payload['clusterID'])[0]
-
-        if not cluster.checkUserAccess(request.daiteap_user):
-            return JsonResponse({
-                'error': {
-                    'message': 'Invalid parameter clusterID'
-                }
-            }, status=403)
-    except:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Cluster doesn\'t exist.', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Cluster doesn\'t exist.'
-            }
-        }, status=400)
+    cluster = models.YaookCapiCluster.objects.get(id=cluster_id, project__tenant_id=tenant_id)
 
     if not cluster.installstep <= 0:
         return JsonResponse({
@@ -5575,7 +5218,7 @@ def delete_yaookcapi_cluster(request):
     cluster.save()
 
     # submit deletion
-    task = tasks.worker_delete_yaookcapi_cluster.delay(payload['clusterID'], request.user.id)
+    task = tasks.worker_delete_yaookcapi_cluster.delay(cluster_id, request.user.id)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -6574,49 +6217,10 @@ def retry_create_compute_vms(request):
     })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def cancel_cluster_creation(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
-
-    schema = constants.CANCEL_CLUSTER_CREATION_INPUT_VALIDATION_SCHEMA
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-
-    username = request.user
-
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def cancel_cluster_creation(request, tenant_id, cluster_id):
     # change cluster install step if cluster exists
-    try:
-        cluster = models.Clusters.objects.filter(id=payload['clusterID'], project__tenant__daiteapuser__user=username)[0]
-    except:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Cluster doesn\'t exist.', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Cluster doesn\'t exist.'
-            }
-        }, status=400)
+    cluster = models.Clusters.objects.get(id=cluster_id, project__tenant_id=tenant_id)
 
     if cluster.installstep < 1 or cluster.installstep == 100:
         return JsonResponse({
