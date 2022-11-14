@@ -709,32 +709,150 @@ def bucket_detail(request, tenant_id, bucket_id):
         bucket.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-@api_view(['GET'])
+@api_view(['GET', 'DELETE', 'PUT'])
 @permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
-def get_specific_user_info(request, tenant_id, username):
-    # check if account exists
-    try:
-        daiteap_user = models.DaiteapUser.objects.get(tenant_id=tenant_id, user__username=username)
-    except:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('User doesn\'t exist.', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'User doesn\'t exist.'
+def tenant_users_detail(request, tenant_id, username):
+    if request.method == 'GET':
+        # check if account exists
+        try:
+            daiteap_user = models.DaiteapUser.objects.get(tenant_id=tenant_id, user__username=username)
+        except:
+            log_data = {
+                'level': 'ERROR',
+                'user_id': str(request.user.id),
+                'client_request': json.loads(request.body.decode('utf-8')),
             }
-        }, status.HTTP_400_BAD_REQUEST)
-    
-    user = {
-        'first_name': daiteap_user.user.first_name,
-        'last_name': daiteap_user.user.last_name,
-        'email': daiteap_user.user.email,
-        'username': daiteap_user.user.username
-    }
-    return JsonResponse(user)
+            logger.error('User doesn\'t exist.', extra=log_data)
+            return JsonResponse({
+                'error': {
+                    'message': 'User doesn\'t exist.'
+                }
+            }, status.HTTP_400_BAD_REQUEST)
+        
+        user = {
+            'first_name': daiteap_user.user.first_name,
+            'last_name': daiteap_user.user.last_name,
+            'email': daiteap_user.user.email,
+            'username': daiteap_user.user.username
+        }
+        return JsonResponse(user)
+
+    if request.method == 'DELETE':
+        user=models.User.objects.get(username=username)
+        daiteapuser=models.DaiteapUser.objects.get(user=user, tenant_id=tenant_id)
+
+        user_clusters = models.Clusters.objects.filter(daiteap_user_id=daiteapuser)
+        user_capi_clusters = models.CapiCluster.objects.filter(daiteap_user_id=daiteapuser)
+        user_yaookcapi_clusters = models.YaookCapiCluster.objects.filter(daiteap_user_id=daiteapuser)
+
+        # Check if user has asociated clusters
+        if len(user_clusters) > 0 or len(user_capi_clusters) > 0 or len(user_yaookcapi_clusters) > 0:
+            return JsonResponse({
+                'delete_success': False,
+                'message': 'User cannot be deleted because it has clusters associated with it.'
+            }, status=400)
+
+        # remove
+        for p in daiteapuser.projects.all():
+            daiteapuser.projects.remove(p)
+
+        # dereference CloudAccounts (deleting might cause issues with resources)
+        for account in models.CloudAccount.objects.filter(user=user, tenant_id=tenant_id):
+            account.user = None
+            account.save()
+
+        daiteapuser.delete()
+
+        if models.DaiteapUser.objects.filter(user=user).count() < 1:
+            user.delete()
+
+        sync_users()
+
+        return JsonResponse({'delete_success': True})
+
+    if request.method == 'PUT':
+        # Validate request
+        payload, error = get_request_body(request)
+        if error is not None:
+            return error
+
+        schema = {
+            "type": "object",
+            "properties": {
+                "firstname": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 100
+                },
+                "lastname": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 100
+                },
+                "company": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 100
+                }
+            },
+            "required": ["firstname", "lastname", "company", "phone"]
+        }
+
+        try:
+            validate(instance=payload, schema=schema)
+        except ValidationError as e:
+            log_data = {
+                'level': 'ERROR',
+                'user_id': str(request.user.id),
+            }
+            logger.error(str(e), extra=log_data)
+            return JsonResponse({
+                'error': {
+                    'message': str(e),
+                }
+            }, status=400)
+
+        try:
+            user = models.User.objects.get(username=username)
+        except:
+            return JsonResponse({
+                'error': {
+                    'message': 'User doesn\'t exist.'
+                }
+            }, status=400)
+
+        user.first_name = payload["firstname"].strip()
+        user.last_name = payload["lastname"].strip()
+        user.save()
+
+        try:
+            daiteap_user = models.DaiteapUser.objects.get(user=user, tenant_id=tenant_id)
+        except:
+            return JsonResponse({
+                'error': {
+                    'message': 'User doesn\'t exist in this tenant.'
+                }
+            }, status=400)
+
+        profile = daiteap_user.user.profile
+        profile.company = payload["company"].strip()
+        profile.phone = payload["phone"].strip()
+        profile.save()
+
+        if 'password' in payload:
+            password = payload['password']
+            user.set_password(password)
+            user.save()
+        
+        return JsonResponse({
+            'submitted': True
+        })
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
@@ -761,7 +879,7 @@ def check_account_regions_update_status(request, tenant_id, cloudaccount_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+@permission_classes([IsAuthenticated])
 def validate_credentials(request, tenant_id, cloudaccount_id = None):
     # Validate request
     if cloudaccount_id:
@@ -9715,120 +9833,78 @@ def get_timezones(_):
 
     return JsonResponse(response, status=200)
 
-def _add_user_to_tenant(tenantId, request):
-    request_body, error = get_request_body(request)
 
-    try:
-        user = models.User.objects.filter(username=request_body['username'])[0]
-        news_subscribbed = models.DaiteapUser.objects.all()[0].user.profile.news_subscribbed
-    except:
-        user=models.User.objects.create_user(request_body['username'])
-        user.first_name = request_body['firstname']
-        user.last_name = request_body['lastname']
-        user.email = request_body['email']
-        user.save()
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated, custom_permissions.IsAdmin])
+def tenant_users(request, tenant_id):
+    if request.method == 'GET':
+        userslist = []
 
-        keycloak = KeycloakConnect(server_url=KEYCLOAK_CONFIG['KEYCLOAK_SERVER_URL'],
-                                realm_name=KEYCLOAK_CONFIG['KEYCLOAK_REALM'],
-                                client_id=KEYCLOAK_CONFIG['KEYCLOAK_CLIENT_ID'],
-                                client_secret_key=KEYCLOAK_CONFIG['KEYCLOAK_CLIENT_SECRET_KEY'])
+        users = models.DaiteapUser.objects.filter(tenant_id=tenant_id)
+        for daiteap_user in users:
+            profile = daiteap_user.user.profile
+            userslist.append({
+                'username': daiteap_user.user.username,
+                'firstname': daiteap_user.user.first_name,
+                'lastname': daiteap_user.user.last_name,
+                'projects': list(daiteap_user.projects.all().values_list('name', flat=True)),
+                'email': daiteap_user.user.email,
+                'role': daiteap_user.role,
+                'phone': daiteap_user.user.profile.phone,
+                'company': profile.company,
+                'id': daiteap_user.user.id,
+            })
 
-        keycloak_user = keycloak.getuser(request_body['username'])
-        news_subscribbed = True
+        return JsonResponse({'users_list': userslist})
 
-        if 'attributes' in keycloak_user and 'no_news' in keycloak_user['attributes']:
-            news_subscribbed = False
+    if request.method == 'POST':
+        request_body, error = get_request_body(request)
 
-    daiteapuser=models.DaiteapUser.objects.create(user_id=user.id, tenant_id=tenantId)
-    daiteapuser.save()
-    profile = daiteapuser.user.profile
-    if 'company' in request_body:
-        profile.company  = request_body['company']
-    if 'phone' in request_body:
-        profile.phone = request_body['phone']
-    profile.sshpubkey = request_body['sshpubkey']
-    daiteapuser.role = request_body['userRole']
-    daiteapuser.save()
-    profile.news_subscribbed = news_subscribbed
-    profile.save()
+        try:
+            user = models.User.objects.filter(username=request_body['username'])[0]
+            news_subscribbed = models.DaiteapUser.objects.all()[0].user.profile.news_subscribbed
+        except:
+            user=models.User.objects.create_user(request_body['username'])
+            user.first_name = request_body['firstname']
+            user.last_name = request_body['lastname']
+            user.email = request_body['email']
+            user.save()
 
-    userconfiguration = models.UserConfiguration.objects.create(daiteap_user=daiteapuser)
-    userconfiguration.account_type = daiteapuser.role
-    userconfiguration.limit_kubernetes_cluster_environments=20
-    userconfiguration.limit_compute_vms_environments=50
-    userconfiguration.limit_nodes=200
-    userconfiguration.limit_services=50
-    userconfiguration.save()
+            keycloak = KeycloakConnect(server_url=KEYCLOAK_CONFIG['KEYCLOAK_SERVER_URL'],
+                                    realm_name=KEYCLOAK_CONFIG['KEYCLOAK_REALM'],
+                                    client_id=KEYCLOAK_CONFIG['KEYCLOAK_CLIENT_ID'],
+                                    client_secret_key=KEYCLOAK_CONFIG['KEYCLOAK_CLIENT_SECRET_KEY'])
 
-    sync_users()
+            keycloak_user = keycloak.getuser(request_body['username'])
+            news_subscribbed = True
 
-    return JsonResponse({'user_created': True})
+            if 'attributes' in keycloak_user and 'no_news' in keycloak_user['attributes']:
+                news_subscribbed = False
 
-def _delete_user_from_tenant(tenantId, request):
-    request_body, error = get_request_body(request)
-    username = request_body['username']
-    user=models.User.objects.filter(username=username)[0]
-    daiteapuser=models.DaiteapUser.objects.filter(user=user, tenant_id=tenantId)[0]
+        daiteapuser=models.DaiteapUser.objects.create(user_id=user.id, tenant_id=tenant_id)
+        daiteapuser.save()
+        profile = daiteapuser.user.profile
+        if 'company' in request_body:
+            profile.company  = request_body['company']
+        if 'phone' in request_body:
+            profile.phone = request_body['phone']
+        profile.sshpubkey = request_body['sshpubkey']
+        daiteapuser.role = request_body['userRole']
+        daiteapuser.save()
+        profile.news_subscribbed = news_subscribbed
+        profile.save()
 
-    user_clusters = models.Clusters.objects.filter(daiteap_user_id=daiteapuser)
-    user_capi_clusters = models.CapiCluster.objects.filter(daiteap_user_id=daiteapuser)
-    user_yaookcapi_clusters = models.YaookCapiCluster.objects.filter(daiteap_user_id=daiteapuser)
+        userconfiguration = models.UserConfiguration.objects.create(daiteap_user=daiteapuser)
+        userconfiguration.account_type = daiteapuser.role
+        userconfiguration.limit_kubernetes_cluster_environments=20
+        userconfiguration.limit_compute_vms_environments=50
+        userconfiguration.limit_nodes=200
+        userconfiguration.limit_services=50
+        userconfiguration.save()
 
-    # Check if user has asociated clusters
-    if len(user_clusters) > 0 or len(user_capi_clusters) > 0 or len(user_yaookcapi_clusters) > 0:
-        return JsonResponse({
-            'delete_success': False,
-            'message': 'User cannot be deleted because it has clusters associated with it.'
-        }, status=400)
+        sync_users()
 
-    # remove
-    for p in daiteapuser.projects.all():
-        daiteapuser.projects.remove(p)
-
-    # dereference CloudAccounts (deleting might cause issues with resources)
-    for account in models.CloudAccount.objects.filter(user=user, tenant_id=tenantId):
-        account.user = None
-        account.save()
-
-    daiteapuser.delete()
-
-    if models.DaiteapUser.objects.filter(user=user).count() < 1:
-        user.delete()
-
-    sync_users()
-
-    return JsonResponse({'delete_success': True})
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated,custom_permissions.IsAdmin])
-def add_newuser(request):
-    return _add_user_to_tenant(request.daiteap_user.tenant_id, request)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_userslist(request):
-    userslist = []
-    daiteapuser = request.daiteap_user
-    if not daiteapuser.isAdmin():
-        return JsonResponse({'users_list': []})
-
-    tenant=models.Tenant.objects.filter(daiteapuser=daiteapuser)[0]
-    users = models.DaiteapUser.objects.filter(tenant_id=tenant.id)
-    for daiteap_user in users:
-        profile = daiteap_user.user.profile
-        userslist.append({
-            'username': daiteap_user.user.username,
-            'firstname': daiteap_user.user.first_name,
-            'lastname': daiteap_user.user.last_name,
-            'projects': list(daiteap_user.projects.all().values_list('name', flat=True)),
-            'email': daiteap_user.user.email,
-            'role': daiteap_user.role,
-            'phone': daiteap_user.user.profile.phone,
-            'company': profile.company,
-            'id': daiteap_user.user.id,
-        })
-
-    return JsonResponse({'users_list': userslist})
+        return JsonResponse({'user_created': True})
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.IsAdmin])
@@ -9931,11 +10007,6 @@ def register_tenant_user(request):
         email_client.email_welcome_message(user.id)
 
     return JsonResponse({'user_created': True})
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated,custom_permissions.IsAdmin])
-def delete_user(request):
-    return _delete_user_from_tenant(request.daiteap_user.tenant_id, request)
 
 
 @api_view(['GET', 'POST'])
@@ -10156,18 +10227,6 @@ def suggest_account_params(request, provider):
 
     return JsonResponse(autosuggested_params)
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated,custom_permissions.IsAdmin])
-def is_username_free(request, usrname):
-    if len(models.User.objects.filter(username=usrname)) > 0:
-        return JsonResponse({
-            'username_free': False
-        }, status=200)
-    else:
-        return JsonResponse({
-            'username_free': True
-        }, status=200)
-
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -10273,96 +10332,6 @@ def update_cluster(request, cluster_id):
         'submitted': True
     })
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated,custom_permissions.IsAdmin])
-def update_user(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "user_id": {
-                "type": "number"
-            },
-            "firstname": {
-                "type": "string",
-                "minLength": 2,
-                "maxLength": 100
-            },
-            "lastname": {
-                "type": "string",
-                "minLength": 2,
-                "maxLength": 100
-            },
-            "company": {
-                "type": "string"
-            },
-            "phone": {
-                "type": "string"
-            },
-            "password": {
-                "type": "string",
-                "minLength": 8,
-                "maxLength": 100
-            }
-        },
-        "required": ["user_id", "firstname", "lastname", "company", "phone"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    try:
-        user = models.User.objects.filter(id=payload['user_id'])[0]
-    except:
-        return JsonResponse({
-            'error': {
-                'message': 'User doesn\'t exist.'
-            }
-        }, status=400)
-
-    user.first_name = payload["firstname"].strip()
-    user.last_name = payload["lastname"].strip()
-    user.save()
-
-    try:
-        daiteap_user = (models.DaiteapUser.objects
-                                            .filter(user_id=payload['user_id'])
-                                            .filter(tenant_id=request.daiteap_user.tenant_id))[0]
-    except:
-        return JsonResponse({
-            'error': {
-                'message': 'User doesn\'t exist in this tenant.'
-            }
-        }, status=400)
-
-    profile = daiteap_user.user.profile
-    profile.company = payload["company"].strip()
-    profile.phone = payload["phone"].strip()
-    profile.save()
-
-    if 'password' in payload:
-        password = payload['password']
-        user.set_password(password)
-        user.save()
-    
-    return JsonResponse({
-        'submitted': True
-    })
 
 @api_view(['GET', 'POST', 'DELETE'])
 @permission_classes([IsAuthenticated, custom_permissions.BucketAccessPermission])

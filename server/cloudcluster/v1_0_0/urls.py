@@ -23,17 +23,22 @@ urlpatterns = [
    path('is-alive', views.is_alive),
    path('get-version', views.get_version),
    path('is-registered', views.is_registered),
-   path('select-tenant', views.select_tenant),
-   path('active-tenants', views.get_active_tenants),
-   path('user', views.user),
-   path('profile', views.profile),
-   path('profile/picture', views.user_profile_picture),
    path('task-message/<str:task_id>', views.get_task_message),
 
+   path('user', views.user),
+   path('user/profile', views.profile),
+   path('user/profile/picture', views.user_profile_picture),
+   path('user/password', views.change_user_password),
+   path('user/password/can-update', views.can_update_user_password),
+   path('user/active-tenants', views.get_active_tenants),
+   path('user/select-tenant', views.select_tenant),
+
+   path('tenants', views.register_tenant_user),
    path('tenants/<str:tenant_id>', views.account_tenant),
    path('tenants/<str:tenant_id>/settings', views.account_get_settings),
 
-   path('tenants/<str:tenant_id>/users/<str:username>', views.get_specific_user_info),
+   path('tenants/<str:tenant_id>/users', views.tenant_users),
+   path('tenants/<str:tenant_id>/users/<str:username>', views.tenant_users_detail),
    path('tenants/<str:tenant_id>/user-quotas', views.get_usage),
    path('tenants/<str:tenant_id>/unregistered-users', views.get_unregistered_users),
 
@@ -86,14 +91,6 @@ urlpatterns = [
    path('googleoauth', views.oauth_google),
 
    # ------------------------------------------------------------------------------------
-
-   path('canUpdateUserPassword', views.can_update_user_password),
-   path('updateuserpassword', views.change_user_password),
-   path('updateUser', views.update_user),
-   path('registerTenantUser', views.register_tenant_user),
-   path('addnewuser', views.add_newuser),
-   path('getuserslist', views.get_userslist),
-   path('delete_user', views.delete_user),
 
    path('environmenttemplates/save', views.save_environment_template),
    path('environmenttemplates/create', views.create_environment_template),

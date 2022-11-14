@@ -25,7 +25,11 @@ class TenantAccessPermission(permissions.BasePermission):
         except models.DaiteapUser.DoesNotExist:
             return False
 
-        return True
+        if request.method in SAFE_METHODS:
+            return True
+        else:
+            return daiteap_user.isAdmin()
+
 
 class CloudAccountAccessPermission(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -169,14 +173,26 @@ class BucketAccessPermission(permissions.BasePermission):
 
 class IsAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
-        if not request.daiteap_user:
+        tenant_id = request.parser_context['kwargs']['tenant_id']
+        user = request.user
+
+        # check if tenant exists
+        try:
+            tenant = models.Tenant.objects.get(id=tenant_id)
+        except models.Tenant.DoesNotExist:
             return False
 
-        daiteapuser = request.daiteap_user
-        if daiteapuser.isBusinessAccountOwner():
+        # check if user is in tenant
+        try:
+            daiteap_user = models.DaiteapUser.objects.get(
+                user=user, tenant=tenant)
+        except models.DaiteapUser.DoesNotExist:
+            return False
+
+        if daiteap_user.isBusinessAccountOwner():
             return True
 
-        return daiteapuser.isAdmin()
+        return daiteap_user.isAdmin()
 
 
 class IsUnregistered(permissions.BasePermission):
