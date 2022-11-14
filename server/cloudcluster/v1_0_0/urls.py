@@ -24,12 +24,18 @@ urlpatterns = [
    path('get-version', views.get_version),
    path('is-registered', views.is_registered),
    path('select-tenant', views.select_tenant),
+   path('active-tenants', views.get_active_tenants),
+   path('user', views.user),
+   path('profile', views.profile),
+   path('profile/picture', views.user_profile_picture),
+   path('task-message/<str:task_id>', views.get_task_message),
 
    path('tenants/<str:tenant_id>', views.account_tenant),
    path('tenants/<str:tenant_id>/settings', views.account_get_settings),
 
    path('tenants/<str:tenant_id>/users/<str:username>', views.get_specific_user_info),
-   path('tenants/<str:tenant_id>/users/unregistered', views.get_unregistered_users),
+   path('tenants/<str:tenant_id>/user-quotas', views.get_usage),
+   path('tenants/<str:tenant_id>/unregistered-users', views.get_unregistered_users),
 
    path('tenants/<str:tenant_id>/projects', views.project_list),
    path('tenants/<str:tenant_id>/projects/<str:project_id>', views.project_detail),
@@ -66,24 +72,35 @@ urlpatterns = [
    path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/resize-status', views.get_resize_status),
    path('tenants/<str:tenant_id>/clusters/<str:cluster_id>/user/<str:username>/kubeconfig', views.get_user_kubeconfig),
 
-
+   path('oauth/azure/createApp', views.oauth_azure_create_app),
+   path('oauth/azure/getsubscriptions', views.oauth_azure_get_subscriptions),
+   path('oauth/azure/getauthurladminconsent', views.oauth_azure_get_auth_url_admin_consent),
+   path('oauth/azure/getauthurlauthorize', views.oauth_azure_get_auth_url_authorize),
+   path('oauth/azure/getauthurlcreateapp', views.oauth_azure_get_auth_url_create_app),
+   path('azureauthorize', views.oauth_azure_authorize),
+   path('azureadminconsent', views.oauth_azure_adminconsent),
+   path('azurecreateapp', views.oauth_azure_createapp),
+   path('oauth/google/getauthurlprojects', views.oauth_google_get_auth_url_projects),
+   path('oauth/google/createserviceaccount', views.oauth_google_create_service_account),
+   path('oauth/google/getprojects', views.oauth_google_get_projects),
+   path('googleoauth', views.oauth_google),
 
    # ------------------------------------------------------------------------------------
 
-   path('profile', views.profile),
-   path('user', views.user),
-   path('profilepicture', views.user_profile_picture),
    path('canUpdateUserPassword', views.can_update_user_password),
    path('updateuserpassword', views.change_user_password),
-   path('gettaskmessage', views.get_task_message),
-   path('getusage', views.get_usage),
    path('updateUser', views.update_user),
-   path('getActiveTenants', views.get_active_tenants),
    path('registerTenantUser', views.register_tenant_user),
    path('addnewuser', views.add_newuser),
    path('getuserslist', views.get_userslist),
    path('delete_user', views.delete_user),
-   path('isEmailFree/<str:mail>', views.is_email_free),
+
+   path('environmenttemplates/save', views.save_environment_template),
+   path('environmenttemplates/create', views.create_environment_template),
+   path('environmenttemplates/list', views.list_environment_templates),
+   path('environmenttemplates/delete', views.delete_environment_template),
+   path('environmenttemplates/get/<str:environmentTemplateId>', views.get_environment_template),
+   path('environmenttemplates/isnamefree', views.is_environment_template_name_free),
 
    path('getClusterList', views.get_cluster_list),
    path('getKubernetesAvailableUpgradeVersions', views.get_kubernetes_available_upgrade_versions),
@@ -96,21 +113,6 @@ urlpatterns = [
    path('getServiceValues', views.get_service_values),
    path('getServiceConnectionInfo', views.get_service_connection_info),
    path('getTerraformPlan', views.get_tf_plan),
-
-   path('oauth/azure/createApp', views.oauth_azure_create_app),
-   path('oauth/azure/getsubscriptions', views.oauth_azure_get_subscriptions),
-   path('oauth/azure/getauthurladminconsent', views.oauth_azure_get_auth_url_admin_consent),
-   path('oauth/azure/getauthurlauthorize', views.oauth_azure_get_auth_url_authorize),
-   path('oauth/azure/getauthurlcreateapp', views.oauth_azure_get_auth_url_create_app),
-   path('azureauthorize', views.oauth_azure_authorize),
-   path('azureadminconsent', views.oauth_azure_adminconsent),
-   path('azurecreateapp', views.oauth_azure_createapp),
-
-   path('oauth/google/getauthurlprojects', views.oauth_google_get_auth_url_projects),
-   path('oauth/google/createserviceaccount', views.oauth_google_create_service_account),
-   path('oauth/google/getprojects', views.oauth_google_get_projects),
-   path('googleoauth', views.oauth_google),
-
    path('addService', views.add_service),
    path('deleteService', views.delete_service),
    path('addUserToCluster', views.add_user_to_cluster),
@@ -162,13 +164,6 @@ urlpatterns = [
    path('retryCreateK3sCluster', views.retry_create_k3s_cluster),
    path('getK3sAvailableUpgradeVersions', views.get_k3s_available_upgrade_versions),
    path('upgradeK3sCluster', views.upgrade_k3s_cluster),
-
-   path('environmenttemplates/save', views.save_environment_template),
-   path('environmenttemplates/create', views.create_environment_template),
-   path('environmenttemplates/list', views.list_environment_templates),
-   path('environmenttemplates/delete', views.delete_environment_template),
-   path('environmenttemplates/get/<str:environmentTemplateId>', views.get_environment_template),
-   path('environmenttemplates/isnamefree', views.is_environment_template_name_free),
    path('addMachinesToK3s', views.add_machines_to_k3s),
 
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

@@ -7530,24 +7530,12 @@ def delete_machine_from_vms(request):
     })
 
 
-@api_view(['POST'])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_task_message(request):
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
-
-    required_parameters = [
-        'taskId'
-    ]
-
-    error = check_if_body_parameters_exist(payload, required_parameters)
-    if error:
-        return error
-
+def get_task_message(request, task_id):
     # get user plan msg
     try:
-        celerytask_id = models.CeleryTask.objects.filter(id=payload['taskId'], user=request.user).values('task_id')[0]['task_id']
+        celerytask_id = models.CeleryTask.objects.filter(id=task_id, user=request.user).values('task_id')[0]['task_id']
     except Exception as e:
         log_data = {
             'level': 'ERROR',
@@ -8947,11 +8935,13 @@ def change_user_password(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_usage(request):
-    quota_limits = authorization_service.get_quota_limits(request.daiteap_user.id)
+@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+def get_usage(request, tenant_id):
+    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
 
-    used_quota = authorization_service.get_used_quota(request.daiteap_user.id)
+    quota_limits = authorization_service.get_quota_limits(daiteap_user.id)
+
+    used_quota = authorization_service.get_used_quota(daiteap_user.id)
 
     response_json = quota_limits
 
@@ -10176,19 +10166,6 @@ def is_username_free(request, usrname):
     else:
         return JsonResponse({
             'username_free': True
-        }, status=200)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated,custom_permissions.IsAdmin])
-def is_email_free(request, mail):
-    if len(models.User.objects.filter(email=mail)) > 0:
-        return JsonResponse({
-            'email_free': False
-        }, status=200)
-    else:
-        return JsonResponse({
-            'email_free': True
         }, status=200)
 
 
