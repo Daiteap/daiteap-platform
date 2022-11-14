@@ -710,11 +710,11 @@ def bucket_detail(request, tenant_id, bucket_id):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_specific_user_info(request, tenant, username):
+@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+def get_specific_user_info(request, tenant_id, username):
     # check if account exists
     try:
-        daiteap_user = models.DaiteapUser.objects.filter(tenant_id=tenant, user__username=username)[0]
+        daiteap_user = models.DaiteapUser.objects.get(tenant_id=tenant_id, user__username=username)
     except:
         log_data = {
             'level': 'ERROR',
@@ -9841,8 +9841,8 @@ def get_userslist(request):
     return JsonResponse({'users_list': userslist})
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated,custom_permissions.IsAdmin])
-def get_unregistered_users(request, tenantId):
+@permission_classes([IsAuthenticated, custom_permissions.IsAdmin])
+def get_unregistered_users(request, tenant_id):
     keycloak = KeycloakConnect(server_url=KEYCLOAK_CONFIG['KEYCLOAK_SERVER_URL'],
                                 realm_name=KEYCLOAK_CONFIG['KEYCLOAK_REALM'],
                                 client_id=KEYCLOAK_CONFIG['KEYCLOAK_CLIENT_ID'],
@@ -9865,7 +9865,7 @@ def get_unregistered_users(request, tenantId):
         
         platform_users.append(platform_user)
 
-    all_tenant_users = models.DaiteapUser.objects.filter(tenant_id=tenantId).values('user__username')
+    all_tenant_users = models.DaiteapUser.objects.filter(tenant_id=tenant_id).values('user__username')
     all_tenant_users = [user['user__username'] for user in all_tenant_users]
 
     unregisteredUsers = []
@@ -10111,23 +10111,17 @@ def sync_users(task_delay=True):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def account_tenant(request):
-    tenant = models.Tenant.objects.filter(id=request.daiteap_user.tenant_id).values('id', 'name', 'company')[0]
+@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+def account_tenant(request, tenant_id):
+    tenant = models.Tenant.objects.filter(id=tenant_id).values('id', 'name', 'company')[0]
 
     return JsonResponse({'tenant': tenant})
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated,custom_permissions.IsAdmin])
-def account_tenant_id(request, tenantId):
-    tenant = models.Tenant.objects.filter(id=tenantId).values('company')[0]
-
-    return JsonResponse({'tenant': tenant})
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def account_get_settings(request):
-    tenant = models.Tenant.objects.filter(id=request.daiteap_user.tenant_id)[0]
+@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+def account_get_settings(request, tenant_id):
+    tenant = models.Tenant.objects.get(id=tenant_id)
 
     account = {
         'name': tenant.name,
@@ -10138,7 +10132,7 @@ def account_get_settings(request):
         'status': tenant.status,
     }
 
-    settings = models.TenantSettings.objects.filter(tenant=tenant)[0]
+    settings = models.TenantSettings.objects.get(tenant=tenant)
     account_settings = {
         'enable_compute': settings.enable_compute,
         'enable_storage': settings.enable_storage,
