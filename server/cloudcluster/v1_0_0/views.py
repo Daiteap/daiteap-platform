@@ -738,6 +738,13 @@ def tenant_users_detail(request, tenant_id, username):
         return JsonResponse(user)
 
     if request.method == 'DELETE':
+        requester = models.DaiteapUser.get(user=request.user, tenant_id=tenant_id)
+        if not requester.isAdmin():
+            return JsonResponse({
+                'delete_success': False,
+                'message': 'Insufficient permissions.'
+            }, status=400)
+
         user=models.User.objects.get(username=username)
         daiteapuser=models.DaiteapUser.objects.get(user=user, tenant_id=tenant_id)
 
@@ -771,6 +778,14 @@ def tenant_users_detail(request, tenant_id, username):
         return JsonResponse({'delete_success': True})
 
     if request.method == 'PUT':
+        requester = models.DaiteapUser.get(user=request.user, tenant_id=tenant_id)
+        if not requester.isAdmin():
+            return JsonResponse({
+                'error': {
+                    'message': 'Insufficient permissions.'
+                }
+            }, status=400)
+
         # Validate request
         payload, error = get_request_body(request)
         if error is not None:
@@ -879,7 +894,7 @@ def check_account_regions_update_status(request, tenant_id, cloudaccount_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
 def validate_credentials(request, tenant_id, cloudaccount_id = None):
     # Validate request
     if cloudaccount_id:
@@ -2005,121 +2020,59 @@ def get_service_values(request, service):
     return JsonResponse(response)
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def get_service_connection_info(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "name": {
-                "type": "string",
-                "minLength": 3,
-                "maxLength": 30
-            },
-            "namespace": {
-                "type": "string",
-                "minLength": 3,
-                "maxLength": 30
-            },
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            }
-        },
-        "required": ["name", "clusterID"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    username = request.user
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def get_service_connection_info(request, tenant_id, cluster_id, service, namespace = None):
     is_capi = False
     is_yaookcapi = False
 
     # Get user's cluster
     try:
-        cluster = models.Clusters.objects.filter(
-            id=payload['clusterID'], project__tenant__daiteapuser__user=username)
-        if len(cluster) == 0:
-            cluster = models.CapiCluster.objects.filter(
-                id=payload['clusterID'], project__tenant__daiteapuser__user=username)
-            if len(cluster) == 0:
-                cluster = models.YaookCapiCluster.objects.filter(
-                    id=payload['clusterID'], project__tenant__daiteapuser__user=username)[0]
-                is_yaookcapi = True
-            else:
-                cluster = cluster[0]
-                is_capi = True
-        else:
-            cluster = cluster[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
+        cluster = models.Clusters.objects.get(id=cluster_id, project__tenant_id=tenant_id)
+    except:
+        try:
+            cluster = models.CapiCluster.objects.get(id=cluster_id, project__tenant_id=tenant_id)
+            is_capi = True
+        except:
+            cluster = models.YaookCapiCluster.objects.get(id=cluster_id, project__tenant_id=tenant_id)
+            is_yaookcapi = True
 
     # Get service
     try:
-        if 'namespace' in payload:
+        if namespace:
             if is_capi:
-                service = models.ClusterService.objects.filter(
-                    capi_cluster_id=payload['clusterID'],
-                    name=payload['name'],
-                    namespace=payload['namespace'])[0]
+                service = models.ClusterService.objects.get(
+                    capi_cluster_id=cluster_id,
+                    name=service,
+                    namespace=namespace)
             elif is_yaookcapi:
-                service = models.ClusterService.objects.filter(
-                    yaookcapi_cluster_id=payload['clusterID'],
-                    name=payload['name'],
-                    namespace=payload['namespace'])[0]
+                service = models.ClusterService.objects.get(
+                    yaookcapi_cluster_id=cluster_id,
+                    name=service,
+                    namespace=namespace)
             else:
-                service = models.ClusterService.objects.filter(
-                    cluster_id=payload['clusterID'],
-                    name=payload['name'],
-                    namespace=payload['namespace'])[0]
+                service = models.ClusterService.objects.get(
+                    cluster_id=cluster_id,
+                    name=service,
+                    namespace=namespace)
         else:
             if is_capi:
-                service = models.ClusterService.objects.filter(
-                    capi_cluster_id=payload['clusterID'],
-                    name=payload['name'])[0]
+                service = models.ClusterService.objects.get(
+                    capi_cluster_id=cluster_id,
+                    name=service)
             elif is_yaookcapi:
-                service = models.ClusterService.objects.filter(
-                    yaookcapi_cluster_id=payload['clusterID'],
-                    name=payload['name'])[0]
+                service = models.ClusterService.objects.get(
+                    yaookcapi_cluster_id=cluster_id,
+                    name=service)
             else:
-                service = models.ClusterService.objects.filter(
-                    cluster_id=payload['clusterID'],
-                    name=payload['name'])[0]
+                service = models.ClusterService.objects.get(
+                    cluster_id=cluster_id,
+                    name=service)
     except Exception as e:
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Service does not exist.', extra=log_data)
@@ -2137,89 +2090,31 @@ def get_service_connection_info(request):
     return JsonResponse(response)
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def generate_cluster_service_default_name(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "service": {
-                "type": "string",
-                "minLength": 5,
-                "maxLength": 30
-            },
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            }
-        },
-        "required": ["service", "clusterID"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    username = request.user
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def generate_cluster_service_default_name(request, tenant_id, cluster_id, service):
     is_capi = False
     is_yaookcapi = False
 
     # Get user's cluster
     try:
-        cluster = models.Clusters.objects.filter(
-            id=payload['clusterID'], project__tenant__daiteapuser__user=username)
-        if len(cluster) == 0:
-            cluster = models.CapiCluster.objects.filter(
-                id=payload['clusterID'], project__tenant__daiteapuser__user=username)
-            if len(cluster) == 0:
-                cluster = models.YaookCapiCluster.objects.filter(
-                    id=payload['clusterID'], project__tenant__daiteapuser__user=username)[0]
-                is_yaookcapi = True
-            else:
-                cluster = cluster[0]
-                is_capi = True
-        else:
-            cluster = cluster[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID.', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID.'
-            }
-        }, status=500)
+        cluster = models.Clusters.objects.get(id=cluster_id, project__tenant_id=tenant_id)
+    except:
+        try:
+            cluster = models.CapiCluster.objects.get(id=cluster_id, project__tenant_id=tenant_id)
+            is_capi = True
+        except:
+            cluster = models.YaookCapiCluster.objects.get(id=cluster_id, project__tenant_id=tenant_id)
+            is_yaookcapi = True
 
     # Get service
     try:
-        service = models.Service.objects.filter(
-            name=payload['service'])[0]
+        service = models.Service.objects.get(name=service)
     except Exception as e:
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Invalid parameter service.', extra=log_data)
@@ -2240,7 +2135,7 @@ def generate_cluster_service_default_name(request):
         cluster_services = models.ClusterService.objects.filter(
             cluster=cluster).filter(service=service).count()
 
-    defaultName = payload['service'] + '-' + str(cluster_services)
+    defaultName = service + '-' + str(cluster_services)
 
     response = {
         'defaultName': defaultName
@@ -3077,9 +2972,9 @@ def get_user_kubeconfig(request, tenant_id, cluster_id, username):
     })
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def rename_cluster(request):
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def rename_cluster(request, tenant_id, cluster_id):
     # Validate request
     payload, error = get_request_body(request)
     if error:
@@ -3088,18 +2983,13 @@ def rename_cluster(request):
     schema = {
         "type": "object",
         "properties": {
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            },
             "clusterName": {
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 1024
             }
         },
-        "required": ["clusterID", "clusterName"]
+        "required": ["clusterName"]
     }
 
     try:
@@ -3117,25 +3007,8 @@ def rename_cluster(request):
             }
         }, status=400)
 
-    username = request.user
-
     # change cluster install step if cluster exists
-    try:
-        cluster = models.Clusters.objects.filter(
-            id=payload['clusterID'], project__tenant__daiteapuser__user=username)[0]
-    except:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Cluster doesn\'t exist.', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Cluster doesn\'t exist.'
-            }
-        }, status=400)
+    cluster = models.Clusters.objects.get(id=cluster_id, project__tenant_id=tenant_id)
 
     if cluster.installstep != 0:
         return JsonResponse({
@@ -3190,50 +3063,12 @@ def delete_cluster(request, tenant_id, cluster_id):
         'taskId': celerytask.id
     })
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def remove_compute_node(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "nodeID": {
-                "type": "number",
-            },
-        },
-        "required": ["nodeID"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def remove_compute_node(request, tenant_id, cluster_id, node_id):
     # Check if node exists
     try:
-        node = models.Machine.objects.filter(id=payload['nodeID'])[0]
-
-        if not node.checkUserAccess(request.daiteap_user):
-            return JsonResponse({
-                'error': {
-                    'message': 'Invalid parameter nodeID'
-                }
-            }, status=400)
-
+        node = models.Machine.objects.get(id=node_id, cluster_id=cluster_id)
         cluster = node.cluster
     except models.Clusters.DoesNotExist:
         log_data = {
@@ -3250,12 +3085,14 @@ def remove_compute_node(request):
 
     cluster_config = json.loads(cluster.config)
 
+    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
+
     # check if user has access to the cloud accounts which he attempts to use
     for key in cluster_config:
         if key in ["aws", "google", "openstack", "azure", "onpremise", "iotarm"]:
             id = cluster_config.get(key).get("account")
             account = models.CloudAccount.objects.get(id=id)
-            if not account.checkUserAccess(request.daiteap_user):
+            if not account.checkUserAccess(daiteap_user):
                 return JsonResponse({
                     'error': {
                         'message': 'Project access denied.',
@@ -3295,10 +3132,10 @@ def remove_compute_node(request):
     tag_values['username'] = request.user.username
     tag_values['email'] = request.user.email
     tag_values['url'] = request.headers['Origin']
-    tag_values['tenant_name'] = request.daiteap_user.tenant.name
+    tag_values['tenant_name'] = daiteap_user.tenant.name
 
     # submit kubernetes creation
-    task = tasks.worker_remove_compute_node.delay(payload['nodeID'], cluster.id, request.user.id, tag_values)
+    task = tasks.worker_remove_compute_node.delay(node_id, cluster.id, request.user.id, tag_values)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -3473,21 +3310,17 @@ def restart_cluster(request, tenant_id, cluster_id):
     })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def stop_machine(request):
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def stop_machine(request, tenant_id, cluster_id, machine):
     # Validate request
     payload, error = get_request_body(request)
     if error:
         return error
+    payload['machineName'] = machine
 
     schema = {
         "type": "object",
         "properties": {
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            },
             "machineName": {
                 "type": "string",
                 "minLength": 38,
@@ -3499,7 +3332,7 @@ def stop_machine(request):
                 "maxLength": 9
             },
         },
-        "required": ["clusterID", "machineName", "machineProvider"]
+        "required": ["machineName", "machineProvider"]
     }
 
     try:
@@ -3517,31 +3350,14 @@ def stop_machine(request):
             }
         }, status=400)
 
-    username = request.user
-
     # check if cluster exists
-    try:
-        cluster = models.Clusters.objects.filter(
-            id=payload['clusterID'], project__tenant__daiteapuser__user=username)[0]
-    except:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Cluster doesn\'t exist.', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Cluster doesn\'t exist.'
-            }
-        }, status=400)
+    cluster = models.Clusters.objects.get(id=cluster_id, project__tenant_id=tenant_id)
 
     if cluster.installstep != 0:
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Cluster is not ready.', extra=log_data)
@@ -3553,13 +3369,13 @@ def stop_machine(request):
 
     # check if machine exists
     try:
-        machine = models.Machine.objects.filter(
-            cluster_id=payload['clusterID'], name=payload['machineName'], provider=payload['machineProvider'])[0]
+        machine = models.Machine.objects.get(
+            cluster_id=cluster_id, name=payload['machineName'], provider=payload['machineProvider'])
     except:
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Machine doesn\'t exist.', extra=log_data)
@@ -3573,7 +3389,7 @@ def stop_machine(request):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Machine is stopped/stopping.', extra=log_data)
@@ -3587,7 +3403,7 @@ def stop_machine(request):
     machine.save()
 
     # submit stop
-    task = tasks.worker_stop_machine.delay(payload['clusterID'], payload['machineName'], payload['machineProvider'], request.user.id)
+    task = tasks.worker_stop_machine.delay(cluster_id, payload['machineName'], payload['machineProvider'], request.user.id)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -3601,22 +3417,19 @@ def stop_machine(request):
         'taskId': celerytask.id
     })
 
+
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def start_machine(request):
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def start_machine(request, tenant_id, cluster_id, machine):
     # Validate request
     payload, error = get_request_body(request)
     if error:
         return error
+    payload['machineName'] = machine
 
     schema = {
         "type": "object",
         "properties": {
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            },
             "machineName": {
                 "type": "string",
                 "minLength": 38,
@@ -3628,7 +3441,7 @@ def start_machine(request):
                 "maxLength": 9
             },
         },
-        "required": ["clusterID", "machineName", "machineProvider"]
+        "required": ["machineName", "machineProvider"]
     }
 
     try:
@@ -3646,31 +3459,14 @@ def start_machine(request):
             }
         }, status=400)
 
-    username = request.user
-
     # check if cluster exists
-    try:
-        cluster = models.Clusters.objects.filter(
-            id=payload['clusterID'], project__tenant__daiteapuser__user=username)[0]
-    except:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Cluster doesn\'t exist.', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Cluster doesn\'t exist.'
-            }
-        }, status=400)
+    cluster = models.Clusters.objects.get(id=cluster_id, project__tenant_id=tenant_id)
 
     if cluster.installstep != 0:
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Cluster is not ready.', extra=log_data)
@@ -3682,13 +3478,13 @@ def start_machine(request):
 
     # check if machine exists
     try:
-        machine = models.Machine.objects.filter(
-            cluster_id=payload['clusterID'], name=payload['machineName'], provider=payload['machineProvider'])[0]
+        machine = models.Machine.objects.get(
+            cluster_id=cluster_id, name=payload['machineName'], provider=payload['machineProvider'])
     except:
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Machine doesn\'t exist.', extra=log_data)
@@ -3702,7 +3498,7 @@ def start_machine(request):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Machine is running/starting.', extra=log_data)
@@ -3716,7 +3512,7 @@ def start_machine(request):
     machine.save()
 
     # submit start
-    task = tasks.worker_start_machine.delay(payload['clusterID'], payload['machineName'], payload['machineProvider'], request.user.id)
+    task = tasks.worker_start_machine.delay(cluster_id, payload['machineName'], payload['machineProvider'], request.user.id)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -3730,22 +3526,19 @@ def start_machine(request):
         'taskId': celerytask.id
     })
 
+
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def restart_machine(request):
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def restart_machine(request, tenant_id, cluster_id, machine):
     # Validate request
     payload, error = get_request_body(request)
     if error:
         return error
+    payload['machineName'] = machine
 
     schema = {
         "type": "object",
         "properties": {
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            },
             "machineName": {
                 "type": "string",
                 "minLength": 38,
@@ -3757,7 +3550,7 @@ def restart_machine(request):
                 "maxLength": 9
             },
         },
-        "required": ["clusterID", "machineName", "machineProvider"]
+        "required": ["machineName", "machineProvider"]
     }
 
     try:
@@ -3775,31 +3568,14 @@ def restart_machine(request):
             }
         }, status=400)
 
-    username = request.user
-
     # check if cluster exists
-    try:
-        cluster = models.Clusters.objects.filter(
-            id=payload['clusterID'], project__tenant__daiteapuser__user=username)[0]
-    except:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Cluster doesn\'t exist.', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Cluster doesn\'t exist.'
-            }
-        }, status=400)
+    cluster = models.Clusters.objects.get(id=cluster_id, project__tenant_id=tenant_id)
 
     if cluster.installstep != 0:
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Cluster is not ready.', extra=log_data)
@@ -3811,13 +3587,13 @@ def restart_machine(request):
 
     # check if machine exists
     try:
-        machine = models.Machine.objects.filter(
-            cluster_id=payload['clusterID'], name=payload['machineName'], provider=payload['machineProvider'])[0]
+        machine = models.Machine.objects.get(
+            cluster_id=cluster_id, name=payload['machineName'], provider=payload['machineProvider'])
     except:
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Machine doesn\'t exist.', extra=log_data)
@@ -3831,7 +3607,7 @@ def restart_machine(request):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Machine is not running.', extra=log_data)
@@ -3845,7 +3621,7 @@ def restart_machine(request):
     machine.save()
 
     # submit restart
-    task = tasks.worker_restart_machine.delay(payload['clusterID'], payload['machineName'], payload['machineProvider'], request.user.id)
+    task = tasks.worker_restart_machine.delay(cluster_id, payload['machineName'], payload['machineProvider'], request.user.id)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -3858,6 +3634,7 @@ def restart_machine(request):
     return JsonResponse({
         'taskId': celerytask.id
     })
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -4070,8 +3847,8 @@ def create_dlcm(request):
     })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def get_tf_plan(request):
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def get_tf_plan(request, tenant_id, cluster_id):
     # Validate request
     payload, error = get_request_body(request)
     if error:
@@ -4094,20 +3871,7 @@ def get_tf_plan(request):
         }, status=400)
 
     # Check if cluster exists
-    try:
-        cluster = models.Clusters.objects.get(id=payload['clusterID'])
-    except models.Clusters.DoesNotExist:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Cluster does not exist', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Cluster does not exist',
-            }
-        }, status=400)
+    cluster = models.Clusters.objects.get(id=cluster_id, project__tenant_id=tenant_id)
 
     # get cluster config
     cluster_config = json.loads(cluster.config)
@@ -4126,7 +3890,8 @@ def get_tf_plan(request):
     tag_values['username'] = request.user.username
     tag_values['email'] = request.user.email
     tag_values['url'] = request.headers['Origin']
-    tag_values['tenant_name'] = request.daiteap_user.tenant.name
+    tenant = models.Tenant.objects.get(id=tenant_id)
+    tag_values['tenant_name'] = tenant.name
 
     # submit kubernetes creation
     task = tasks.worker_get_tf_plan.delay(config, cluster.id, request.user.id, tag_values)
@@ -4146,8 +3911,8 @@ def get_tf_plan(request):
     })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def resize_dlcm_v2(request):
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def resize_dlcm_v2(request, tenant_id, cluster_id):
     # Validate request
     payload, error = get_request_body(request)
     if error:
@@ -4170,20 +3935,7 @@ def resize_dlcm_v2(request):
         }, status=400)
 
     # Check if cluster exists
-    try:
-        cluster = models.Clusters.objects.get(id=payload['clusterID'])
-    except models.Clusters.DoesNotExist:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Cluster does not exist', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Cluster does not exist',
-            }
-        }, status=400)
+    cluster = models.Clusters.objects.get(id=cluster_id, project__tenant_id=tenant_id)
 
     workspace_settings = models.TenantSettings.objects.get(tenant=cluster.project.tenant)
     if not workspace_settings.enable_cluster_resize:
@@ -4193,12 +3945,14 @@ def resize_dlcm_v2(request):
             }
         }, status=400)
 
+    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
+
     # check if user has access to the cloud accounts which he attempts to use
     for key in payload.keys():
         if key in [ "aws", "google", "openstack", "azure", "onpremise", "iotarm"]:
             id = payload.get(key).get("account")
             account = models.CloudAccount.objects.get(id=id)
-            if not account.checkUserAccess(request.daiteap_user):
+            if not account.checkUserAccess(daiteap_user):
                 return JsonResponse({
                     'error': {
                         'message': 'Project access denied.',
@@ -4245,7 +3999,7 @@ def resize_dlcm_v2(request):
 
     existing_nodes_count = models.Machine.objects.filter(cluster=cluster).count()
 
-    error = authorization_service.authorize(payload, 'create_kubernetes_cluster', request.daiteap_user.id, logger, existing_nodes_count, True)
+    error = authorization_service.authorize(payload, 'create_kubernetes_cluster', daiteap_user.id, logger, existing_nodes_count, True)
 
     if error:
         return error
@@ -4274,7 +4028,7 @@ def resize_dlcm_v2(request):
     tag_values['username'] = request.user.username
     tag_values['email'] = request.user.email
     tag_values['url'] = request.headers['Origin']
-    tag_values['tenant_name'] = request.daiteap_user.tenant.name
+    tag_values['tenant_name'] = daiteap_user.tenant.name
 
     # submit kubernetes creation
     task = tasks.worker_resize_dlcm_v2_environment.delay(config, cluster.id, request.user.id, tag_values)
@@ -4482,8 +4236,8 @@ def create_dlcm_v2(request):
     })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def create_capi_cluster(request):
+@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+def create_capi_cluster(request, tenant_id):
     # Validate request
     payload, error = get_request_body(request)
     if error:
@@ -4504,7 +4258,9 @@ def create_capi_cluster(request):
             }
         }, status=400)
 
-    projects = models.Project.objects.filter(id=payload['projectId'])
+    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
+
+    projects = models.Project.objects.filter(id=payload['projectId'], tenant_id=tenant_id)
     if len(projects) == 0:
         return JsonResponse({
             'error': {
@@ -4512,6 +4268,12 @@ def create_capi_cluster(request):
             }
         }, status=403)
     project = projects[0]
+    if not project.checkUserAccess(daiteap_user):
+        return JsonResponse({
+            'error': {
+                'message': 'Project access denied.'
+            }
+        }, status=400)
 
     if payload['kubernetesConfiguration']['version'] not in SUPPORTED_CAPI_KUBERNETES_VERSIONS:
         log_data = {
@@ -4568,7 +4330,7 @@ def create_capi_cluster(request):
         }, status=400)
 
     # authorize request
-    error = authorization_service.authorize(payload, 'create_capi_cluster', request.daiteap_user.id, logger)
+    error = authorization_service.authorize(payload, 'create_capi_cluster', daiteap_user.id, logger)
 
     if error:
         return error
@@ -4581,7 +4343,7 @@ def create_capi_cluster(request):
     capi_config.update(environment_providers.get_providers_capi_config_params(payload, request.user))
 
     if 'clusterId' in payload and payload['clusterId']:
-        cluster = models.CapiCluster.objects.filter(id=payload['clusterId'], project__tenant_id=request.daiteap_user.tenant_id)[0]
+        cluster = models.CapiCluster.objects.filter(id=payload['clusterId'], project__tenant_id=tenant_id)[0]
 
         if cluster.installstep:
             log_data = {
@@ -4643,8 +4405,8 @@ def create_capi_cluster(request):
     })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def resize_capi_cluster(request):
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def resize_capi_cluster(request, tenant_id, cluster_id):
     # Validate request
     payload, error = get_request_body(request)
     if error:
@@ -4666,21 +4428,7 @@ def resize_capi_cluster(request):
         }, status=400)
 
     # Get user's cluster
-    try:
-        cluster = models.CapiCluster.objects.filter(project__tenant_id=request.daiteap_user.tenant_id, id=payload['clusterID'])[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
+    cluster = models.CapiCluster.objects.get(project__tenant_id=tenant_id, id=cluster_id)
 
     workspace_settings = models.TenantSettings.objects.get(tenant=cluster.project.tenant)
     if not workspace_settings.enable_cluster_resize:
@@ -4694,7 +4442,7 @@ def resize_capi_cluster(request):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Cluster status does not permit resize.', extra=log_data)
@@ -4754,8 +4502,8 @@ def delete_capi_cluster(request, tenant_id, cluster_id):
         })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def create_yaookcapi_cluster(request):
+@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+def create_yaookcapi_cluster(request, tenant_id):
     # Validate request
     payload, error = get_request_body(request)
     if error:
@@ -4776,7 +4524,9 @@ def create_yaookcapi_cluster(request):
             }
         }, status=400)
 
-    projects = models.Project.objects.filter(id=payload['projectId'])
+    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
+
+    projects = models.Project.objects.filter(id=payload['projectId'], tenant_id=tenant_id)
     if len(projects) == 0:
         return JsonResponse({
             'error': {
@@ -4784,6 +4534,12 @@ def create_yaookcapi_cluster(request):
             }
         }, status=403)
     project = projects[0]
+    if not project.checkUserAccess(daiteap_user):
+        return JsonResponse({
+            'error': {
+                'message': 'Project access denied.'
+            }
+        }, status=403)
 
     if payload['kubernetesConfiguration']['version'] not in SUPPORTED_YAOOKCAPI_KUBERNETES_VERSIONS:
         log_data = {
@@ -4840,7 +4596,7 @@ def create_yaookcapi_cluster(request):
         }, status=400)
 
     # authorize request
-    error = authorization_service.authorize(payload, 'create_yaookcapi_cluster', request.daiteap_user.id, logger)
+    error = authorization_service.authorize(payload, 'create_yaookcapi_cluster', daiteap_user.id, logger)
 
     if error:
         return error
@@ -4906,8 +4662,8 @@ def create_yaookcapi_cluster(request):
     })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def resize_yaookcapi_cluster(request):
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def resize_yaookcapi_cluster(request, tenant_id, cluster_id):
     # Validate request
     payload, error = get_request_body(request)
     if error:
@@ -4929,21 +4685,7 @@ def resize_yaookcapi_cluster(request):
         }, status=400)
 
     # Get user's cluster
-    try:
-        cluster = models.YaookCapiCluster.objects.filter(project__tenant_id=request.daiteap_user.tenant_id, id=payload['clusterID'])[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
+    cluster = models.YaookCapiCluster.objects.get(project__tenant_id=tenant_id, id=cluster_id)
 
     workspace_settings = models.TenantSettings.objects.get(tenant=cluster.project.tenant)
     if not workspace_settings.enable_cluster_resize:
@@ -4957,7 +4699,7 @@ def resize_yaookcapi_cluster(request):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Cluster status does not permit resize.', extra=log_data)
@@ -5016,8 +4758,8 @@ def delete_yaookcapi_cluster(request, tenant_id, cluster_id):
         })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def create_k3s_cluster(request):
+@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+def create_k3s_cluster(request, tenant_id):
     # Validate request
     payload, error = get_request_body(request)
     if error:
@@ -5117,8 +4859,10 @@ def create_k3s_cluster(request):
             }
         }, status=400)
 
+    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
+
     # authorize request
-    error = authorization_service.authorize(payload, 'create_kubernetes_cluster', request.daiteap_user.id, logger)
+    error = authorization_service.authorize(payload, 'create_kubernetes_cluster', daiteap_user.id, logger)
 
     if error:
         return error
@@ -5139,15 +4883,21 @@ def create_k3s_cluster(request):
     if error:
         return error
 
-    cluster = models.Clusters()
-
-    projects = models.Project.objects.filter(id=payload['projectId'])
+    projects = models.Project.objects.filter(id=payload['projectId'], tenant_id=tenant_id)
     if len(projects) == 0:
         return JsonResponse({
             'error': {
                 'message': 'ProjectId not found',
             }
         }, status=403)
+    if not projects[0].checkUserAccess(daiteap_user):
+        return JsonResponse({
+            'error': {
+                'message': 'Project access denied.',
+            }
+        }, status=403)
+
+    cluster = models.Clusters()
     cluster.project = projects[0]
 
     cluster.id = uuid.UUID(str(cluster.id)[:0] + get_random_lowercase_hex_letters(1) + str(cluster.id)[1:])
@@ -5171,7 +4921,7 @@ def create_k3s_cluster(request):
     tag_values['username'] = request.user.username
     tag_values['email'] = request.user.email
     tag_values['url'] = request.headers['Origin']
-    tag_values['tenant_name'] = request.daiteap_user.tenant.name
+    tag_values['tenant_name'] = daiteap_user.tenant.name
 
     try:
         # submit kubernetes creation
@@ -5808,12 +5558,13 @@ def cancel_cluster_creation(request, tenant_id, cluster_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def add_machines_to_vms(request):
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def add_machines_to_vms(request, tenant_id, cluster_id):
     # Validate request
     payload, error = get_request_body(request)
     if error:
         return error
+    payload['clusterID'] = cluster_id
 
     schema = {
         "type": "object",
@@ -5865,8 +5616,6 @@ def add_machines_to_vms(request):
             }
         }, status=400)
 
-    user = request.user
-
     # Validate provider parameter
     if not environment_providers.check_if_at_least_one_provider_is_selected(payload['provider']):
         log_data = {
@@ -5880,23 +5629,6 @@ def add_machines_to_vms(request):
                 'message': 'Invalid provider parameter.'
             }
         }, status=400)
-
-    # Get user's cluster and check it's status
-    try:
-        cluster = models.Clusters.objects.filter(project__tenant__daiteapuser__user=user, id=payload['clusterID'])[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
 
     providers = json.loads(cluster.config)
 
@@ -5922,21 +5654,7 @@ def add_machines_to_vms(request):
         }, status=400)
 
     # Get user's cluster and check it's status
-    try:
-        cluster = models.Clusters.objects.filter(project__tenant__daiteapuser__user=user, id=payload['clusterID'])[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
+    cluster = models.Clusters.objects.get(project__tenant_id=tenant_id, id=payload['clusterID'])
 
     if cluster.status != 0:
         log_data = {
@@ -5966,8 +5684,9 @@ def add_machines_to_vms(request):
             }
         }, status=500)
 
+    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
     # authorize request
-    error = authorization_service.authorize(payload, 'add_machines_to_vms', request.daiteap_user.id, logger)
+    error = authorization_service.authorize(payload, 'add_machines_to_vms', daiteap_user.id, logger)
 
     if error:
         return error
@@ -5989,12 +5708,13 @@ def add_machines_to_vms(request):
     })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def add_machines_to_k3s(request):
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def add_machines_to_k3s(request, tenant_id, cluster_id):
     # Validate request
     payload, error = get_request_body(request)
     if error:
         return error
+    payload['clusterID'] = cluster_id
 
     schema = {
         "type": "object",
@@ -6046,8 +5766,6 @@ def add_machines_to_k3s(request):
             }
         }, status=400)
 
-    user = request.user
-
     # Validate provider parameter
     if not environment_providers.check_if_at_least_one_provider_is_selected(payload['provider']):
         log_data = {
@@ -6061,23 +5779,6 @@ def add_machines_to_k3s(request):
                 'message': 'Invalid provider parameter.'
             }
         }, status=400)
-
-    # Get user's cluster and check it's status
-    try:
-        cluster = models.Clusters.objects.filter(project__tenant__daiteapuser__user=user, id=payload['clusterID'])[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
 
     providers = json.loads(cluster.config)
 
@@ -6103,21 +5804,7 @@ def add_machines_to_k3s(request):
         }, status=400)
 
     # Get user's cluster and check it's status
-    try:
-        cluster = models.Clusters.objects.filter(project__tenant__daiteapuser__user=user, id=payload['clusterID'])[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
+    cluster = models.Clusters.objects.get(project__tenant_id=tenant_id, id=payload['clusterID'])
 
     if cluster.status != 0:
         log_data = {
@@ -6147,9 +5834,9 @@ def add_machines_to_k3s(request):
             }
         }, status=500)
 
-
+    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
     # authorize request
-    error = authorization_service.authorize(payload, 'add_machines_to_kubernetes', request.daiteap_user.id, logger)
+    error = authorization_service.authorize(payload, 'add_machines_to_kubernetes', daiteap_user.id, logger)
 
     if error:
         return error
@@ -6172,12 +5859,13 @@ def add_machines_to_k3s(request):
     })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def add_machines_to_dlcm(request):
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def add_machines_to_dlcm(request, tenant_id, cluster_id):
     # Validate request
     payload, error = get_request_body(request)
     if error:
         return error
+    payload['clusterID'] = cluster_id
 
     schema = {
         "type": "object",
@@ -6229,8 +5917,6 @@ def add_machines_to_dlcm(request):
             }
         }, status=400)
 
-    user = request.user
-
     # Validate provider parameter
     if not environment_providers.check_if_at_least_one_provider_is_selected(payload['provider']):
         log_data = {
@@ -6244,23 +5930,6 @@ def add_machines_to_dlcm(request):
                 'message': 'Invalid provider parameter.'
             }
         }, status=400)
-
-    # Get user's cluster and check it's status
-    try:
-        cluster = models.Clusters.objects.filter(project__tenant__daiteapuser__user=user, id=payload['clusterID'])[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
 
     providers = json.loads(cluster.config)
 
@@ -6286,21 +5955,7 @@ def add_machines_to_dlcm(request):
         }, status=400)
 
     # Get user's cluster and check it's status
-    try:
-        cluster = models.Clusters.objects.filter(project__tenant__daiteapuser__user=user, id=payload['clusterID'])[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
+    cluster = models.Clusters.objects.get(project__tenant_id=tenant_id, id=payload['clusterID'])
 
     if cluster.status != 0:
         log_data = {
@@ -6330,8 +5985,9 @@ def add_machines_to_dlcm(request):
             }
         }, status=500)
 
+    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
     # authorize request
-    error = authorization_service.authorize(payload, 'add_machines_to_kubernetes', request.daiteap_user.id, logger)
+    error = authorization_service.authorize(payload, 'add_machines_to_kubernetes', daiteap_user.id, logger)
 
     if error:
         return error
@@ -6356,12 +6012,13 @@ def add_machines_to_dlcm(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def add_machines_to_dlcm_v2(request):
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def add_machines_to_dlcm_v2(request, tenant_id, cluster_id):
     # Validate request
     payload, error = get_request_body(request)
     if error:
         return error
+    payload['clusterID'] = cluster_id
 
     schema = {
         "type": "object",
@@ -6413,8 +6070,6 @@ def add_machines_to_dlcm_v2(request):
             }
         }, status=400)
 
-    user = request.user
-
     # Validate provider parameter
     if not environment_providers.check_if_at_least_one_provider_is_selected(payload['provider']):
         log_data = {
@@ -6428,23 +6083,6 @@ def add_machines_to_dlcm_v2(request):
                 'message': 'Invalid provider parameter.'
             }
         }, status=400)
-
-    # Get user's cluster and check it's status
-    try:
-        cluster = models.Clusters.objects.filter(project__tenant__daiteapuser__user=user, id=payload['clusterID'])[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
 
     providers = json.loads(cluster.config)
 
@@ -6476,21 +6114,7 @@ def add_machines_to_dlcm_v2(request):
         }, status=400)
 
     # Get user's cluster and check it's status
-    try:
-        cluster = models.Clusters.objects.filter(project__tenant__daiteapuser__user=user, id=payload['clusterID'])[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
+    cluster = models.Clusters.objects.get(project__tenant_id=tenant_id, id=payload['clusterID'])
 
     if cluster.status != 0:
         log_data = {
@@ -6520,8 +6144,9 @@ def add_machines_to_dlcm_v2(request):
             }
         }, status=500)
 
+    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
     # authorize request
-    error = authorization_service.authorize(payload, 'add_machines_to_kubernetes', request.daiteap_user.id, logger)
+    error = authorization_service.authorize(payload, 'add_machines_to_kubernetes', daiteap_user.id, logger)
 
     if error:
         return error
@@ -6591,43 +6216,10 @@ def check_for_ip_conflicts(request):
         'conflicts': False,
     })
 
-@api_view(['POST'])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def check_ip_address(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "network": {
-                "type": "string"
-            },
-            "ip": {
-                "type": "string"
-            },
-        },
-        "required": ["network", "ip"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    ip_in_network = check_ip_in_network(payload['network'], payload['ip'])
+def check_ip_address(request, network, ip):
+    ip_in_network = check_ip_in_network(network, ip)
 
     if not ip_in_network:
         return JsonResponse({
@@ -6948,8 +6540,8 @@ def create_VMs(request):
     })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def create_compute_VMs(request):
+@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+def create_compute_VMs(request, tenant_id):
     # Validate request
     payload, error = get_request_body(request)
     if error:
@@ -6973,12 +6565,14 @@ def create_compute_VMs(request):
             }
         }, status=400)
 
+    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
+
     # check if user has access to the cloud accounts which he attempts to use
     for key in payload.keys():
         if key in [ "aws", "google", "openstack", "azure", "onpremise", "iotarm"]:
             id = payload.get(key).get("account")
             account = models.CloudAccount.objects.get(id=id)
-            if not account.checkUserAccess(request.daiteap_user):
+            if not account.checkUserAccess(daiteap_user):
                 return JsonResponse({
                     'error': {
                         'message': 'Project access denied.',
@@ -7021,7 +6615,7 @@ def create_compute_VMs(request):
         }, status=400)
 
     # authorize request
-    error = authorization_service.authorize(payload, 'create_compute_VMs', request.daiteap_user.id, logger)
+    error = authorization_service.authorize(payload, 'create_compute_VMs', daiteap_user.id, logger)
 
     if error:
         return error
@@ -7037,15 +6631,22 @@ def create_compute_VMs(request):
 
     if error:
         return error
-    cluster = models.Clusters()
 
-    projects = models.Project.objects.filter(id=payload['projectId'])
+    projects = models.Project.objects.filter(id=payload['projectId'], tenant_id=tenant_id)
     if len(projects) == 0:
         return JsonResponse({
             'error': {
                 'message': 'ProjectId not found',
             }
         }, status=403)
+    if not projects[0].checkUserAccess(daiteap_user):
+        return JsonResponse({
+            'error': {
+                'message': 'Project access denied.',
+            }
+        }, status=403)
+
+    cluster = models.Clusters()
     cluster.project = projects[0]
 
     cluster.id = uuid.UUID(str(cluster.id)[:0] + get_random_lowercase_hex_letters(1) + str(cluster.id)[1:])
@@ -7055,7 +6656,7 @@ def create_compute_VMs(request):
     cluster.installstep=1
     cluster.type=constants.ClusterType.COMPUTE_VMS.value
     cluster.user=request.user
-    cluster.daiteap_user=request.daiteap_user
+    cluster.daiteap_user=daiteap_user
     cluster.providers=json.dumps(environment_providers.get_selected_providers(payload))
     cluster.config=json.dumps(config)
 
@@ -7069,7 +6670,7 @@ def create_compute_VMs(request):
     tag_values['username'] = request.user.username
     tag_values['email'] = request.user.email
     tag_values['url'] = request.headers['Origin']
-    tag_values['tenant_name'] = request.daiteap_user.tenant.name
+    tag_values['tenant_name'] = daiteap_user.tenant.name
 
     try:
         # submit VMs creation
@@ -7093,8 +6694,8 @@ def create_compute_VMs(request):
     })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def add_service(request):
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def add_service(request, tenant_id, cluster_id):
     # Validate request
     payload, error = get_request_body(request)
     if error:
@@ -7113,13 +6714,8 @@ def add_service(request):
                 "minLength": 10,
                 "maxLength": 12
             },
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            }
         },
-        "required": ["serviceName", "configurationType", "clusterID"]
+        "required": ["serviceName", "configurationType"]
     }
 
     configTypes = [
@@ -7146,7 +6742,7 @@ def add_service(request):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('configurationType is invalid.', extra=log_data)
@@ -7156,36 +6752,19 @@ def add_service(request):
             }
         }, status=400)
 
-    username = request.user
     is_capi = False
     is_yaookcapi = False
 
     # Get user's cluster
     try:
-        cluster = models.Clusters.objects.filter(id=payload['clusterID'], project__tenant__daiteapuser__user=username)
-        if len(cluster) == 0:
-            cluster = models.CapiCluster.objects.filter(id=payload['clusterID'], project__tenant__daiteapuser__user=username)
-            if len(cluster) == 0:
-                cluster = models.YaookCapiCluster.objects.filter(id=payload['clusterID'], project__tenant__daiteapuser__user=username)[0]
-                is_yaookcapi = True
-            else:
-                cluster = cluster[0]
-                is_capi = True
-        else:
-            cluster = cluster[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
+        cluster = models.Clusters.objects.get(id=cluster_id, project__tenant_id=tenant_id)
+    except:
+        try:
+            cluster = models.CapiCluster.objects.get(id=cluster_id, project__tenant_id=tenant_id)
+            is_capi = True
+        except:
+            cluster = models.YaookCapiCluster.objects.get(id=cluster_id, project__tenant_id=tenant_id)
+            is_yaookcapi = True
 
     # Check if service name already exists
     if is_capi:
@@ -7199,7 +6778,7 @@ def add_service(request):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Service name already exists', extra=log_data)
@@ -7214,7 +6793,7 @@ def add_service(request):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Cluster is not running.', extra=log_data)
@@ -7226,12 +6805,12 @@ def add_service(request):
 
     # Get service
     try:
-        service = models.Service.objects.filter(name=payload['serviceName'])[0]
+        service = models.Service.objects.get(name=payload['serviceName'])
     except Exception as e:
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Service does not exist.', extra=log_data)
@@ -7273,7 +6852,7 @@ def add_service(request):
             log_data = {
                 'level': 'ERROR',
                 'user_id': str(request.user.id),
-                'environment_id': payload['clusterID'],
+                'environment_id': cluster_id,
                 'client_request': json.loads(request.body.decode('utf-8')),
             }
             logger.error('valuesFile is invalid.', extra=log_data)
@@ -7295,7 +6874,7 @@ def add_service(request):
                 log_data = {
                     'level': 'ERROR',
                     'user_id': str(request.user.id),
-                    'environment_id': payload['clusterID'],
+                    'environment_id': cluster_id,
                     'client_request': json.loads(request.body.decode('utf-8')),
                 }
                 logger.error(option + ' parameter is missing.', extra=log_data)
@@ -7311,7 +6890,7 @@ def add_service(request):
                         log_data = {
                             'level': 'ERROR',
                             'user_id': str(request.user.id),
-                            'environment_id': payload['clusterID'],
+                            'environment_id': cluster_id,
                             'client_request': json.loads(request.body.decode('utf-8')),
                         }
                         logger.error(option + ' parameter is invalid.', extra=log_data)
@@ -7328,7 +6907,7 @@ def add_service(request):
                         log_data = {
                             'level': 'ERROR',
                             'user_id': str(request.user.id),
-                            'environment_id': payload['clusterID'],
+                            'environment_id': cluster_id,
                             'client_request': json.loads(request.body.decode('utf-8')),
                         }
                         logger.error(option + ' parameter is invalid.', extra=log_data)
@@ -7345,7 +6924,7 @@ def add_service(request):
                     log_data = {
                         'level': 'ERROR',
                         'user_id': str(request.user.id),
-                        'environment_id': payload['clusterID'],
+                        'environment_id': cluster_id,
                         'client_request': json.loads(request.body.decode('utf-8')),
                     }
                     logger.error(option + ' parameter is invalid.', extra=log_data)
@@ -7362,7 +6941,7 @@ def add_service(request):
                     log_data = {
                         'level': 'ERROR',
                         'user_id': str(request.user.id),
-                        'environment_id': payload['clusterID'],
+                        'environment_id': cluster_id,
                         'client_request': json.loads(request.body.decode('utf-8')),
                     }
                     logger.error(option + ' parameter is invalid.', extra=log_data)
@@ -7377,7 +6956,7 @@ def add_service(request):
                         log_data = {
                             'level': 'ERROR',
                             'user_id': str(request.user.id),
-                            'environment_id': payload['clusterID'],
+                            'environment_id': cluster_id,
                             'client_request': json.loads(request.body.decode('utf-8')),
                         }
                         logger.error(option + ' parameter is invalid.', extra=log_data)
@@ -7389,8 +6968,9 @@ def add_service(request):
 
                 configuration[option] = payload[option]
 
+    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
     # authorize request
-    error = authorization_service.authorize(payload, 'add_service', request.daiteap_user.id, logger)
+    error = authorization_service.authorize(payload, 'add_service', daiteap_user.id, logger)
 
     if error:
         return error
@@ -7415,88 +6995,22 @@ def add_service(request):
         'taskId': celerytask.id
     })
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def delete_service(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "name": {
-                "type": "string",
-                "minLength": 3,
-                "maxLength": 128
-            },
-            "namespace": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 128
-            },
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            }
-        },
-        "required": ["name", "clusterID"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def delete_service(request, tenant_id, cluster_id, service, namespace = None):
     is_capi = False
     is_yaookcapi = False
 
     # Get user's cluster
     try:
-        cluster = models.Clusters.objects.filter(id=payload['clusterID'])
-        if len(cluster) == 0:
-            cluster = models.CapiCluster.objects.filter(id=payload['clusterID'])
-            if len(cluster) == 0:
-                cluster = models.YaookCapiCluster.objects.filter(id=payload['clusterID'])
-
-                is_yaookcapi = True
-            else:
-                cluster = cluster[0]
-                is_capi = True
-        else:
-            cluster = cluster[0]
-
-        if not cluster.checkUserAccess(request.daiteap_user):
-            return JsonResponse({
-                'error': {
-                    'message': 'Invalid parameter clusterID'
-                }
-            }, status=403)
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
+        cluster = models.Clusters.objects.get(id=cluster_id, project__tenant_id=tenant_id)
+    except:
+        try:
+            cluster = models.CapiCluster.objects.get(id=cluster_id, project__tenant_id=tenant_id)
+            is_capi = True
+        except:
+            cluster = models.YaookCapiCluster.objects.get(id=cluster_id, project__tenant_id=tenant_id)
+            is_yaookcapi = True
 
     if cluster.type != constants.ClusterType.CAPI.value and cluster.type != constants.ClusterType.YAOOKCAPI.value:
         # Check if environment is running
@@ -7504,7 +7018,7 @@ def delete_service(request):
             log_data = {
                 'level': 'ERROR',
                 'user_id': str(request.user.id),
-                'environment_id': payload['clusterID'],
+                'environment_id': cluster.id,
                 'client_request': json.loads(request.body.decode('utf-8')),
             }
             logger.error('Cluster is not running.', extra=log_data)
@@ -7516,43 +7030,41 @@ def delete_service(request):
 
     # Get cluster's service
     try:
-        namespace = ''
-        if 'namespace' in payload:
-            namespace = payload['namespace']
+        if namespace:
             if is_capi:
-                service = models.ClusterService.objects.filter(
-                    name=payload['name'],
-                    capi_cluster_id=payload['clusterID'],
-                    namespace=payload['namespace'])[0]
+                service = models.ClusterService.objects.get(
+                    name=service,
+                    capi_cluster_id=cluster.id,
+                    namespace=namespace)
             elif is_yaookcapi:
-                service = models.ClusterService.objects.filter(
-                    name=payload['name'],
-                    yaookcapi_cluster_id=payload['clusterID'],
-                    namespace=payload['namespace'])[0]
+                service = models.ClusterService.objects.get(
+                    name=service,
+                    yaookcapi_cluster_id=cluster.id,
+                    namespace=namespace)
             else:
-                service = models.ClusterService.objects.filter(
-                    name=payload['name'],
-                    cluster_id=payload['clusterID'],
-                    namespace=payload['namespace'])[0]
+                service = models.ClusterService.objects.get(
+                    name=service,
+                    cluster_id=cluster.id,
+                    namespace=namespace)
         else:
             if is_capi:
-                service = models.ClusterService.objects.filter(
-                    name=payload['name'],
-                    cluster_id=payload['clusterID'],)[0]
+                service = models.ClusterService.objects.get(
+                    name=service,
+                    cluster_id=cluster.id)
             elif is_yaookcapi:
-                service = models.ClusterService.objects.filter(
-                    name=payload['name'],
-                    yaookcapi_cluster_id=payload['clusterID'])[0]
+                service = models.ClusterService.objects.get(
+                    name=service,
+                    yaookcapi_cluster_id=cluster.id)
             else:
-                service = models.ClusterService.objects.filter(
-                    name=payload['name'],
-                    cluster_id=payload['clusterID'],)[0]
+                service = models.ClusterService.objects.get(
+                    name=service,
+                    cluster_id=cluster.id)
 
     except Exception as e:
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster.id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Service does not exist.', extra=log_data)
@@ -7563,7 +7075,7 @@ def delete_service(request):
         }, status=500)
 
     # Submit service deletion
-    task = tasks.worker_delete_service_kubernetes_cluster.delay(payload['name'], namespace, payload['clusterID'])
+    task = tasks.worker_delete_service_kubernetes_cluster.delay(service, namespace, cluster_id)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -7685,12 +7197,13 @@ def is_cluster_username_valid(request, username):
     })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def add_user_to_cluster(request):
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def add_user_to_cluster(request, tenant_id, cluster_id):
     # Validate request
     payload, error = get_request_body(request)
     if error:
         return error
+    payload['clusterID'] = cluster_id
 
     schema = {
         "type": "object",
@@ -7749,32 +7262,15 @@ def add_user_to_cluster(request):
             }
         }, status=400)
 
-    username = request.user
-
     # Get user's cluster
-    try:
-        cluster = models.Clusters.objects.filter(project__tenant__daiteapuser__user=username, id=payload['clusterID'])[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID',
-                'code': 1001
-            }
-        }, status=500)
+    cluster = models.Clusters.objects.filter(project__tenant_id=tenant_id, id=cluster_id)
 
     # Check if environment is running
     if cluster.status != 0:
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Cluster is not running.', extra=log_data)
@@ -7872,71 +7368,17 @@ users:
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def delete_user_from_cluster(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "username": {
-                "type": "string",
-                "minLength": 2,
-                "maxLength": 50
-            },
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            }
-        },
-        "required": ["username", "clusterID"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    username = request.user
-
+@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
+def delete_user_from_cluster(request, tenant_id, cluster_id, username):
     # Get user's cluster
-    try:
-        cluster = models.Clusters.objects.filter(
-            project__tenant__daiteapuser__user=username, id=payload['clusterID'])[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
+    cluster = models.Clusters.objects.get(project__tenant_id=tenant_id, id=cluster_id)
     
     # Check if environment is running
     if cluster.status != 0:
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('Cluster is not running.', extra=log_data)
@@ -7948,14 +7390,14 @@ def delete_user_from_cluster(request):
 
     # Get cluster's user
     try:
-        cluster_user = models.ClusterUser.objects.filter(
+        cluster_user = models.ClusterUser.objects.get(
             cluster=cluster,
-            username=payload['username'])[0]
+            username=username)
     except Exception as e:
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
+            'environment_id': cluster_id,
             'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error('ClusterUser does not exist.', extra=log_data)
@@ -7966,7 +7408,7 @@ def delete_user_from_cluster(request):
         }, status=500)
 
     # Submit cluster user deletion
-    task = tasks.worker_delete_cluster_user.delay(cluster_user.username, cluster.id, request.user.id, payload)
+    task = tasks.worker_delete_cluster_user.delay(cluster_user.username, cluster.id, request.user.id, {'clusterID': cluster_id, 'username': username})
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
