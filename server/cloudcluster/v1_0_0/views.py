@@ -3025,7 +3025,7 @@ def rename_cluster(request, tenant_id, cluster_id):
     })
 
 
-@api_view(['POST'])
+@api_view(['DELETE'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def delete_cluster(request, tenant_id, cluster_id):
     # change cluster install step if cluster exists
@@ -4470,7 +4470,7 @@ def resize_capi_cluster(request, tenant_id, cluster_id):
     })
 
 
-@api_view(['POST'])
+@api_view(['DELETE'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def delete_capi_cluster(request, tenant_id, cluster_id):
     # change cluster install step if cluster exists
@@ -4726,7 +4726,7 @@ def resize_yaookcapi_cluster(request, tenant_id, cluster_id):
         'taskId': celerytask.id
     })
 
-@api_view(['POST'])
+@api_view(['DELETE'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def delete_yaookcapi_cluster(request, tenant_id, cluster_id):
     # change cluster install step if cluster exists
