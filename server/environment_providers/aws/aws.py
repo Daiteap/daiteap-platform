@@ -1177,7 +1177,7 @@ def create_storage_bucket(payload, request):
     aws_account = CloudAccount.objects.filter(id=payload['credential_id'])[0]
     aws_credentials = vault_service.read_secret(aws_account.credentials)
 
-    return api_client.create_storage_bucket(aws_credentials, payload['bucket_name'], payload['bucket_location'], request)
+    return api_client.create_storage_bucket(aws_credentials, payload['bucket_name'], payload['bucket_location'], request, payload)
 
 def delete_storage_bucket(payload, request):
     aws_account = CloudAccount.objects.filter(id=payload['credential_id'])[0]

@@ -998,7 +998,7 @@ def create_storage_bucket(payload, request):
     google_credentials = service_account.Credentials.from_service_account_info(credentials_json)
     google_project = json.loads(vault_service.read_secret(google_account.credentials)['google_key'])['project_id']
 
-    return api_client.create_storage_bucket(google_credentials, google_project, payload['bucket_name'], payload['storage_class'], payload['bucket_location'], request)
+    return api_client.create_storage_bucket(google_credentials, google_project, payload['bucket_name'], payload['storage_class'], payload['bucket_location'], request, payload)
 
 def delete_storage_bucket(payload, request):
     google_account = models.CloudAccount.objects.filter(id=payload['credential_id'])[0]

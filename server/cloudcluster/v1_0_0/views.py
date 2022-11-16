@@ -369,15 +369,17 @@ def user(request):
         responses={200: openapi.Response('', ProjectSerializer)},
         operation_description="Create project.",
         operation_summary="Create project.")
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
 @api_view(['GET', 'POST'])
 def project_list(request, tenant_id):
+    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
+
     if request.method == 'GET':
         projects = models.Project.objects.filter(tenant=tenant_id).all()
 
         user_projects = []
         for project in projects:
-            if project.checkUserAccess(request.daiteap_user):
+            if project.checkUserAccess(daiteap_user):
                 user_projects.append(project)
 
         serializer = ProjectSerializer(user_projects, many=True)
@@ -388,12 +390,11 @@ def project_list(request, tenant_id):
         request.data['contact'] = request.user.email
         serializer = ProjectSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            serializer.save(tenant=request.daiteap_user.tenant, user=request.user)
+            serializer.save(tenant=daiteap_user.tenant, user=request.user)
 
-            project = models.Project.objects.get(id=serializer.data['id'])
-            daiteapuser = models.DaiteapUser.objects.filter(user__username=request.user.username,tenant_id=project.tenant_id)[0]
-            daiteapuser.projects.add(project)
-            daiteapuser.save()
+            project = models.Project.objects.get(id=serializer.data['id'], tenant_id=tenant_id)
+            daiteap_user.projects.add(project)
+            daiteap_user.save()
             sync_users()
 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -433,13 +434,6 @@ def project_detail(request, tenant_id, project_id):
             return Response({
                 'error': {
                     'message': 'Project has connected resources'
-                }
-            }, status.HTTP_400_BAD_REQUEST)
-
-        if not project.checkUserAccess(request.daiteap_user):
-            return Response({
-                'error': {
-                    'message': 'You do not have access to this project'
                 }
             }, status.HTTP_400_BAD_REQUEST)
 
@@ -484,9 +478,11 @@ def project_detail(request, tenant_id, project_id):
         responses={200: openapi.Response('', CloudAccountSerializer)},
         operation_description="Create cloud credentials. Set account account_params on provider.",
         operation_summary="Create cloud credentials.")
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
 @api_view(['GET', 'POST'])
 def cloud_account_list(request, tenant_id):
+    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
+
     if request.method == 'GET':
         cloudaccounts = models.CloudAccount.objects.filter(tenant=tenant_id).all()
 
@@ -503,7 +499,7 @@ def cloud_account_list(request, tenant_id):
             except:
                 account.cloud_account_info = {'error': ''}
 
-            if account.checkUserAccess(request.daiteap_user):
+            if account.checkUserAccess(daiteap_user):
                 cloudaccounts_filtered.append(account)
 
         serializer = CloudAccountSerializer(cloudaccounts_filtered, many=True)
@@ -513,7 +509,7 @@ def cloud_account_list(request, tenant_id):
     if request.method == 'POST':
         serializer = CloudAccountSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            serializer.save(tenant=request.daiteap_user.tenant, user=request.user, context={'request': request})
+            serializer.save(tenant=daiteap_user.tenant, user=request.user, context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -576,20 +572,13 @@ def cloud_account_detail(request, tenant_id, cloudaccount_id):
         return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
 
     if request.method == 'DELETE':
-        if not cloudaccount.checkUserAccess(request.daiteap_user):
-            return Response({
-                'error': {
-                    'message': 'You do not have access to this cloudaccount'
-                }
-            }, status.HTTP_400_BAD_REQUEST)
-
         resources = dict()
         resources['clusters'] = []
         resources['compute'] = []
         resources['buckets'] = []
 
         # check if account is used in existing resource
-        clusters = models.Clusters.objects.filter(project__tenant_id=request.daiteap_user.tenant_id)
+        clusters = models.Clusters.objects.filter(project__tenant_id=tenant_id)
         for cluster in clusters:
             config = json.loads(cluster.config)
             if cloudaccount.provider in config and config[cloudaccount.provider]["account"] == cloudaccount.id:
@@ -625,15 +614,16 @@ def cloud_account_detail(request, tenant_id, cloudaccount_id):
         responses={200: openapi.Response('', BucketSerializer)},
         operation_description="Create bucket.",
         operation_summary="Create bucket.")
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
 @api_view(['GET', 'POST'])
 def bucket_list(request, tenant_id):
     if request.method == 'GET':
         buckets = []
         bucket_records = models.Bucket.objects.filter(project__tenant_id=tenant_id)
 
+        daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
         for bucket in bucket_records:
-            if bucket.checkUserAccess(request.daiteap_user):
+            if bucket.checkUserAccess(daiteap_user):
                 buckets.append(bucket)
 
         serializer = BucketSerializer(buckets, many=True)
@@ -738,7 +728,7 @@ def tenant_users_detail(request, tenant_id, username):
         return JsonResponse(user)
 
     if request.method == 'DELETE':
-        requester = models.DaiteapUser.get(user=request.user, tenant_id=tenant_id)
+        requester = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
         if not requester.isAdmin():
             return JsonResponse({
                 'delete_success': False,
@@ -778,7 +768,7 @@ def tenant_users_detail(request, tenant_id, username):
         return JsonResponse({'delete_success': True})
 
     if request.method == 'PUT':
-        requester = models.DaiteapUser.get(user=request.user, tenant_id=tenant_id)
+        requester = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
         if not requester.isAdmin():
             return JsonResponse({
                 'error': {
@@ -911,7 +901,7 @@ def validate_credentials(request, tenant_id, cloudaccount_id = None):
         "type": "object",
         "properties": {
             "account_id": {
-                "type": "number",
+                "type": "string",
             },
             "tenant_id": {
                 "type": "string",
@@ -1642,7 +1632,7 @@ def get_valid_regions(request, tenant_id, cloudaccount_id):
                 "maxLength": 9
             },
             "accountId": {
-                "type": "number",
+                "type": "string",
             },
         },
         "required": ["provider", "accountId"]
@@ -1714,7 +1704,7 @@ def get_valid_zones(request, tenant_id, cloudaccount_id, region):
                 "maxLength": 9
             },
             "accountId": {
-                "type": "number",
+                "type": "string",
             },
             "region": {
                 "type": "string",
@@ -1792,7 +1782,7 @@ def get_valid_instances(request, tenant_id, cloudaccount_id, region, zone = None
                 "maxLength": 9
             },
             "accountId": {
-                "type": "number",
+                "type": "string",
             },
             "region": {
                 "type": "string",
@@ -2484,9 +2474,9 @@ def get_service_options(request, service):
     return JsonResponse(response)
 
 
-@api_view(['GET'])
+@api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
-def get_cluster_details(request, tenant_id, cluster_id):
+def cluster_details(request, tenant_id, cluster_id):
     is_capi = False
     is_yaookcapi = False
 
@@ -2507,36 +2497,72 @@ def get_cluster_details(request, tenant_id, cluster_id):
             except models.YaookCapiCluster.DoesNotExist:
                 return Response(status=status.HTTP_404_NOT_FOUND)
 
-    if is_capi:
-        config = json.loads(cluster.capi_config)
-    elif is_yaookcapi:
-        config = json.loads(cluster.yaookcapi_config)
-    else:
-        config = json.loads(cluster.config)
+    if request.method == 'GET':
+        if is_capi:
+            config = json.loads(cluster.capi_config)
+        elif is_yaookcapi:
+            config = json.loads(cluster.yaookcapi_config)
+        else:
+            config = json.loads(cluster.config)
 
-    # Check if cluster has LB integration
-    has_LB_integration = False
-    if 'load_balancer_integration' in config:
-        has_LB_integration = True
+        # Check if cluster has LB integration
+        has_LB_integration = False
+        if 'load_balancer_integration' in config:
+            has_LB_integration = True
 
-    # Get cluster's machines
-    if is_capi:
-        providers = {provider.lower() + 'Selected': True for provider in environment_providers.get_selected_providers(config)}
-        providers.update(config)
-        cluster_machines = []
-    elif is_yaookcapi:
-        providers = {provider.lower() + 'Selected': True for provider in environment_providers.get_selected_providers(config)}
-        providers.update(config)
-        cluster_machines = []
+        # Get cluster's machines
+        if is_capi:
+            providers = {provider.lower() + 'Selected': True for provider in environment_providers.get_selected_providers(config)}
+            providers.update(config)
+            cluster_machines = []
+        elif is_yaookcapi:
+            providers = {provider.lower() + 'Selected': True for provider in environment_providers.get_selected_providers(config)}
+            providers.update(config)
+            cluster_machines = []
 
-        for provider in environment_providers.supported_providers:
-            if provider in config:
-                provider_config = environment_providers.get_user_friendly_params(config[provider], False)
+            for provider in environment_providers.supported_providers:
+                if provider in config:
+                    provider_config = environment_providers.get_user_friendly_params(config[provider], False)
 
-                account = models.CloudAccount.objects.get(id=config[provider.lower()]['account'])
-                regions = json.loads(account.regions)
+                    account = models.CloudAccount.objects.get(id=config[provider.lower()]['account'])
+                    regions = json.loads(account.regions)
 
-                for node in provider_config['workerNodes']:
+                    for node in provider_config['workerNodes']:
+                        node_instance_type = ''
+                        if 'instanceTypeName' in node:
+                            node_instance_type = node['instanceTypeName']
+                        else:
+                            node_instance_type = node['instanceType']
+
+                        cpu = ''
+                        ram = ''
+                        storage = ''
+
+                        for region in regions:
+                            if region['name'] == provider_config['region']:
+                                for zone in region['zones']:
+                                    for instance in zone['instances']:
+                                        if instance['name'] == node_instance_type:
+                                            cpu = instance['cpu']
+                                            ram = instance['ram']
+                                            storage = instance['storage']
+                                            break
+                                    if cpu != '' and ram != '' and storage != '':
+                                        break
+                            if cpu != '' and ram != '' and storage != '':
+                                break
+
+                        cluster_machines.append({
+                            'type': node_instance_type,
+                            'provider': provider,
+                            'region': provider_config['region'],
+                            'cpu': cpu,
+                            'ram': ram,
+                            'hdd': int(storage),
+                        })
+
+                    node = provider_config['controlPlane']
+
                     node_instance_type = ''
                     if 'instanceTypeName' in node:
                         node_instance_type = node['instanceTypeName']
@@ -2565,213 +2591,245 @@ def get_cluster_details(request, tenant_id, cluster_id):
                         'type': node_instance_type,
                         'provider': provider,
                         'region': provider_config['region'],
+                        'kube_master': True,
                         'cpu': cpu,
                         'ram': ram,
                         'hdd': int(storage),
                     })
-
-                node = provider_config['controlPlane']
-
-                node_instance_type = ''
-                if 'instanceTypeName' in node:
-                    node_instance_type = node['instanceTypeName']
-                else:
-                    node_instance_type = node['instanceType']
-
-                cpu = ''
-                ram = ''
-                storage = ''
-
-                for region in regions:
-                    if region['name'] == provider_config['region']:
-                        for zone in region['zones']:
-                            for instance in zone['instances']:
-                                if instance['name'] == node_instance_type:
-                                    cpu = instance['cpu']
-                                    ram = instance['ram']
-                                    storage = instance['storage']
-                                    break
-                            if cpu != '' and ram != '' and storage != '':
-                                break
-                    if cpu != '' and ram != '' and storage != '':
-                        break
-
-                cluster_machines.append({
-                    'type': node_instance_type,
-                    'provider': provider,
-                    'region': provider_config['region'],
-                    'kube_master': True,
-                    'cpu': cpu,
-                    'ram': ram,
-                    'hdd': int(storage),
-                })
-    else:
-        if cluster.type in [constants.ClusterType.VMS.value, constants.ClusterType.COMPUTE_VMS.value] and (-3 <= cluster.installstep < 0 or 0 < cluster.installstep <= 3 or cluster.installstep == -100 or cluster.installstep == 100):
-            cluster_machines = []
-
-            if cluster.installstep < 0 and cluster.installstep >= -3:
-                machine_status = -4
-            elif cluster.installstep > 0 and cluster.installstep <= 3:
-                machine_status = 4
-            elif cluster.installstep == -100:
-                machine_status = -100
-            elif cluster.installstep == 100:
-                machine_status = 100
-
-            config = json.loads(cluster.config)
-
-            node_counter = 1
-            domain = 'daiteap.internal'
-            node_prefix = cluster_id.replace('-', '')[:10]
-
-            for provider in environment_providers.supported_providers:
-                if provider in config:
-                    provider_config = environment_providers.get_user_friendly_params(config[provider], False)
-                    for node in provider_config['nodes']:
-                        node_operating_system = ''
-                        if 'operatingSystemName' in node:
-                            node_operating_system = node['operatingSystemName']
-                        else:
-                            node_operating_system = node['operatingSystem']
-
-                        node_instance_type = ''
-                        if 'instanceTypeName' in node:
-                            node_instance_type = node['instanceTypeName']
-                        else:
-                            node_instance_type = node['instanceType']
-
-                        cluster_machines.append({
-                            'name': node_prefix + '-node-' + f"{node_counter:02d}" + '.' + provider + '.' + domain,
-                            'type': node_instance_type,
-                            'provider': provider,
-                            'region': provider_config['region'],
-                            'zone': node['zone'],
-                            'operating_system': node_operating_system,
-                            'status': machine_status
-                        })
-                        node_counter += 1
-            # Get regions and zones
-            cluster_machines = list(cluster_machines)
-            providers = {}
         else:
-            providers, cluster_machines = environment_providers.get_cluster_machines(cluster, request, {'cluster_id': cluster_id}, config)
+            if cluster.type in [constants.ClusterType.VMS.value, constants.ClusterType.COMPUTE_VMS.value] and (-3 <= cluster.installstep < 0 or 0 < cluster.installstep <= 3 or cluster.installstep == -100 or cluster.installstep == 100):
+                cluster_machines = []
 
-    serviceList = []
-    cluster_users = []
+                if cluster.installstep < 0 and cluster.installstep >= -3:
+                    machine_status = -4
+                elif cluster.installstep > 0 and cluster.installstep <= 3:
+                    machine_status = 4
+                elif cluster.installstep == -100:
+                    machine_status = -100
+                elif cluster.installstep == 100:
+                    machine_status = 100
 
-    if is_capi:
-         # Get cluster's service
-        serviceList = models.ClusterService.objects.filter(capi_cluster=cluster).order_by('name').values(
-            'name',
-            'service__name',
-            'namespace',
-            'providers',
-            'connection_info',
-            'status',
-            'service_type')
-    elif is_yaookcapi:
-         # Get cluster's service
-        serviceList = models.ClusterService.objects.filter(yaookcapi_cluster=cluster).order_by('name').values(
-            'name',
-            'service__name',
-            'namespace',
-            'providers',
-            'connection_info',
-            'status',
-            'service_type')
-    else:
-        # Get cluster's service
-        serviceList = models.ClusterService.objects.filter(cluster=cluster).order_by('name').values(
-            'name',
-            'service__name',
-            'service__accessible_from_browser',
-            'namespace',
-            'providers',
-            'connection_info',
-            'status',
-            'service_type')
+                config = json.loads(cluster.config)
 
-        # Get cluster's users
-        cluster_users = models.ClusterUser.objects.filter(cluster=cluster).order_by('username').values(
-            'username',
-            'first_name',
-            'last_name',
-            'public_ssh_key',
-            'type',
-            'status')
+                node_counter = 1
+                domain = 'daiteap.internal'
+                node_prefix = cluster_id.replace('-', '')[:10]
 
-    if is_capi or is_yaookcapi or not cluster.resources:
-        resources = {}
-    else:
-        resources = json.loads(cluster.resources)
+                for provider in environment_providers.supported_providers:
+                    if provider in config:
+                        provider_config = environment_providers.get_user_friendly_params(config[provider], False)
+                        for node in provider_config['nodes']:
+                            node_operating_system = ''
+                            if 'operatingSystemName' in node:
+                                node_operating_system = node['operatingSystemName']
+                            else:
+                                node_operating_system = node['operatingSystem']
 
-    load_balancer_integration = ''
-    if 'load_balancer_integration' in config:
-        load_balancer_integration = config['load_balancer_integration']
+                            node_instance_type = ''
+                            if 'instanceTypeName' in node:
+                                node_instance_type = node['instanceTypeName']
+                            else:
+                                node_instance_type = node['instanceType']
 
-    if is_capi:
-        status = 0
-    elif is_yaookcapi:
-        status = 0
-    else:
-        status = cluster.status
+                            cluster_machines.append({
+                                'name': node_prefix + '-node-' + f"{node_counter:02d}" + '.' + provider + '.' + domain,
+                                'type': node_instance_type,
+                                'provider': provider,
+                                'region': provider_config['region'],
+                                'zone': node['zone'],
+                                'operating_system': node_operating_system,
+                                'status': machine_status
+                            })
+                            node_counter += 1
+                # Get regions and zones
+                cluster_machines = list(cluster_machines)
+                providers = {}
+            else:
+                providers, cluster_machines = environment_providers.get_cluster_machines(cluster, request, {}, config)
 
-    response = {
-        'name': cluster.name,
-        'title': cluster.title,
-        'description': cluster.description,
-        'project_name': cluster.project.name,
-        'status': status,
-        'resizestep': cluster.resizestep,
-        'installstep': cluster.installstep,
-        'clusterType': cluster.type,
-        'loadBalancerIntegration': load_balancer_integration,
-        'providers': providers,
-        'resources': resources,
-        'usersList': list(cluster_users),
-        'machinesList': list(cluster_machines),
-        'hasLoadBalancerIntegration': has_LB_integration,
-        'serviceList': list(serviceList)
-    }
+        serviceList = []
+        cluster_users = []
 
-    if not is_capi and not is_yaookcapi:
-        additional_services = {
-            'grafana_admin_password': cluster.grafana_admin_password,
-            'grafana_address': cluster.grafana_address,
-            'es_admin_password': cluster.es_admin_password,
-            'kibana_address': cluster.kibana_address
+        if is_capi:
+            # Get cluster's service
+            serviceList = models.ClusterService.objects.filter(capi_cluster=cluster).order_by('name').values(
+                'name',
+                'service__name',
+                'namespace',
+                'providers',
+                'connection_info',
+                'status',
+                'service_type')
+        elif is_yaookcapi:
+            # Get cluster's service
+            serviceList = models.ClusterService.objects.filter(yaookcapi_cluster=cluster).order_by('name').values(
+                'name',
+                'service__name',
+                'namespace',
+                'providers',
+                'connection_info',
+                'status',
+                'service_type')
+        else:
+            # Get cluster's service
+            serviceList = models.ClusterService.objects.filter(cluster=cluster).order_by('name').values(
+                'name',
+                'service__name',
+                'service__accessible_from_browser',
+                'namespace',
+                'providers',
+                'connection_info',
+                'status',
+                'service_type')
+
+            # Get cluster's users
+            cluster_users = models.ClusterUser.objects.filter(cluster=cluster).order_by('username').values(
+                'username',
+                'first_name',
+                'last_name',
+                'public_ssh_key',
+                'type',
+                'status')
+
+        if is_capi or is_yaookcapi or not cluster.resources:
+            resources = {}
+        else:
+            resources = json.loads(cluster.resources)
+
+        load_balancer_integration = ''
+        if 'load_balancer_integration' in config:
+            load_balancer_integration = config['load_balancer_integration']
+
+        if is_capi:
+            status = 0
+        elif is_yaookcapi:
+            status = 0
+        else:
+            status = cluster.status
+
+        response = {
+            'name': cluster.name,
+            'title': cluster.title,
+            'description': cluster.description,
+            'project_name': cluster.project.name,
+            'status': status,
+            'resizestep': cluster.resizestep,
+            'installstep': cluster.installstep,
+            'clusterType': cluster.type,
+            'loadBalancerIntegration': load_balancer_integration,
+            'providers': providers,
+            'resources': resources,
+            'usersList': list(cluster_users),
+            'machinesList': list(cluster_machines),
+            'hasLoadBalancerIntegration': has_LB_integration,
+            'serviceList': list(serviceList)
         }
-        response.update(additional_services)
 
-        if cluster.terraform_graph_index:
-            response['terraform_graph_index_path'] = cluster.terraform_graph_index
-
-        if cluster.type == constants.ClusterType.DLCM.value or cluster.type == constants.ClusterType.K3S.value:
-            response['kubeUpgradeStatus'] = cluster.kube_upgrade_status
-
-        if cluster.kube_upgrade_status == -1:
-            try:
-                error_msg = json.loads(cluster.error_msg)
-            except:
-                error_msg = {}
-            if 'message' in error_msg:
-                response['errorMsg'] = error_msg['message']
-
-    if 'kubernetesConfiguration' in config and cluster.type in [
-        constants.ClusterType.DLCM.value,
-        constants.ClusterType.K3S.value,
-        constants.ClusterType.CAPI.value,
-        constants.ClusterType.DLCM_V2.value
-        ]:
-        response['kubernetesConfiguration'] = {}
-        response['kubernetesConfiguration']['version'] = config['kubernetesConfiguration']['version']
         if not is_capi and not is_yaookcapi:
-            response['kubernetesConfiguration']['networkPlugin'] = config['kubernetesConfiguration']['networkPlugin']
-            response['kubernetesConfiguration']['podsSubnet'] = config['kubernetesConfiguration']['podsSubnet']
-            response['kubernetesConfiguration']['serviceAddresses'] = config['kubernetesConfiguration']['serviceAddresses']
+            additional_services = {
+                'grafana_admin_password': cluster.grafana_admin_password,
+                'grafana_address': cluster.grafana_address,
+                'es_admin_password': cluster.es_admin_password,
+                'kibana_address': cluster.kibana_address
+            }
+            response.update(additional_services)
 
-    # return JSON response
-    return JsonResponse(response)
+            if cluster.terraform_graph_index:
+                response['terraform_graph_index_path'] = cluster.terraform_graph_index
+
+            if cluster.type == constants.ClusterType.DLCM.value or cluster.type == constants.ClusterType.K3S.value:
+                response['kubeUpgradeStatus'] = cluster.kube_upgrade_status
+
+            if cluster.kube_upgrade_status == -1:
+                try:
+                    error_msg = json.loads(cluster.error_msg)
+                except:
+                    error_msg = {}
+                if 'message' in error_msg:
+                    response['errorMsg'] = error_msg['message']
+
+        if 'kubernetesConfiguration' in config and cluster.type in [
+            constants.ClusterType.DLCM.value,
+            constants.ClusterType.K3S.value,
+            constants.ClusterType.CAPI.value,
+            constants.ClusterType.DLCM_V2.value
+            ]:
+            response['kubernetesConfiguration'] = {}
+            response['kubernetesConfiguration']['version'] = config['kubernetesConfiguration']['version']
+            if not is_capi and not is_yaookcapi:
+                response['kubernetesConfiguration']['networkPlugin'] = config['kubernetesConfiguration']['networkPlugin']
+                response['kubernetesConfiguration']['podsSubnet'] = config['kubernetesConfiguration']['podsSubnet']
+                response['kubernetesConfiguration']['serviceAddresses'] = config['kubernetesConfiguration']['serviceAddresses']
+
+        # return JSON response
+        return JsonResponse(response)
+
+    if request.method == 'PUT':
+        # Validate request
+        payload, error = get_request_body(request)
+        if error is not None:
+            return error
+
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 1024
+                },
+            },
+            "required": ["name", "description"]
+        }
+
+        try:
+            validate(instance=payload, schema=schema)
+        except ValidationError as e:
+            log_data = {
+                'level': 'ERROR',
+                'user_id': str(request.user.id),
+            }
+            logger.error(str(e), extra=log_data)
+            return JsonResponse({
+                'error': {
+                    'message': str(e),
+                }
+            }, status=400)
+
+        payload['name'] = payload['name'].strip()
+
+        if payload['name'] != cluster.title:
+            if is_capi and len(models.CapiCluster.objects.filter(project__tenant_id=tenant_id, title=payload['name'])) > 0:
+                return JsonResponse({
+                    'error': {
+                        'message': 'Cluster name already exists.'
+                    }
+                }, status=400)
+            if is_yaookcapi and len(models.YaookCapiCluster.objects.filter(project__tenant_id=tenant_id, title=payload['name'])) > 0:
+                return JsonResponse({
+                    'error': {
+                        'message': 'Cluster name already exists.'
+                    }
+                }, status=400)
+            elif len(models.Clusters.objects.filter(project__tenant_id=tenant_id, title=payload['name'])) > 0:
+                return JsonResponse({
+                    'error': {
+                        'message': 'Cluster name already exists.'
+                    }
+                }, status=400)
+            cluster.title = payload['name']
+            
+        cluster.description = payload['description'].strip()
+        cluster.save()
+
+        return JsonResponse({
+            'submitted': True
+        })
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
@@ -2969,59 +3027,6 @@ def get_user_kubeconfig(request, tenant_id, cluster_id, username):
     # return JSON response
     return JsonResponse({
         'kubeconfig': config
-    })
-
-
-@api_view(['PUT'])
-@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
-def rename_cluster(request, tenant_id, cluster_id):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "clusterName": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 1024
-            }
-        },
-        "required": ["clusterName"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    # change cluster install step if cluster exists
-    cluster = models.Clusters.objects.get(id=cluster_id, project__tenant_id=tenant_id)
-
-    if cluster.installstep != 0:
-        return JsonResponse({
-            'error': {
-                'message': 'Cluster status does not allow renaming'
-            }
-        }, status=400)
-
-    cluster.title = payload['clusterName']
-    cluster.save()
-
-    return JsonResponse({
-        'submitted': True
     })
 
 
@@ -7786,25 +7791,11 @@ def save_environment_template(request, tenant_id, cluster_id):
 
     try:
         cluster = models.Clusters.objects.get(project__tenant_id=tenant_id, id=cluster_id)
-
-        if not cluster:
+    except:
+        try:
             cluster = models.CapiCluster.objects.get(project__tenant_id=tenant_id, id=cluster_id)
-            if not cluster:
-                cluster =models.YaookCapiCluster.objects.get(project__tenant_id=tenant_id, id=cluster_id)
-        else:
-            cluster = cluster[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter environmentId', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter environmentId'
-            }
-        }, status=400)
+        except:
+            cluster =models.YaookCapiCluster.objects.get(project__tenant_id=tenant_id, id=cluster_id)
 
     daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
 
@@ -7843,12 +7834,12 @@ def save_environment_template(request, tenant_id, cluster_id):
     return HttpResponse(status=201)
 
 
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
 def environment_templates_list(request, tenant_id):
     if request.method == 'GET':
         environment_templates = models.EnvironmentTemplate.objects.filter(tenant_id=tenant_id)
-        daiteap_user = models.DaiteapUser.objects.get(user=request.daiteap_user,tenant_id=tenant_id)
+        daiteap_user = models.DaiteapUser.objects.get(user=request.user,tenant_id=tenant_id)
 
         response = {'environmentTemplates': []}
 
@@ -8605,112 +8596,12 @@ def suggest_account_params(request, provider):
     return JsonResponse(autosuggested_params)
 
 
-@api_view(['PUT'])
-@permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
-def update_cluster(request, tenant_id, cluster_id):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "name": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 1024
-            },
-            "description": {
-                "type": "string",
-                "maxLength": 1024
-            },
-            "isCapi": {
-                "type": "boolean"
-            },
-            "isYaookCapi": {
-                "type": "boolean"
-            },
-        },
-        "required": ["name", "description", "isCapi", "isYaookCapi"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    if payload['isCapi']:
-        try:
-            cluster = models.CapiCluster.objects.get(id=cluster_id, tenant_id=tenant_id)
-        except:
-            return JsonResponse({
-                'error': {
-                    'message': 'Cluster doesn\'t exist.'
-                }
-            }, status=400)
-    elif payload['isYaookCapi']:
-        try:
-            cluster = models.YaookCapiCluster.objects.get(id=cluster_id, tenant_id=tenant_id)
-        except:
-            return JsonResponse({
-                'error': {
-                    'message': 'Cluster doesn\'t exist.'
-                }
-            }, status=400)
-    else:
-        try:
-            cluster = models.Clusters.objects.get(id=cluster_id, tenant_id=tenant_id)
-        except:
-            return JsonResponse({
-                'error': {
-                    'message': 'Cluster doesn\'t exist.'
-                }
-            }, status=400)
-
-    payload['name'] = payload['name'].strip()
-
-    if payload['name'] != cluster.title:
-        if payload['isCapi'] and len(models.CapiCluster.objects.filter(project__tenant_id=tenant_id, title=payload['name'])) > 0:
-            return JsonResponse({
-                'error': {
-                    'message': 'Cluster name already exists.'
-                }
-            }, status=400)
-        if payload['isYaookCapi'] and len(models.YaookCapiCluster.objects.filter(project__tenant_id=tenant_id, title=payload['name'])) > 0:
-            return JsonResponse({
-                'error': {
-                    'message': 'Cluster name already exists.'
-                }
-            }, status=400)
-        elif len(models.Clusters.objects.filter(project__tenant_id=tenant_id, title=payload['name'])) > 0:
-            return JsonResponse({
-                'error': {
-                    'message': 'Cluster name already exists.'
-                }
-            }, status=400)
-        cluster.title = payload['name']
-        
-    cluster.description = payload['description'].strip()
-    cluster.save()
-
-    return JsonResponse({
-        'submitted': True
-    })
-
-
 @api_view(['GET', 'POST', 'DELETE'])
 @permission_classes([IsAuthenticated, custom_permissions.BucketAccessPermission])
 def bucket_files(request, tenant_id, bucket_id, path):
+    path = path[1:]
+    is_folder = path[len(path) - 1] == "/"
+
     bucket = models.Bucket.objects.get(id=bucket_id, project__tenant_id=tenant_id)
     if bucket.credential.valid != True:
         return JsonResponse({
@@ -8729,13 +8620,18 @@ def bucket_files(request, tenant_id, bucket_id, path):
     if request.method == 'GET':
         storage_bucket_data = {}
         storage_bucket_data['bucket_id'] = bucket_id
-        storage_bucket_data['path'] = path
         storage_bucket_data['provider'] = bucket.provider
         storage_bucket_data['credential_id'] = bucket.credential.id
         storage_bucket_data['bucket_name'] = bucket.name
         storage_bucket_data['storage_account_url'] = bucket.storage_account
 
-        response = environment_providers.get_bucket_files(storage_bucket_data, request)
+        if is_folder:
+            storage_bucket_data['path'] = path
+            response = environment_providers.get_bucket_files(storage_bucket_data, request)
+        else:
+            storage_bucket_data['file_name'] = path
+            response = environment_providers.download_bucket_file(storage_bucket_data, request)
+
         if 'error' in response.keys():
             return JsonResponse(response, status=400)
         else:
@@ -8784,6 +8680,11 @@ def bucket_files(request, tenant_id, bucket_id, path):
         payload['bucket_name'] = bucket.name
         payload['storage_account_url'] = bucket.storage_account
 
+        daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
+        payload['daiteap-workspace-id'] = daiteap_user.tenant.id
+        payload['daiteap-user-id'] = daiteap_user.id
+        payload['daiteap-workspace-name'] = daiteap_user.tenant.name
+
         response = environment_providers.add_bucket_file(payload, request)
         if 'error' in response.keys():
             return JsonResponse(response, status=400)
@@ -8798,42 +8699,18 @@ def bucket_files(request, tenant_id, bucket_id, path):
         storage_bucket_data['bucket_name'] = bucket.name
         storage_bucket_data['storage_account_url'] = bucket.storage_account
 
-        if path[len(path) - 1] == "/":
+        if is_folder:
             storage_bucket_data['folder_path'] = path
-            response = environment_providers.delete_bucket_folder(payload, request)
+            response = environment_providers.delete_bucket_folder(storage_bucket_data, request)
         else:
             storage_bucket_data['file_name'] = path
-            response = environment_providers.delete_bucket_file(payload, request)
+            response = environment_providers.delete_bucket_file(storage_bucket_data, request)
 
         if 'error' in response.keys():
             return JsonResponse(response, status=400)
         else:
             return JsonResponse(response, status=200)
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, custom_permissions.BucketAccessPermission])
-def download_bucket_file(request, tenant_id, bucket_id, path):
-    bucket = models.Bucket.objects.get(id=bucket_id, project__tenant_id=tenant_id)
-    if bucket.credential.valid != True:
-        return JsonResponse({
-            'error': {
-                'message': 'Credentials are not valid.'
-            }
-        }, status=400)
-
-    storage_bucket_data = {}
-    storage_bucket_data['bucket_id'] = bucket_id
-    storage_bucket_data['file_name'] = path
-    storage_bucket_data['provider'] = bucket.provider
-    storage_bucket_data['credential_id'] = bucket.credential.id
-    storage_bucket_data['bucket_name'] = bucket.name
-    storage_bucket_data['storage_account_url'] = bucket.storage_account
-
-    response = environment_providers.download_bucket_file(storage_bucket_data, request)
-    if 'error' in response.keys():
-        return JsonResponse(response, status=400)
-    else:
-        return JsonResponse(response, status=200)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.CloudAccountAccessPermission])

@@ -737,7 +737,7 @@ def get_bucket_files(azure_credentials, storage_account_url, container_name, pat
 
     return response
 
-def add_bucket_file(azure_credentials, storage_account_url, container_name, file_name, content_type, contents, temporary_file, request):
+def add_bucket_file(azure_credentials, storage_account_url, container_name, file_name, content_type, contents, temporary_file, request, payload):
     credentials = ClientSecretCredential(
         azure_credentials['azure_tenant_id'],
         azure_credentials['azure_client_id'],
@@ -761,12 +761,12 @@ def add_bucket_file(azure_credentials, storage_account_url, container_name, file
                 blob_client.set_http_headers(content_settings=ContentSettings(content_type=content_type))
 
                 blob_tags = dict()
-                blob_tags["daiteap-workspace-id"] = str(request.daiteap_user.tenant.id)
-                blob_tags["daiteap-user-id"] = str(request.daiteap_user.id)
+                blob_tags["daiteap-workspace-id"] = str(payload['daiteap-workspace-id'])
+                blob_tags["daiteap-user-id"] = str(payload['daiteap-user-id'])
                 blob_tags["daiteap-username"] = request.user.username
                 blob_tags["daiteap-user-email"] = request.user.email
                 blob_tags["daiteap-platform-url"] = request.headers['Origin']
-                blob_tags["daiteap-workspace-name"] = request.daiteap_user.tenant.name
+                blob_tags["daiteap-workspace-name"] = payload['daiteap-workspace-name']
                 try: 
                     blob_client.set_blob_tags(tags=blob_tags)
                 except Exception as e:

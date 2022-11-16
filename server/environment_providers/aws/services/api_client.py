@@ -769,7 +769,7 @@ def get_storage_buckets(credential_id, aws_credentials):
 
     return response 
 
-def create_storage_bucket(aws_credentials, bucket_name, bucket_location, request):
+def create_storage_bucket(aws_credentials, bucket_name, bucket_location, request, payload):
     client = boto3.client(
         's3',
         aws_access_key_id=aws_credentials['aws_access_key_id'],
@@ -790,11 +790,11 @@ def create_storage_bucket(aws_credentials, bucket_name, bucket_location, request
                 'TagSet': [
                     {
                         'Key': 'daiteap-workspace-id',
-                        'Value': str(request.daiteap_user.tenant.id)
+                        'Value': str(payload['daiteap-workspace-id'])
                     },
                     {
                         'Key': 'daiteap-user-id',
-                        'Value': str(request.daiteap_user.id)
+                        'Value': str(payload['daiteap-user-id'])
                     },
                     {
                         'Key': 'daiteap-username',
@@ -810,7 +810,7 @@ def create_storage_bucket(aws_credentials, bucket_name, bucket_location, request
                     },
                     {
                         'Key': 'daiteap-workspace-name',
-                        'Value': request.daiteap_user.tenant.name
+                        'Value': payload['daiteap-workspace-name']
                     },
                 ]
             },

@@ -139,7 +139,7 @@ class ClusterAccessPermission(permissions.BasePermission):
 class EnvironmentTemplateAccessPermission(permissions.BasePermission):
     def has_permission(self, request, view):
         tenant_id = request.parser_context['kwargs']['tenant_id']
-        template_id = request.parser_context['kwargs']['template_id']
+        template_id = request.parser_context['kwargs']['environment_template_id']
         user = request.user
 
         # check if tenant exists
@@ -158,7 +158,7 @@ class EnvironmentTemplateAccessPermission(permissions.BasePermission):
         # check if template exists in tenant
         try:
             template = models.EnvironmentTemplate.objects.get(
-                id=template_id, project__tenant_id=tenant_id)
+                id=template_id, tenant_id=tenant_id)
         except models.EnvironmentTemplate.DoesNotExist:
             return False
 

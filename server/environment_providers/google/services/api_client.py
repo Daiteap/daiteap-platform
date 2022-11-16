@@ -676,7 +676,7 @@ def get_storage_buckets(credential_id, google_credentials, google_project):
 
     return response
 
-def create_storage_bucket(google_credentials, google_project, bucket_name, storage_class, bucket_location, request):
+def create_storage_bucket(google_credentials, google_project, bucket_name, storage_class, bucket_location, request, payload):
     storage_client = storage.Client(project=google_project,credentials=google_credentials)
 
     bucket = storage_client.bucket(bucket_name)
@@ -688,12 +688,12 @@ def create_storage_bucket(google_credentials, google_project, bucket_name, stora
 
         new_bucket = storage_client.get_bucket(bucket_name)
         labels = new_bucket.labels
-        labels["daiteap-workspace-id"] = str(request.daiteap_user.tenant.id)
-        labels["daiteap-user-id"] = str(request.daiteap_user.id)
+        labels["daiteap-workspace-id"] = str(payload['daiteap-workspace-id'])
+        labels["daiteap-user-id"] = str(payload['daiteap-user-id'])
         labels["daiteap-username"] = (re.sub('[^0-9a-zA-Z-_]+', '_', request.user.username).lower())
         labels["daiteap-user-email"] = (re.sub('[^0-9a-zA-Z-_]+', '_', request.user.email).lower())
         labels["daiteap-platform-url"] = (re.sub('[^0-9a-zA-Z-_]+', '_', request.headers['Origin']).lower())
-        labels["daiteap-workspace-name"] = (re.sub('[^0-9a-zA-Z-_]+', '_', request.daiteap_user.tenant.name).lower())
+        labels["daiteap-workspace-name"] = (re.sub('[^0-9a-zA-Z-_]+', '_', payload['daiteap-workspace-name']).lower())
         new_bucket.labels = labels
         new_bucket.patch()
 

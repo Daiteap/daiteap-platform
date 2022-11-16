@@ -1274,7 +1274,7 @@ def add_bucket_file(payload, request):
     azure_account = CloudAccount.objects.filter(id=payload['credential_id'])[0]
     azure_credentials = vault_service.read_secret(azure_account.credentials)
 
-    return api_client.add_bucket_file(azure_credentials, payload['storage_account_url'], payload['bucket_name'], payload['file_name'], payload['content_type'], payload['contents'], request.user.username, request)
+    return api_client.add_bucket_file(azure_credentials, payload['storage_account_url'], payload['bucket_name'], payload['file_name'], payload['content_type'], payload['contents'], request.user.username, request, payload)
 
 def delete_bucket_file(payload, request):
     azure_account = CloudAccount.objects.filter(id=payload['credential_id'])[0]
