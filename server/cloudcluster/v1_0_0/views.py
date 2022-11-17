@@ -369,17 +369,15 @@ def user(request):
         responses={200: openapi.Response('', ProjectSerializer)},
         operation_description="Create project.",
         operation_summary="Create project.")
-@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+@permission_classes([IsAuthenticated])
 @api_view(['GET', 'POST'])
 def project_list(request, tenant_id):
-    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
-
     if request.method == 'GET':
         projects = models.Project.objects.filter(tenant=tenant_id).all()
 
         user_projects = []
         for project in projects:
-            if project.checkUserAccess(daiteap_user):
+            if project.checkUserAccess(request.daiteap_user):
                 user_projects.append(project)
 
         serializer = ProjectSerializer(user_projects, many=True)
@@ -390,11 +388,11 @@ def project_list(request, tenant_id):
         request.data['contact'] = request.user.email
         serializer = ProjectSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            serializer.save(tenant=daiteap_user.tenant, user=request.user)
+            serializer.save(tenant=request.daiteap_user.tenant, user=request.user)
 
             project = models.Project.objects.get(id=serializer.data['id'], tenant_id=tenant_id)
-            daiteap_user.projects.add(project)
-            daiteap_user.save()
+            request.daiteap_user.projects.add(project)
+            request.daiteap_user.save()
             sync_users()
 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -478,11 +476,9 @@ def project_detail(request, tenant_id, project_id):
         responses={200: openapi.Response('', CloudAccountSerializer)},
         operation_description="Create cloud credentials. Set account account_params on provider.",
         operation_summary="Create cloud credentials.")
-@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+@permission_classes([IsAuthenticated])
 @api_view(['GET', 'POST'])
 def cloud_account_list(request, tenant_id):
-    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
-
     if request.method == 'GET':
         cloudaccounts = models.CloudAccount.objects.filter(tenant=tenant_id).all()
 
@@ -499,7 +495,7 @@ def cloud_account_list(request, tenant_id):
             except:
                 account.cloud_account_info = {'error': ''}
 
-            if account.checkUserAccess(daiteap_user):
+            if account.checkUserAccess(request.daiteap_user):
                 cloudaccounts_filtered.append(account)
 
         serializer = CloudAccountSerializer(cloudaccounts_filtered, many=True)
@@ -509,7 +505,7 @@ def cloud_account_list(request, tenant_id):
     if request.method == 'POST':
         serializer = CloudAccountSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            serializer.save(tenant=daiteap_user.tenant, user=request.user, context={'request': request})
+            serializer.save(tenant=request.daiteap_user.tenant, user=request.user, context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -614,16 +610,15 @@ def cloud_account_detail(request, tenant_id, cloudaccount_id):
         responses={200: openapi.Response('', BucketSerializer)},
         operation_description="Create bucket.",
         operation_summary="Create bucket.")
-@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+@permission_classes([IsAuthenticated])
 @api_view(['GET', 'POST'])
 def bucket_list(request, tenant_id):
     if request.method == 'GET':
         buckets = []
         bucket_records = models.Bucket.objects.filter(project__tenant_id=tenant_id)
 
-        daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
         for bucket in bucket_records:
-            if bucket.checkUserAccess(daiteap_user):
+            if bucket.checkUserAccess(request.daiteap_user):
                 buckets.append(bucket)
 
         serializer = BucketSerializer(buckets, many=True)
@@ -700,7 +695,7 @@ def bucket_detail(request, tenant_id, bucket_id):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 @api_view(['GET', 'DELETE', 'PUT'])
-@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+@permission_classes([IsAuthenticated])
 def tenant_users_detail(request, tenant_id, username):
     if request.method == 'GET':
         # check if account exists
@@ -728,8 +723,7 @@ def tenant_users_detail(request, tenant_id, username):
         return JsonResponse(user)
 
     if request.method == 'DELETE':
-        requester = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
-        if not requester.isAdmin():
+        if not request.daiteap_user.isAdmin():
             return JsonResponse({
                 'delete_success': False,
                 'message': 'Insufficient permissions.'
@@ -768,8 +762,7 @@ def tenant_users_detail(request, tenant_id, username):
         return JsonResponse({'delete_success': True})
 
     if request.method == 'PUT':
-        requester = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
-        if not requester.isAdmin():
+        if not request.daiteap_user.isAdmin():
             return JsonResponse({
                 'error': {
                     'message': 'Insufficient permissions.'
@@ -860,7 +853,7 @@ def tenant_users_detail(request, tenant_id, username):
         })
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+@permission_classes([IsAuthenticated])
 def check_provided_credentials(request, tenant_id):
     response = environment_providers.check_provided_credentials(tenant_id)
 
@@ -884,7 +877,7 @@ def check_account_regions_update_status(request, tenant_id, cloudaccount_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+@permission_classes([IsAuthenticated])
 def validate_credentials(request, tenant_id, cloudaccount_id = None):
     # Validate request
     if cloudaccount_id:
@@ -937,8 +930,7 @@ def validate_credentials(request, tenant_id, cloudaccount_id = None):
         if len(models.CloudAccount.objects.filter(id=payload['account_id'])) > 0:
             account = models.CloudAccount.objects.get(id=payload['account_id'], tenant_id=payload['tenant_id'])
 
-            daiteap_user = models.DaiteapUser.objects.get(user=request.user,tenant_id=tenant_id)
-            if not account.checkUserAccess(daiteap_user):
+            if not account.checkUserAccess(request.daiteap_user):
                 return JsonResponse({
                     'error': {
                         'message': 'Access denied'
@@ -1559,7 +1551,7 @@ def oauth_google_get_projects(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+@permission_classes([IsAuthenticated])
 def get_provider_accounts(request, tenant_id, provider):
     payload = {}
     payload['provider'] = provider
@@ -1669,7 +1661,7 @@ def get_valid_regions(request, tenant_id, cloudaccount_id):
         }, status=400)
 
     try:
-        regions = environment_providers.get_valid_regions(payload, request, tenant_id)
+        regions = environment_providers.get_valid_regions(payload, request)
     except Exception as e:
         return JsonResponse({
             'error': {
@@ -1828,7 +1820,7 @@ def get_valid_instances(request, tenant_id, cloudaccount_id, region, zone = None
         }, status=400)
 
     try:
-        instances = environment_providers.get_valid_instances(payload, request, tenant_id)
+        instances = environment_providers.get_valid_instances(payload, request)
     except Exception as e:
         return JsonResponse({
             'error': {
@@ -2125,7 +2117,7 @@ def generate_cluster_service_default_name(request, tenant_id, cluster_id, servic
         cluster_services = models.ClusterService.objects.filter(
             cluster=cluster).filter(service=service).count()
 
-    defaultName = service + '-' + str(cluster_services)
+    defaultName = service.name + '-' + str(cluster_services)
 
     response = {
         'defaultName': defaultName
@@ -2136,11 +2128,11 @@ def generate_cluster_service_default_name(request, tenant_id, cluster_id, servic
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+@permission_classes([IsAuthenticated])
 def get_cluster_list(request, tenant_id):
     # Get user's clusters
     try:
-        daiteapuser = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
+        daiteapuser = request.daiteap_user
 
         if daiteapuser.role == "Admin":
             user_projects = models.Project.objects.filter(tenant_id=tenant_id).all()
@@ -3090,14 +3082,12 @@ def remove_compute_node(request, tenant_id, cluster_id, node_id):
 
     cluster_config = json.loads(cluster.config)
 
-    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
-
     # check if user has access to the cloud accounts which he attempts to use
     for key in cluster_config:
         if key in ["aws", "google", "openstack", "azure", "onpremise", "iotarm"]:
             id = cluster_config.get(key).get("account")
             account = models.CloudAccount.objects.get(id=id)
-            if not account.checkUserAccess(daiteap_user):
+            if not account.checkUserAccess(request.daiteap_user):
                 return JsonResponse({
                     'error': {
                         'message': 'Project access denied.',
@@ -3137,7 +3127,7 @@ def remove_compute_node(request, tenant_id, cluster_id, node_id):
     tag_values['username'] = request.user.username
     tag_values['email'] = request.user.email
     tag_values['url'] = request.headers['Origin']
-    tag_values['tenant_name'] = daiteap_user.tenant.name
+    tag_values['tenant_name'] = request.daiteap_user.tenant.name
 
     # submit kubernetes creation
     task = tasks.worker_remove_compute_node.delay(node_id, cluster.id, request.user.id, tag_values)
@@ -3950,14 +3940,12 @@ def resize_dlcm_v2(request, tenant_id, cluster_id):
             }
         }, status=400)
 
-    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
-
     # check if user has access to the cloud accounts which he attempts to use
     for key in payload.keys():
         if key in [ "aws", "google", "openstack", "azure", "onpremise", "iotarm"]:
             id = payload.get(key).get("account")
             account = models.CloudAccount.objects.get(id=id)
-            if not account.checkUserAccess(daiteap_user):
+            if not account.checkUserAccess(request.daiteap_user):
                 return JsonResponse({
                     'error': {
                         'message': 'Project access denied.',
@@ -4004,7 +3992,7 @@ def resize_dlcm_v2(request, tenant_id, cluster_id):
 
     existing_nodes_count = models.Machine.objects.filter(cluster=cluster).count()
 
-    error = authorization_service.authorize(payload, 'create_kubernetes_cluster', daiteap_user.id, logger, existing_nodes_count, True)
+    error = authorization_service.authorize(payload, 'create_kubernetes_cluster', request.daiteap_user.id, logger, existing_nodes_count, True)
 
     if error:
         return error
@@ -4033,7 +4021,7 @@ def resize_dlcm_v2(request, tenant_id, cluster_id):
     tag_values['username'] = request.user.username
     tag_values['email'] = request.user.email
     tag_values['url'] = request.headers['Origin']
-    tag_values['tenant_name'] = daiteap_user.tenant.name
+    tag_values['tenant_name'] = request.daiteap_user.tenant.name
 
     # submit kubernetes creation
     task = tasks.worker_resize_dlcm_v2_environment.delay(config, cluster.id, request.user.id, tag_values)
@@ -4055,7 +4043,7 @@ def resize_dlcm_v2(request, tenant_id, cluster_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def create_dlcm_v2(request):
+def create_dlcm_v2(request, tenant_id):
     # Validate request
     payload, error = get_request_body(request)
     if error:
@@ -4081,7 +4069,7 @@ def create_dlcm_v2(request):
     for key in payload.keys():
         if key in [ "aws", "google", "openstack", "azure", "onpremise", "iotarm"]:
             id = payload.get(key).get("account")
-            account = models.CloudAccount.objects.get(id=id)
+            account = models.CloudAccount.objects.get(id=id, tenant_id=tenant_id)
             if not account.checkUserAccess(request.daiteap_user):
                 return JsonResponse({
                     'error': {
@@ -4185,15 +4173,21 @@ def create_dlcm_v2(request):
     if error:
         return error
 
-    cluster = models.Clusters()
-
-    projects = models.Project.objects.filter(id=payload['projectId'])
+    projects = models.Project.objects.filter(id=payload['projectId'], tenant_id=tenant_id)
     if len(projects) == 0:
         return JsonResponse({
             'error': {
                 'message': 'ProjectId not found',
             }
         }, status=403)
+    if not projects[0].checkUserAccess(request.daiteap_user):
+        return JsonResponse({
+            'error': {
+                'message': 'Project access denied.',
+            }
+        }, status=403)
+
+    cluster = models.Clusters()
     cluster.project = projects[0]
 
     cluster.id = uuid.UUID(str(cluster.id)[:0] + get_random_lowercase_hex_letters(1) + str(cluster.id)[1:])
@@ -4241,7 +4235,7 @@ def create_dlcm_v2(request):
     })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+@permission_classes([IsAuthenticated])
 def create_capi_cluster(request, tenant_id):
     # Validate request
     payload, error = get_request_body(request)
@@ -4263,8 +4257,6 @@ def create_capi_cluster(request, tenant_id):
             }
         }, status=400)
 
-    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
-
     projects = models.Project.objects.filter(id=payload['projectId'], tenant_id=tenant_id)
     if len(projects) == 0:
         return JsonResponse({
@@ -4273,7 +4265,7 @@ def create_capi_cluster(request, tenant_id):
             }
         }, status=403)
     project = projects[0]
-    if not project.checkUserAccess(daiteap_user):
+    if not project.checkUserAccess(request.daiteap_user):
         return JsonResponse({
             'error': {
                 'message': 'Project access denied.'
@@ -4335,7 +4327,7 @@ def create_capi_cluster(request, tenant_id):
         }, status=400)
 
     # authorize request
-    error = authorization_service.authorize(payload, 'create_capi_cluster', daiteap_user.id, logger)
+    error = authorization_service.authorize(payload, 'create_capi_cluster', request.daiteap_user.id, logger)
 
     if error:
         return error
@@ -4507,7 +4499,7 @@ def delete_capi_cluster(request, tenant_id, cluster_id):
         })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+@permission_classes([IsAuthenticated])
 def create_yaookcapi_cluster(request, tenant_id):
     # Validate request
     payload, error = get_request_body(request)
@@ -4529,8 +4521,6 @@ def create_yaookcapi_cluster(request, tenant_id):
             }
         }, status=400)
 
-    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
-
     projects = models.Project.objects.filter(id=payload['projectId'], tenant_id=tenant_id)
     if len(projects) == 0:
         return JsonResponse({
@@ -4539,7 +4529,7 @@ def create_yaookcapi_cluster(request, tenant_id):
             }
         }, status=403)
     project = projects[0]
-    if not project.checkUserAccess(daiteap_user):
+    if not project.checkUserAccess(request.daiteap_user):
         return JsonResponse({
             'error': {
                 'message': 'Project access denied.'
@@ -4601,7 +4591,7 @@ def create_yaookcapi_cluster(request, tenant_id):
         }, status=400)
 
     # authorize request
-    error = authorization_service.authorize(payload, 'create_yaookcapi_cluster', daiteap_user.id, logger)
+    error = authorization_service.authorize(payload, 'create_yaookcapi_cluster', request.daiteap_user.id, logger)
 
     if error:
         return error
@@ -4763,7 +4753,7 @@ def delete_yaookcapi_cluster(request, tenant_id, cluster_id):
         })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+@permission_classes([IsAuthenticated])
 def create_k3s_cluster(request, tenant_id):
     # Validate request
     payload, error = get_request_body(request)
@@ -4864,10 +4854,8 @@ def create_k3s_cluster(request, tenant_id):
             }
         }, status=400)
 
-    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
-
     # authorize request
-    error = authorization_service.authorize(payload, 'create_kubernetes_cluster', daiteap_user.id, logger)
+    error = authorization_service.authorize(payload, 'create_kubernetes_cluster', request.daiteap_user.id, logger)
 
     if error:
         return error
@@ -4895,7 +4883,7 @@ def create_k3s_cluster(request, tenant_id):
                 'message': 'ProjectId not found',
             }
         }, status=403)
-    if not projects[0].checkUserAccess(daiteap_user):
+    if not projects[0].checkUserAccess(request.daiteap_user):
         return JsonResponse({
             'error': {
                 'message': 'Project access denied.',
@@ -4926,7 +4914,7 @@ def create_k3s_cluster(request, tenant_id):
     tag_values['username'] = request.user.username
     tag_values['email'] = request.user.email
     tag_values['url'] = request.headers['Origin']
-    tag_values['tenant_name'] = daiteap_user.tenant.name
+    tag_values['tenant_name'] = request.daiteap_user.tenant.name
 
     try:
         # submit kubernetes creation
@@ -5689,9 +5677,8 @@ def add_machines_to_vms(request, tenant_id, cluster_id):
             }
         }, status=500)
 
-    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
     # authorize request
-    error = authorization_service.authorize(payload, 'add_machines_to_vms', daiteap_user.id, logger)
+    error = authorization_service.authorize(payload, 'add_machines_to_vms', request.daiteap_user.id, logger)
 
     if error:
         return error
@@ -5839,9 +5826,8 @@ def add_machines_to_k3s(request, tenant_id, cluster_id):
             }
         }, status=500)
 
-    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
     # authorize request
-    error = authorization_service.authorize(payload, 'add_machines_to_kubernetes', daiteap_user.id, logger)
+    error = authorization_service.authorize(payload, 'add_machines_to_kubernetes', request.daiteap_user.id, logger)
 
     if error:
         return error
@@ -5990,9 +5976,8 @@ def add_machines_to_dlcm(request, tenant_id, cluster_id):
             }
         }, status=500)
 
-    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
     # authorize request
-    error = authorization_service.authorize(payload, 'add_machines_to_kubernetes', daiteap_user.id, logger)
+    error = authorization_service.authorize(payload, 'add_machines_to_kubernetes', request.daiteap_user.id, logger)
 
     if error:
         return error
@@ -6149,9 +6134,8 @@ def add_machines_to_dlcm_v2(request, tenant_id, cluster_id):
             }
         }, status=500)
 
-    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
     # authorize request
-    error = authorization_service.authorize(payload, 'add_machines_to_kubernetes', daiteap_user.id, logger)
+    error = authorization_service.authorize(payload, 'add_machines_to_kubernetes', request.daiteap_user.id, logger)
 
     if error:
         return error
@@ -6545,7 +6529,7 @@ def create_VMs(request):
     })
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+@permission_classes([IsAuthenticated])
 def create_compute_VMs(request, tenant_id):
     # Validate request
     payload, error = get_request_body(request)
@@ -6570,14 +6554,12 @@ def create_compute_VMs(request, tenant_id):
             }
         }, status=400)
 
-    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
-
     # check if user has access to the cloud accounts which he attempts to use
     for key in payload.keys():
         if key in [ "aws", "google", "openstack", "azure", "onpremise", "iotarm"]:
             id = payload.get(key).get("account")
-            account = models.CloudAccount.objects.get(id=id)
-            if not account.checkUserAccess(daiteap_user):
+            account = models.CloudAccount.objects.get(id=id, tenant_id=tenant_id)
+            if not account.checkUserAccess(request.daiteap_user):
                 return JsonResponse({
                     'error': {
                         'message': 'Project access denied.',
@@ -6620,7 +6602,7 @@ def create_compute_VMs(request, tenant_id):
         }, status=400)
 
     # authorize request
-    error = authorization_service.authorize(payload, 'create_compute_VMs', daiteap_user.id, logger)
+    error = authorization_service.authorize(payload, 'create_compute_VMs', request.daiteap_user.id, logger)
 
     if error:
         return error
@@ -6644,7 +6626,7 @@ def create_compute_VMs(request, tenant_id):
                 'message': 'ProjectId not found',
             }
         }, status=403)
-    if not projects[0].checkUserAccess(daiteap_user):
+    if not projects[0].checkUserAccess(request.daiteap_user):
         return JsonResponse({
             'error': {
                 'message': 'Project access denied.',
@@ -6661,7 +6643,7 @@ def create_compute_VMs(request, tenant_id):
     cluster.installstep=1
     cluster.type=constants.ClusterType.COMPUTE_VMS.value
     cluster.user=request.user
-    cluster.daiteap_user=daiteap_user
+    cluster.daiteap_user=request.daiteap_user
     cluster.providers=json.dumps(environment_providers.get_selected_providers(payload))
     cluster.config=json.dumps(config)
 
@@ -6675,7 +6657,7 @@ def create_compute_VMs(request, tenant_id):
     tag_values['username'] = request.user.username
     tag_values['email'] = request.user.email
     tag_values['url'] = request.headers['Origin']
-    tag_values['tenant_name'] = daiteap_user.tenant.name
+    tag_values['tenant_name'] = request.daiteap_user.tenant.name
 
     try:
         # submit VMs creation
@@ -6973,9 +6955,8 @@ def add_service(request, tenant_id, cluster_id):
 
                 configuration[option] = payload[option]
 
-    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
     # authorize request
-    error = authorization_service.authorize(payload, 'add_service', daiteap_user.id, logger)
+    error = authorization_service.authorize(payload, 'add_service', request.daiteap_user.id, logger)
 
     if error:
         return error
@@ -7080,7 +7061,7 @@ def delete_service(request, tenant_id, cluster_id, service, namespace = None):
         }, status=500)
 
     # Submit service deletion
-    task = tasks.worker_delete_service_kubernetes_cluster.delay(service, namespace, cluster_id)
+    task = tasks.worker_delete_service_kubernetes_cluster.delay(service.name, namespace, cluster_id)
 
     # Remove user old entries
     old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
@@ -7575,13 +7556,11 @@ def change_user_password(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+@permission_classes([IsAuthenticated])
 def get_usage(request, tenant_id):
-    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
+    quota_limits = authorization_service.get_quota_limits(request.daiteap_user.id)
 
-    quota_limits = authorization_service.get_quota_limits(daiteap_user.id)
-
-    used_quota = authorization_service.get_used_quota(daiteap_user.id)
+    used_quota = authorization_service.get_used_quota(request.daiteap_user.id)
 
     response_json = quota_limits
 
@@ -7797,8 +7776,6 @@ def save_environment_template(request, tenant_id, cluster_id):
         except:
             cluster =models.YaookCapiCluster.objects.get(project__tenant_id=tenant_id, id=cluster_id)
 
-    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
-
     if cluster.type == constants.ClusterType.CAPI.value:
         environment_template = models.EnvironmentTemplate(
             name = request_body['name'],
@@ -7828,24 +7805,23 @@ def save_environment_template(request, tenant_id, cluster_id):
         environment_template.description = request_body['description']
 
     environment_template.contact = request.user.email
-    environment_template.daiteap_user = daiteap_user
+    environment_template.daiteap_user = request.daiteap_user
     environment_template.save()
 
     return HttpResponse(status=201)
 
 
 @api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+@permission_classes([IsAuthenticated])
 def environment_templates_list(request, tenant_id):
     if request.method == 'GET':
         environment_templates = models.EnvironmentTemplate.objects.filter(tenant_id=tenant_id)
-        daiteap_user = models.DaiteapUser.objects.get(user=request.user,tenant_id=tenant_id)
 
         response = {'environmentTemplates': []}
 
         for environment_template in environment_templates:
             
-            if environment_template.checkUserAccess(daiteap_user):
+            if environment_template.checkUserAccess(request.daiteap_user):
                 response['environmentTemplates'].append({
                     'name': environment_template.name,
                     'id': environment_template.id,
@@ -8068,8 +8044,6 @@ def environment_templates_list(request, tenant_id):
                 }
             }, status=400)
 
-        daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
-
         is_capi = False
         is_yaookcapi = False
         if request_body['type'] == constants.ClusterType.CAPI.value:
@@ -8088,8 +8062,8 @@ def environment_templates_list(request, tenant_id):
         if request_body['description']:
             environment_template.description = request_body['description']
 
-        environment_template.daiteap_user = daiteap_user
-        environment_template.contact = daiteap_user.user.email
+        environment_template.daiteap_user = request.daiteap_user
+        environment_template.contact = request.daiteap_user.user.email
 
         environment_template.save()
 
@@ -8140,7 +8114,7 @@ def environment_template_detail(request, tenant_id, environment_template_id):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+@permission_classes([IsAuthenticated])
 def is_environment_template_name_free(request, tenant_id, name):
     # Validate request
     payload = {}
@@ -8413,7 +8387,7 @@ def project_users(request, tenant_id, project_id):
 
         username = payload['username']
         try:
-            daiteapuser = models.DaiteapUser.objects.get(user__username=username,tenant_id=tenant_id)
+            daiteapuser = models.DaiteapUser.objects.get(user__username=username, tenant_id=tenant_id)
         except models.DaiteapUser.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
@@ -8430,7 +8404,7 @@ def project_users_detail(request, tenant_id, project_id, username):
     project = models.Project.objects.get(id=project_id, tenant_id=tenant_id)
 
     try:
-        daiteapuser = models.DaiteapUser.objects.get(user__username=username,tenant_id=tenant_id)
+        daiteapuser = models.DaiteapUser.objects.get(user__username=username, tenant_id=tenant_id)
     except models.DaiteapUser.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
@@ -8540,7 +8514,7 @@ def sync_users(task_delay=True):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+@permission_classes([IsAuthenticated])
 def account_tenant(request, tenant_id):
     tenant = models.Tenant.objects.filter(id=tenant_id).values('id', 'name', 'company')[0]
 
@@ -8548,7 +8522,7 @@ def account_tenant(request, tenant_id):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, custom_permissions.TenantAccessPermission])
+@permission_classes([IsAuthenticated])
 def account_get_settings(request, tenant_id):
     tenant = models.Tenant.objects.get(id=tenant_id)
 
@@ -8679,11 +8653,6 @@ def bucket_files(request, tenant_id, bucket_id, path):
         payload['credential_id'] = bucket.credential.id
         payload['bucket_name'] = bucket.name
         payload['storage_account_url'] = bucket.storage_account
-
-        daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
-        payload['daiteap-workspace-id'] = daiteap_user.tenant.id
-        payload['daiteap-user-id'] = daiteap_user.id
-        payload['daiteap-workspace-name'] = daiteap_user.tenant.name
 
         response = environment_providers.add_bucket_file(payload, request)
         if 'error' in response.keys():

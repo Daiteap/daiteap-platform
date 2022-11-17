@@ -8,7 +8,7 @@ import time
 import traceback
 
 from cloudcluster import settings
-from cloudcluster.models import CloudAccount, Clusters, Machine, DaiteapUser
+from cloudcluster.models import CloudAccount, Clusters, Machine
 from cloudcluster.v1_0_0.ansible.ansible_client import AnsibleClient
 from cloudcluster.v1_0_0.terraform.terraform_client import TerraformClient
 from cloudcluster.v1_0_0.services import constants
@@ -1333,19 +1333,18 @@ def get_provider_accounts(payload, request, tenant_id):
     Returns:
         list: List of user cloud provider accounts
     """
-    daiteap_user = DaiteapUser.objects.get(user=request.user,tenant_id=tenant_id)
     accounts = []
     if payload['provider'] in supported_providers:
         provider_accounts = CloudAccount.objects.filter(provider=payload['provider'], valid=True, tenant_id=tenant_id)
         for provider_account in provider_accounts:
-            if provider_account.checkUserAccess(daiteap_user):
+            if provider_account.checkUserAccess(request.daiteap_user):
                 accounts.append({
                     'label': provider_account.label,
                     'id': provider_account.id,
                 })
     return accounts
 
-def get_valid_regions(payload, request, tenant_id):
+def get_valid_regions(payload, request):
     """Returns a list of regions that are valid for the account
 
     Args:
@@ -1360,7 +1359,7 @@ def get_valid_regions(payload, request, tenant_id):
     """
     if payload['provider'] in supported_providers:
         try:
-            account = CloudAccount.objects.get(id=payload['accountId'],tenant_id=tenant_id, provider=payload['provider'])
+            account = CloudAccount.objects.get(id=payload['accountId'],tenant_id=request.daiteap_user.tenant, provider=payload['provider'])
         except:
             log_data = {
                 'level': 'ERROR',
@@ -1413,7 +1412,7 @@ def get_valid_zones(payload, request, tenant_id):
     return zones
 
 
-def get_valid_instances(payload, request, tenant_id):
+def get_valid_instances(payload, request):
     """Returns a list of instance types that are valid for the account
 
     Args:
@@ -1428,7 +1427,7 @@ def get_valid_instances(payload, request, tenant_id):
     """
     if payload['provider'] in supported_providers:
         try:
-            account = CloudAccount.objects.get(id=payload['accountId'], tenant_id=tenant_id, provider=payload['provider'])
+            account = CloudAccount.objects.get(id=payload['accountId'], tenant_id=request.daiteap_user.tenant.id, provider=payload['provider'])
         except:
             log_data = {
                 'level': 'ERROR',

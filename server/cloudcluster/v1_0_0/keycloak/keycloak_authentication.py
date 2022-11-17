@@ -88,11 +88,19 @@ class KeycloakAuthentication(authentication.BaseAuthentication):
         if len(user) > 0:
             request.user = user[0]
 
-            daiteap_user = models.DaiteapUser.objects.filter(user=request.user, selected=True)
-            if len(daiteap_user) > 0:
-                request.daiteap_user = daiteap_user[0]
+            if 'tenant_id' in request.parser_context['kwargs']:
+                tenant_id = request.parser_context['kwargs']['tenant_id']
+                try:
+                    daiteap_user = models.DaiteapUser.objects.get(user=request.user, tenant_id=tenant_id)
+                    request.daiteap_user = daiteap_user
+                except:
+                    raise PermissionDenied('You do not have access to this tenant.')
             else:
-                request.daiteap_user = models.DaiteapUser.objects.filter(user=request.user)[0]
+                daiteap_user = models.DaiteapUser.objects.filter(user=request.user, selected=True)
+                if len(daiteap_user) > 0:
+                    request.daiteap_user = daiteap_user[0]
+                else:
+                    request.daiteap_user = models.DaiteapUser.objects.filter(user=request.user)[0]
         else:
             request.user = None
 

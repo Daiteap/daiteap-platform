@@ -172,10 +172,8 @@ class Clusters(models.Model):
     def checkUserAccess(self, *args):
         daiteap_user = args[0]
 
-        if self.project.checkUserAccess(daiteap_user):
-            return True
+        return self.project.checkUserAccess(daiteap_user)
 
-        return False
 # class UserKubeconfig(models.Model):
 #     kubeconfig = models.TextField(blank=True, null=True)
 #     cluster = models.ForeignKey(Clusters, on_delete=models.CASCADE)
@@ -209,7 +207,7 @@ class EnvironmentTemplate(models.Model):
 
         daiteapuser = args[0]
 
-        if self.daiteap_user.user == daiteapuser.user:
+        if self.daiteap_user == daiteapuser:
             # print("account belongs to user")
             return True
 
@@ -451,10 +449,7 @@ class Bucket(models.Model):
     def checkUserAccess(self, *args):
         daiteap_user = args[0]
 
-        if self.project.checkUserAccess(daiteap_user):
-            return True
-
-        return False
+        return self.project.checkUserAccess(daiteap_user)
 
 @receiver(post_save, sender=DaiteapUser)
 def create_user_profile(sender, instance, created, **kwargs):
