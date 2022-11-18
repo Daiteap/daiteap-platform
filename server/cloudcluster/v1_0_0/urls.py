@@ -40,10 +40,9 @@ urlpatterns = [
    path('tenants', views.register_tenant_user),
    path('tenants/<str:tenant_id>', views.account_tenant),
    path('tenants/<str:tenant_id>/settings', views.account_get_settings),
-
    path('tenants/<str:tenant_id>/users', views.tenant_users),
    path('tenants/<str:tenant_id>/users/<str:username>', views.tenant_users_detail),
-   path('tenants/<str:tenant_id>/user-quotas', views.get_usage),
+   path('tenants/<str:tenant_id>/quotas', views.get_usage),
    path('tenants/<str:tenant_id>/unregistered-users', views.get_unregistered_users),
 
    path('tenants/<str:tenant_id>/projects', views.project_list),
@@ -71,9 +70,9 @@ urlpatterns = [
    path('tenants/<str:tenant_id>/buckets/<str:bucket_id>', views.bucket_detail),
    path('tenants/<str:tenant_id>/buckets/<str:bucket_id>/files/<path:path>', views.bucket_files),
 
-   path('tenants/<str:tenant_id>/environmenttemplates', views.environment_templates_list),
-   path('tenants/<str:tenant_id>/environmenttemplates/<str:environment_template_id>', views.environment_template_detail),
-   path('tenants/<str:tenant_id>/environmenttemplates/name-available/<str:name>', views.is_environment_template_name_free),
+   path('tenants/<str:tenant_id>/environment-templates', views.environment_templates_list),
+   path('tenants/<str:tenant_id>/environment-templates/<str:environment_template_id>', views.environment_template_detail),
+   path('tenants/<str:tenant_id>/environment-templates/name-available/<str:name>', views.is_environment_template_name_free),
 
    path('tenants/<str:tenant_id>/clusters', views.get_cluster_list),
    path('tenants/<str:tenant_id>/clusters/capi-create', views.create_capi_cluster),
