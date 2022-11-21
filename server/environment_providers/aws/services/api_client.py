@@ -1034,4 +1034,4 @@ def get_cloud_account_info(aws_credentials):
     cloud_data['organization_id'] = organization['Organization']['Id']
     cloud_data['organization_master_account_email'] = organization['Organization']['MasterAccountEmail']
 
-    return(cloud_data)
+    return cloud_data['account_email']

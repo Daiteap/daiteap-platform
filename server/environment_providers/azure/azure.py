@@ -543,6 +543,7 @@ def validate_account_permissions(credentials, user_id, storage_enabled):
         return {'error': 'Missing required permissions: ' + str(azure_missing_permissions)}
     elif 'id' in credentials:
         cloud_account = CloudAccount.objects.get(id=credentials['id'])
+        cloud_account.cloud_account_info = get_cloud_account_info(cloud_account)
         cloud_account.valid = True
         cloud_account.save()
 
@@ -940,6 +941,7 @@ def create_cloud_credentials(payload, request, all_account_labels):
         logger.error('Invalid account_params parameter.', extra=log_data)
         return Exception('Invalid account_params parameter.')
 
+    account.cloud_account_info = get_cloud_account_info(account)
     account.regions_update_status = 1  # updating
     account.save()
 

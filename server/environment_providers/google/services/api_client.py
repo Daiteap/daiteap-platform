@@ -1027,4 +1027,4 @@ def get_cloud_account_info(google_credentials):
     cloud_data['project_id'] = google_credentials['project_id']
     cloud_data['email'] = google_credentials['client_email']
 
-    return cloud_data
+    return cloud_data['email']
