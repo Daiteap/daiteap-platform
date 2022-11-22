@@ -504,6 +504,7 @@ def validate_account_permissions(credentials, user_id, storage_enabled):
             cloud_account.valid = False
             cloud_account.save()
         else:
+            cloud_account.cloud_account_info = get_cloud_account_info(cloud_account)
             cloud_account.valid = True
             cloud_account.save()
     else:
@@ -774,6 +775,7 @@ def create_cloud_credentials(payload, request, all_account_labels):
         logger.error('Invalid account_params parameter.', extra=log_data)
         raise Exception('Invalid account_params parameter.')
 
+    account.cloud_account_info = get_cloud_account_info(account)
     account.regions_update_status = 1  # updating
     account.save()
 

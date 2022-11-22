@@ -11,7 +11,6 @@ class CloudAccountSerializer(serializers.ModelSerializer):
     sharedCredentials = serializers.BooleanField(required=False)
     label = serializers.CharField(required=False)
     credential_data = serializers.DictField(required=False)
-    cloud_account_info = serializers.DictField(required=False)
 
     class Meta:
         model = CloudAccount
