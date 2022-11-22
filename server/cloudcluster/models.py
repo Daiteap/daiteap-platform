@@ -407,6 +407,7 @@ class CloudAccount(models.Model):
     user = models.ForeignKey(User, on_delete=models.PROTECT, null=True, default=None)
     valid = models.BooleanField(default=True, null=True)
     shared = models.BooleanField(default=False, null=True)
+    cloud_account_info = models.TextField(blank=True, null=True)
 
     # Checks if user should have access to this CloudAccount
     # Access rules:
