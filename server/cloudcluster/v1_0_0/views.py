@@ -8402,7 +8402,14 @@ def delete_machine_from_vms(request):
         }, status=500)
 
     # Submit cluster machine creation
-    tasks.worker_delete_machine_from_vms.delay(payload, user.username)
+    try:
+        tasks.worker_delete_machine_from_vms.delay(payload, user.username)
+    except Exception as e:
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     # return JSON response
     return JsonResponse({
@@ -10409,7 +10416,16 @@ def create_environment_template(request):
 
     environment_template.save()
 
-    tasks.worker_set_template_user_friendly_params.delay(environment_template.id)
+    try:
+        tasks.worker_set_template_user_friendly_params.delay(environment_template.id)
+    except Exception as e:
+        environment_template.delete()
+
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
 
     return HttpResponse(status=201)
 
