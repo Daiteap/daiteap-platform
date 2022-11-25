@@ -1,3 +1,5 @@
+version: "3"
+
 networks:
   daiteapnet:
 
@@ -10,7 +12,7 @@ services:
       - "celery-worker"
       - "rabbitmqbroker"
       - "vault"
-    image: daiteap-platform:v0.0.2
+    image: daiteap-platform:local
     build:
       context: server
       dockerfile: Dockerfile
@@ -129,7 +131,7 @@ services:
       - daiteapnet
 
   celery-worker:
-    image: celery-worker:v0.0.2
+    image: celery-worker:local
     deploy:
       mode: replicated
       replicas: 3
@@ -198,7 +200,7 @@ services:
       - ./docker-compose/daiteap_dns_credentials.json:/var/dns_credentials/daiteap_dns_credentials.json
 
   daiteap-ui:
-    image: daiteap-ui:v0.0.2
+    image: daiteap-ui:local
     build:
       context: ../daiteap-ui/app/
       dockerfile: Dockerfile
