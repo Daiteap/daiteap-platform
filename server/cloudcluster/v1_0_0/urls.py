@@ -20,7 +20,7 @@ schema_view = get_schema_view(
 urlpatterns = [
    re_path(r'^spec/$', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
 
-   path('alive', views.is_alive),
+   path('isAlive', views.is_alive),
    path('get-version', views.get_version),
    path('is-registered', views.is_registered),
    path('task-message/<str:task_id>', views.get_task_message),

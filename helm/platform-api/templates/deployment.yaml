@@ -34,7 +34,7 @@ spec:
           livenessProbe:
             failureThreshold: 2
             httpGet:
-              path: /alive
+              path: /isAlive
               port: http
               scheme: HTTP
             periodSeconds: 10
@@ -44,7 +44,7 @@ spec:
           readinessProbe:
             failureThreshold: 120
             httpGet:
-              path: /alive
+              path: /isAlive
               port: http
               scheme: HTTP
             initialDelaySeconds: 30

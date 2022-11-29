@@ -335,7 +335,7 @@ SUPPORTED_K3S_NETWORK_PLUGINS = [
 ]
 
 # Keycloak config
-KEYCLOAK_EXEMPT_URIS = ['admin', 'spec', 'alive', 'googleoauth', 'azureadminconsent', 'azureauthorize', 'azurecreateapp']
+KEYCLOAK_EXEMPT_URIS = ['admin', 'spec', 'isAlive', 'googleoauth', 'azureadminconsent', 'azureauthorize', 'azurecreateapp']
 KEYCLOAK_CONFIG = {
     'KEYCLOAK_SERVER_URL': os.getenv('KEYCLOAK_SERVER_URL', ''),
     'KEYCLOAK_REALM': os.getenv('KEYCLOAK_REALM', ''),
