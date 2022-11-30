@@ -498,11 +498,6 @@ def cloud_account_list(request):
             except:
                 account.owner = None
 
-            try:
-                account.cloud_account_info = environment_providers.get_cloud_account_info(account)
-            except:
-                account.cloud_account_info = {'error': ''}
-
             if account.checkUserAccess(request.daiteap_user):
                 cloudaccounts_filtered.append(account)
 
@@ -8453,8 +8448,8 @@ def get_task_message(request):
     response = {
         'status': '',
         'error': False,
-        'errorMsg': '',
-        'lcmStatuses': dict()
+        'errorMessage': '',
+        'lcmStatuses': []
     }
     response['status'] = res.state
 
@@ -8463,21 +8458,12 @@ def get_task_message(request):
 
         if 'error' in msg:
             response['error'] = True
-            response['errorMsg'] = msg['error']
+            response['errorMessage'] = msg['error']
             response['status'] = 'ERROR'
 
-        if 'dlcmV2Images' in msg:
-            response['lcmStatuses']['dlcmV2Images'] = msg['dlcmV2Images']
-        if 'capiImages' in msg:
-            response['lcmStatuses']['capiImages'] = msg['capiImages']
-        if 'yaookCapiImages' in msg:
-            response['lcmStatuses']['yaookCapiImages'] = msg['yaookCapiImages']
-        if 'externalNetwork' in msg:
-            response['lcmStatuses']['externalNetwork'] = msg['externalNetwork']
-        if 'nodes' in msg:
-            response['lcmStatuses']['nodes'] = msg['nodes']
-        if 'tf_plan' in msg:
-            response['lcmStatuses']['tf_plan'] = msg['tf_plan']
+        for key in msg.keys():
+            if key != 'error':
+                response['lcmStatuses'].append({key: msg[key]})
 
     elif (response['status'] == 'PENDING'):
         pass

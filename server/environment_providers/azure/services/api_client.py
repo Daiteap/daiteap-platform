@@ -949,7 +949,7 @@ def get_cloud_account_info(azure_credentials):
         try:
             cloud_data['user_principal_name'] = app_owners['value'][0]['userPrincipalName']
         except:
-            pass
+            cloud_data['user_principal_name'] = ""
 
     cloud_data['organization'] = msgraph_client.get('/organization').json()['value'][0]['displayName']
 
@@ -961,4 +961,4 @@ def get_cloud_account_info(azure_credentials):
             if tenant.display_name:
                 cloud_data['tenant'] = tenant.display_name
 
-    return cloud_data
+    return cloud_data['user_principal_name']
