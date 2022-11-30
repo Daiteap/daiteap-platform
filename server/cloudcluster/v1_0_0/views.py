@@ -909,6 +909,7 @@ def validate_credentials(request):
                 log_data = {
                     'level': 'ERROR',
                     'user_id': str(request.user.id),
+                    'client_request': json.loads(request.body.decode('utf-8')),
                 }
                 logger.error(str(e), extra=log_data)
 
@@ -941,6 +942,7 @@ def validate_credentials(request):
                 'client_request': json.loads(request.body.decode('utf-8')),
             }
             logger.error(str(e), extra=log_data)
+
             return JsonResponse({
                 'error': {
                     'message': str(e),
@@ -1379,6 +1381,13 @@ def oauth_azure_create_app(request):
     try:
         task = tasks.worker_create_azure_oauth_credentials.delay(payload, request.user.id, request.daiteap_user.id)
     except Exception as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -3112,6 +3121,13 @@ def get_cluster_storage(request):
     try:
         task = tasks.get_longhorn_storage_info.delay(cluster_id=payload['clusterID'])
     except Exception as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -3838,6 +3854,13 @@ def delete_cluster(request):
                 machine.save()
                 i += 1
 
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -3975,6 +3998,13 @@ def remove_compute_node(request):
         cluster.resizestep = old_cluster_status
         cluster.save()
 
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -4090,6 +4120,13 @@ def stop_cluster(request):
         cluster.status = old_cluster_status
         cluster.save()
 
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -4203,6 +4240,13 @@ def start_cluster(request):
         cluster.status = old_cluster_status
         cluster.save()
 
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -4314,6 +4358,13 @@ def restart_cluster(request):
     except Exception as e:
         cluster.status = old_cluster_status
         cluster.save()
+
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
 
         return JsonResponse({
             'error': {
@@ -4455,6 +4506,13 @@ def stop_machine(request):
         machine.status = old_machine_status
         machine.save()
 
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -4595,6 +4653,13 @@ def start_machine(request):
         machine.status = old_machine_status
         machine.save()
 
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -4734,6 +4799,13 @@ def restart_machine(request):
     except Exception as e:
         machine.status = old_machine_status
         machine.save()
+
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
 
         return JsonResponse({
             'error': {
@@ -4952,6 +5024,13 @@ def create_dlcm(request):
     except Exception as e:
         cluster.delete()
 
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -5035,6 +5114,13 @@ def get_tf_plan(request):
     try:
         task = tasks.worker_get_tf_plan.delay(config, cluster.id, request.user.id, tag_values)
     except Exception as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -5193,6 +5279,13 @@ def resize_dlcm_v2(request):
     except Exception as e:
         cluster.resizestep = old_cluster_status
         cluster.save()
+
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
 
         return JsonResponse({
             'error': {
@@ -5387,6 +5480,13 @@ def create_dlcm_v2(request):
     except Exception as e:
         cluster.delete()
 
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -5553,6 +5653,13 @@ def create_capi_cluster(request):
     except Exception as e:
         cluster.delete()
 
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -5645,6 +5752,13 @@ def resize_capi_cluster(request):
         cluster.resizestep = old_cluster_status
         cluster.save()
 
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -5727,6 +5841,13 @@ def retry_create_capi_cluster(request):
     try:
         task = tasks.worker_create_capi_cluster.delay(json.loads(cluster.capi_config), cluster.id, request.user.id)
     except Exception as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -5824,6 +5945,13 @@ def delete_capi_cluster(request):
     except Exception as e:
         cluster.installstep = old_cluster_status
         cluster.save()
+
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
 
         return JsonResponse({
             'error': {
@@ -5980,6 +6108,13 @@ def create_yaookcapi_cluster(request):
     except Exception as e:
         cluster.delete()
 
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -6072,6 +6207,13 @@ def resize_yaookcapi_cluster(request):
         cluster.resizestep = old_cluster_status
         cluster.save()
 
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -6154,6 +6296,13 @@ def retry_create_yaookcapi_cluster(request):
     try:
         task = tasks.worker_create_yaookcapi_cluster.delay(json.loads(cluster.yaookcapi_config), cluster.id, request.user.id)
     except Exception as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -6252,6 +6401,13 @@ def delete_yaookcapi_cluster(request):
     except Exception as e:
         cluster.installstep = old_cluster_status
         cluster.save()
+
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
 
         return JsonResponse({
             'error': {
@@ -6435,6 +6591,13 @@ def create_k3s_cluster(request):
     except Exception as e:
         cluster.delete()
 
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -6534,6 +6697,13 @@ def upgrade_kubernetes_cluster(request):
     try:
         task = tasks.worker_upgrade_kubernetes_cluster.delay(config, cluster.id, request.user.id, payload['version'])
     except Exception as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -6633,6 +6803,13 @@ def upgrade_k3s_cluster(request):
     try:
         task = tasks.worker_upgrade_k3s_cluster.delay(config, cluster.id, request.user.id, payload['version'])
     except Exception as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -6723,6 +6900,13 @@ def retry_create_k3s_cluster(request):
     try:
         task = tasks.worker_create_k3s_cluster.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
     except Exception as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -6848,6 +7032,13 @@ def retry_create_dlcm(request):
         else:
             task = tasks.worker_create_dlcm_environment.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
     except Exception as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -6939,6 +7130,13 @@ def retry_resize_dlcm(request):
     try:
         task = tasks.worker_add_machines_to_dlcm.delay(json.loads(cluster.config), cluster.id, request.user.id)
     except Exception as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -7039,6 +7237,13 @@ def retry_resize_dlcm_v2(request):
     try:
         task = tasks.worker_add_machines_to_dlcm_v2.delay(json.loads(cluster.config), cluster.id, request.user.id)
     except Exception as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -7131,6 +7336,13 @@ def retry_resize_vms_cluster(request):
     try:
         task = tasks.worker_add_machines_to_vms.delay(json.loads(cluster.config), request.user.id)
     except Exception as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -7217,6 +7429,13 @@ def retry_create_vms(request):
     try:
         task = tasks.worker_create_vms.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
     except Exception as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -7303,6 +7522,13 @@ def retry_create_compute_vms(request):
     try:
         task = tasks.worker_create_compute_vms.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
     except Exception as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -7390,6 +7616,13 @@ def cancel_cluster_creation(request):
     except Exception as e:
         cluster.canceled = False
         cluster.save()
+
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
 
         return JsonResponse({
             'error': {
@@ -7584,6 +7817,13 @@ def add_machines_to_vms(request):
     except Exception as e:
         cluster.resizestep = old_cluster_status
         cluster.save()
+
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
 
         return JsonResponse({
             'error': {
@@ -7780,6 +8020,13 @@ def add_machines_to_k3s(request):
         cluster.resizestep = old_cluster_status
         cluster.save()
 
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -7973,6 +8220,13 @@ def add_machines_to_dlcm(request):
     except Exception as e:
         cluster.resizestep = old_cluster_status
         cluster.save()
+
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
 
         return JsonResponse({
             'error': {
@@ -8174,6 +8428,13 @@ def add_machines_to_dlcm_v2(request):
     except Exception as e:
         cluster.resizestep = old_cluster_status
         cluster.save()
+
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
 
         return JsonResponse({
             'error': {
@@ -8400,6 +8661,13 @@ def delete_machine_from_vms(request):
     try:
         tasks.worker_delete_machine_from_vms.delay(payload, user.username)
     except Exception as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -8604,6 +8872,13 @@ def create_VMs(request):
     except Exception as e:
         cluster.delete()
 
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -8753,6 +9028,13 @@ def create_compute_VMs(request):
         task = tasks.worker_create_compute_vms.delay(json.loads(cluster.config), cluster.id, request.user.id, tag_values)
     except Exception as e:
         cluster.delete()
+
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
 
         return JsonResponse({
             'error': {
@@ -9086,6 +9368,13 @@ def add_service(request):
             cluster.id
         )
     except Exception as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -9255,6 +9544,13 @@ def delete_service(request):
     try:
         task = tasks.worker_delete_service_kubernetes_cluster.delay(payload['name'], namespace, payload['clusterID'])
     except Exception as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -9590,6 +9886,13 @@ users:
     except Exception as e:
         new_cluster_user.delete()
 
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -9707,6 +10010,13 @@ def delete_user_from_cluster(request):
     try:
         task = tasks.worker_delete_cluster_user.delay(cluster_user.username, cluster.id, request.user.id, payload)
     except Exception as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+
         return JsonResponse({
             'error': {
                 'message': str(e),
@@ -10406,6 +10716,13 @@ def create_environment_template(request):
         tasks.worker_set_template_user_friendly_params.delay(environment_template.id)
     except Exception as e:
         environment_template.delete()
+
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
 
         return JsonResponse({
             'error': {
