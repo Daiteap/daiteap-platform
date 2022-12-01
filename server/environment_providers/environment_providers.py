@@ -1323,7 +1323,7 @@ def delete_cloud_credentials(cloudaccount):
         logger.error('Invalid provider parameter.', extra=log_data)
         raise Exception('Invalid provider parameter.')
 
-def get_provider_accounts(payload, request):
+def get_provider_accounts(payload, request, tenant_id):
     """Get user cloud provider accounts
 
     Args:
@@ -1335,7 +1335,7 @@ def get_provider_accounts(payload, request):
     """
     accounts = []
     if payload['provider'] in supported_providers:
-        provider_accounts = CloudAccount.objects.filter(provider=payload['provider'], valid=True)
+        provider_accounts = CloudAccount.objects.filter(provider=payload['provider'], valid=True, tenant_id=tenant_id)
         for provider_account in provider_accounts:
             if provider_account.checkUserAccess(request.daiteap_user):
                 accounts.append({
@@ -1359,7 +1359,7 @@ def get_valid_regions(payload, request):
     """
     if payload['provider'] in supported_providers:
         try:
-            account = CloudAccount.objects.filter(id=payload['accountId'],tenant_id=request.daiteap_user.tenant_id, provider=payload['provider'])[0]
+            account = CloudAccount.objects.get(id=payload['accountId'],tenant_id=request.daiteap_user.tenant, provider=payload['provider'])
         except:
             log_data = {
                 'level': 'ERROR',
@@ -1377,7 +1377,7 @@ def get_valid_regions(payload, request):
             regions.append(region['name'])
     return regions
 
-def get_valid_zones(payload, request):
+def get_valid_zones(payload, request, tenant_id):
     """Returns a list of zones that are valid for the account
 
     Args:
@@ -1392,7 +1392,7 @@ def get_valid_zones(payload, request):
     """
     if payload['provider'] in supported_providers:
         try:
-            account = CloudAccount.objects.filter(id=payload['accountId'],tenant_id=request.daiteap_user.tenant_id, provider=payload['provider'])[0]
+            account = CloudAccount.objects.get(id=payload['accountId'],tenant_id=tenant_id, provider=payload['provider'])
         except:
             log_data = {
                 'level': 'ERROR',
@@ -1427,7 +1427,7 @@ def get_valid_instances(payload, request):
     """
     if payload['provider'] in supported_providers:
         try:
-            account = CloudAccount.objects.filter(id=payload['accountId'], tenant_id=request.daiteap_user.tenant_id, provider=payload['provider'])[0]
+            account = CloudAccount.objects.get(id=payload['accountId'], tenant_id=request.daiteap_user.tenant.id, provider=payload['provider'])
         except:
             log_data = {
                 'level': 'ERROR',
@@ -1541,7 +1541,7 @@ def get_providers_networks(payload):
 
     return networks
 
-def check_provided_credentials(request):
+def check_provided_credentials(tenant_id):
     """Checks if credentials for each cloud provider are provided
 
     Args:
@@ -1553,7 +1553,7 @@ def check_provided_credentials(request):
     response = {}
 
     for supported_provider in supported_providers:
-        if len(CloudAccount.objects.filter(tenant_id=request.daiteap_user.tenant_id, provider=supported_provider, valid=True).exclude(credentials='')) > 0:
+        if len(CloudAccount.objects.filter(tenant_id=tenant_id, provider=supported_provider, valid=True).exclude(credentials='')) > 0:
             response[supported_provider + '_key_provided'] = True
         else:
             response[supported_provider + '_key_provided'] = False
@@ -1857,9 +1857,9 @@ def download_bucket_file(payload, request):
     else:
         return {'error': "Invalid provider parameter."}
 
-def get_storage_accounts(payload, request):
-    if payload['provider'] in supported_providers:
-        return supported_providers[payload['provider']]['provider'].get_storage_accounts(payload, request)
+def get_storage_accounts(provider, credential_id):
+    if provider in supported_providers:
+        return supported_providers[provider]['provider'].get_storage_accounts(credential_id)
     else:
         return {'error': "Invalid provider parameter."}
 

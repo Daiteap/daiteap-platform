@@ -737,7 +737,7 @@ def delete_bucket_file(payload, request):
 def download_bucket_file(payload, request):
     return {}
 
-def get_storage_accounts(payload, request):
+def get_storage_accounts(credential_id):
     return {}
 
 def delete_bucket_folder(payload, request):

@@ -1,12 +1,12 @@
 #!/bin/sh
 
-DOCKER_COMPOSE=docker-compose.yml
+DOCKER_COMPOSE=docker-compose.local.yml
 
 # generate ssh keys
 mkdir -p docker-compose/.ssh
 ssh-keygen -o -a 100 -t rsa -f docker-compose/.ssh/id_rsa -C "user@server.com" -N "" -m PEM
 
-docker-compose -f "$DOCKER_COMPOSE" pull
+docker-compose -f "$DOCKER_COMPOSE" build
 docker-compose -f "$DOCKER_COMPOSE" up -d
 
 # Wait for the database to be ready
