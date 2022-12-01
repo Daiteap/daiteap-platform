@@ -1211,7 +1211,7 @@ def download_bucket_file(payload, request):
 
     return api_client.download_bucket_file(aws_credentials, payload['bucket_name'], payload['file_name'])
 
-def get_storage_accounts(payload, request):
+def get_storage_accounts(credential_id):
     return {}
 
 def delete_bucket_folder(payload, request):

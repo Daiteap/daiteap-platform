@@ -18,13 +18,14 @@ class BucketSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         request = self.context.get("request")
+        tenant_id = request.parser_context['kwargs']['tenant_id']
 
-        account = CloudAccount.objects.get(id=validated_data['credential'].id)
+        account = CloudAccount.objects.get(id=validated_data['credential'].id, tenant_id=tenant_id)
         if not account.checkUserAccess(request.daiteap_user):
             raise serializers.ValidationError("You don't have access to this account")
         if account.valid != True:
             raise serializers.ValidationError("This account is not valid")
-        project = Project.objects.get(id=validated_data['project'].id)
+        project = Project.objects.get(id=validated_data['project'].id, tenant_id=tenant_id)
         if not project.checkUserAccess(request.daiteap_user):
             raise serializers.ValidationError("You don't have access to this project")
 
