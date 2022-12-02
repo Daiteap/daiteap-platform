@@ -259,7 +259,7 @@ def get_nodes_private_ips(resources, clouds, cluster_id, user_id):
 
     return nodes_private_ips
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_upgrade_kubernetes_cluster(resources, cluster_id, user_id, kubernetes_version):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -324,7 +324,7 @@ def worker_upgrade_kubernetes_cluster(resources, cluster_id, user_id, kubernetes
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_upgrade_k3s_cluster(resources, cluster_id, user_id, kubernetes_version):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -388,7 +388,7 @@ def worker_upgrade_k3s_cluster(resources, cluster_id, user_id, kubernetes_versio
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_create_dlcm_environment(resources, cluster_id, user_id, tag_values):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -757,7 +757,7 @@ def worker_create_dlcm_environment(resources, cluster_id, user_id, tag_values):
 
         return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_get_tf_plan(resize_config, cluster_id, user_id, tag_values):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
     resize_config = add_node_names_to_config(cluster, copy.deepcopy(resize_config))
@@ -800,7 +800,7 @@ def worker_resize_dlcm_v2_environment_remove_nodes(resize_config_input, cluster_
     # Delete nodes records from db
     delete_cluster_machine_records(cluster_id, kubernetes_node_names_for_deletion)
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_resize_dlcm_v2_environment_create_nodes(resize_config_input, cluster_id, user_id, tag_values):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
     current_config = json.loads(cluster.config)
@@ -897,7 +897,7 @@ def worker_resize_dlcm_v2_environment_create_nodes(resize_config_input, cluster_
         Machine.objects.filter(cluster_id=cluster_id, kube_name__in=nodes_for_creation_names).delete()
         raise e
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_resize_dlcm_v2_environment(resize_config, cluster_id, user_id, tag_values):
     try:
         worker_resize_dlcm_v2_environment_create_nodes(resize_config, cluster_id, user_id, tag_values)
@@ -934,7 +934,7 @@ def worker_resize_dlcm_v2_environment(resize_config, cluster_id, user_id, tag_va
 
         raise Exception(e)
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_remove_compute_node(node_id, cluster_id, user_id, tag_values):
     node = Machine.objects.filter(id=node_id)[0]
 
@@ -1147,7 +1147,7 @@ def resize_get_nodes_names(cluster_config):
 
     return nodes_names
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_create_dlcm_v2_environment(resources, cluster_id, user_id, tag_values):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -1575,7 +1575,7 @@ def worker_create_dlcm_v2_environment(resources, cluster_id, user_id, tag_values
         return
 
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_create_capi_cluster(resources, cluster_id, user_id):
     cluster = CapiCluster.objects.filter(id=cluster_id)[0]
 
@@ -1836,7 +1836,7 @@ def worker_create_capi_cluster(resources, cluster_id, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_resize_capi_cluster(nodes, cluster_id, user_id):
     cluster = CapiCluster.objects.filter(id=cluster_id)[0]
 
@@ -1968,7 +1968,7 @@ def worker_resize_capi_cluster(nodes, cluster_id, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_delete_capi_cluster(cluster_id, user_id):
     cluster = CapiCluster.objects.filter(id=cluster_id)[0]
 
@@ -2013,7 +2013,7 @@ def worker_delete_capi_cluster(cluster_id, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_create_yaookcapi_cluster(cluster_id, user_id):
     cluster = YaookCapiCluster.objects.filter(id=cluster_id)[0]
     resources = json.loads(cluster.yaookcapi_config)
@@ -2214,7 +2214,7 @@ def worker_create_yaookcapi_cluster(cluster_id, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_update_yaookcapi_cluster_wireguard_peers(cluster_id, user_id):
     cluster = YaookCapiCluster.objects.filter(id=cluster_id)[0]
 
@@ -2330,7 +2330,7 @@ def worker_update_yaookcapi_cluster_wireguard_peers(cluster_id, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_resize_yaookcapi_cluster(nodes, cluster_id, user_id):
     cluster = YaookCapiCluster.objects.filter(id=cluster_id)[0]
 
@@ -2496,7 +2496,7 @@ def worker_resize_yaookcapi_cluster(nodes, cluster_id, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_delete_yaookcapi_cluster(cluster_id, user_id):
     cluster = YaookCapiCluster.objects.filter(id=cluster_id)[0]
 
@@ -2537,7 +2537,7 @@ def worker_delete_yaookcapi_cluster(cluster_id, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_create_k3s_cluster(resources, cluster_id, user_id, tag_values):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -2833,7 +2833,7 @@ def worker_create_k3s_cluster(resources, cluster_id, user_id, tag_values):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_add_service_kubernetes_cluster(serviceName, configurationType, configuration, clusterId):
     if serviceName == 'istio':
         worker_add_istio_service(serviceName, configuration, clusterId)
@@ -3139,7 +3139,7 @@ def check_if_service_online(address, cluster_id, accessible_from_browser):
     
     return
 
-@shared_task(ignore_result=True)
+@shared_task(ignore_result=True, time_limit=1800)
 def worker_add_istio_service(serviceName, configuration, clusterId):
     chart = HelmClient()
     cluster = Clusters.objects.filter(id=clusterId)[0]
@@ -3260,7 +3260,7 @@ def worker_add_istio_service(serviceName, configuration, clusterId):
     return
 
 
-@shared_task(ignore_result=True)
+@shared_task(ignore_result=True, time_limit=1800)
 def worker_add_kubeflow_service(serviceName, configuration, clusterId):
     cluster = Clusters.objects.filter(id=clusterId)[0]
     service = Service.objects.filter(name=serviceName)[0]
@@ -3322,7 +3322,7 @@ def worker_add_kubeflow_service(serviceName, configuration, clusterId):
 
 
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_stop_cluster(cluster_id, user_id):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -3353,7 +3353,7 @@ def worker_stop_cluster(cluster_id, user_id):
     cluster.status = 10
     cluster.save()
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_start_cluster(cluster_id, user_id):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -3387,7 +3387,7 @@ def worker_start_cluster(cluster_id, user_id):
     views.sync_users()
 
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_restart_cluster(cluster_id, user_id):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -3420,7 +3420,7 @@ def worker_restart_cluster(cluster_id, user_id):
 
     views.sync_users()
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_stop_machine(cluster_id, machine_name, machine_provider, user_id):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -3443,7 +3443,7 @@ def worker_stop_machine(cluster_id, machine_name, machine_provider, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_start_machine(cluster_id, machine_name, machine_provider, user_id):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
     
@@ -3463,7 +3463,7 @@ def worker_start_machine(cluster_id, machine_name, machine_provider, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_restart_machine(cluster_id, machine_name, machine_provider, user_id):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
     config = json.loads(cluster.config)
@@ -3477,7 +3477,7 @@ def worker_restart_machine(cluster_id, machine_name, machine_provider, user_id):
 
     views.sync_users()
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_delete_service_kubernetes_cluster(name, namespace, clusterId):
     chart = HelmClient()
     chart.name = name
@@ -3567,7 +3567,7 @@ def worker_delete_service_kubernetes_cluster(name, namespace, clusterId):
     return
 
 
-@shared_task(ignore_result=True)
+@shared_task(ignore_result=True, time_limit=1800)
 def worker_delete_istio_service(name, namespace, clusterId):
     chart = HelmClient()
     cluster = Clusters.objects.filter(id=clusterId)
@@ -3666,7 +3666,7 @@ def worker_delete_istio_service(name, namespace, clusterId):
     return
 
 
-@shared_task(ignore_result=True)
+@shared_task(ignore_result=True, time_limit=1800)
 def worker_delete_kubeflow_service(name, clusterId):
     cluster = Clusters.objects.filter(id=clusterId)
     if len(cluster) == 0:
@@ -3740,7 +3740,7 @@ def worker_delete_kubeflow_service(name, clusterId):
 
     cluster_service.delete()
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_validate_credentials(credentials, user_id, storage_enabled):
     try:
         result = environment_providers.validate_account_permissions(credentials, user_id, storage_enabled)
@@ -3764,13 +3764,13 @@ def worker_validate_credentials(credentials, user_id, storage_enabled):
 
     return result
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_update_provider_regions(provider, user_id, account_id):
 
     environment_providers.update_provider_regions(provider, user_id, account_id)
 
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_set_template_user_friendly_params(template_id):
     template = EnvironmentTemplate.objects.filter(id=template_id)[0]
 
@@ -3783,7 +3783,7 @@ def worker_set_template_user_friendly_params(template_id):
     template.config = json.dumps(resources)
     template.save()
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_create_vms(resources, cluster_id, user_id, tag_values):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -3983,7 +3983,7 @@ def worker_create_vms(resources, cluster_id, user_id, tag_values):
 
             return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_create_compute_vms(resources, cluster_id, user_id, tag_values):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -4118,7 +4118,7 @@ def worker_create_compute_vms(resources, cluster_id, user_id, tag_values):
 
             return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_add_machines_to_vms(machines, user_id):
     cluster = Clusters.objects.filter(id=machines['clusterID'])[0]
 
@@ -4344,7 +4344,7 @@ def worker_add_machines_to_vms(machines, user_id):
     return
 
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_add_machines_to_k3s(machines, user_id):
     cluster = Clusters.objects.filter(id=machines['clusterID'])[0]
 
@@ -4634,7 +4634,7 @@ def worker_add_machines_to_k3s(machines, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_add_machines_to_dlcm(machines, user_id):
     cluster = Clusters.objects.filter(id=machines['clusterID'])[0]
 
@@ -4893,7 +4893,7 @@ def worker_add_machines_to_dlcm(machines, user_id):
     return
 
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_add_machines_to_dlcm_v2(machines, user_id):
     cluster = Clusters.objects.filter(id=machines['clusterID'])[0]
 
@@ -5150,13 +5150,13 @@ def worker_add_machines_to_dlcm_v2(machines, user_id):
     return
 
 
-@shared_task(ignore_result=True)
+@shared_task(ignore_result=True, time_limit=1800)
 def worker_delete_machine_from_vms(machine, cluster_user):
     print('Implement me!!!')
     return
 
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_create_cluster_user(cluster_user, clusterId, user_id):
     cluster = Clusters.objects.filter(id=clusterId)[0]
 
@@ -5224,7 +5224,7 @@ def worker_create_cluster_user(cluster_user, clusterId, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def get_longhorn_storage_info(cluster_id):
     cluster = Clusters.objects.filter(id=cluster_id)
     if len(cluster) == 0:
@@ -5271,7 +5271,7 @@ def get_longhorn_storage_info(cluster_id):
 
     return output
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_delete_cluster_user(cluster_user_username, clusterId, user_id, payload):
     cluster = Clusters.objects.filter(id=clusterId)[0]
 
@@ -5308,7 +5308,7 @@ def worker_delete_cluster_user(cluster_user_username, clusterId, user_id, payloa
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_delete_cluster(cluster_id, user_id):
     try:
         cluster = Clusters.objects.filter(id=cluster_id)[0]
@@ -5355,7 +5355,7 @@ def worker_delete_cluster(cluster_id, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def create_vm_user(daiteap_user_id, cluster_id, machine_id, public_key, username, gw_address):
     cluster = Clusters.objects.get(id=cluster_id)
     daiteap_user = DaiteapUser.objects.get(id=daiteap_user_id)
@@ -5420,7 +5420,7 @@ def create_vm_user(daiteap_user_id, cluster_id, machine_id, public_key, username
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def delete_vm_user(daiteap_user_id, cluster_id, machine_id, username, gw_address):
     cluster = Clusters.objects.get(id=cluster_id)
     daiteap_user = DaiteapUser.objects.get(id=daiteap_user_id)
@@ -5482,7 +5482,7 @@ def delete_vm_user(daiteap_user_id, cluster_id, machine_id, username, gw_address
         logger.error(str(traceback.format_exc()) + '\n' + str(e), extra=log_data)
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def create_kubernetes_user(user_id, cluster_id, username, kubeconfig_value, cluster_type):
 
     if cluster_type == constants.ClusterType.CAPI.value:
@@ -5510,7 +5510,7 @@ def create_kubernetes_user(user_id, cluster_id, username, kubeconfig_value, clus
 
     return lines
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def delete_kubernetes_user(user_id, cluster_id, username, kubeconfig_value, cluster_type):
 
     if cluster_type == constants.ClusterType.CAPI.value:
@@ -5530,7 +5530,7 @@ def delete_kubernetes_user(user_id, cluster_id, username, kubeconfig_value, clus
                                               )
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_cancel_cluster_creation(cluster_id, user_id):
     max_retries = 240
     wait_seconds = 20
@@ -5555,7 +5555,7 @@ def worker_cancel_cluster_creation(cluster_id, user_id):
     worker_delete_cluster(cluster_id, user_id)
 
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_create_azure_oauth_credentials(payload, user_id, daiteap_user_id):
     user = User.objects.filter(id=user_id)[0]
     daiteap_user = DaiteapUser.objects.filter(id=daiteap_user_id)[0]
