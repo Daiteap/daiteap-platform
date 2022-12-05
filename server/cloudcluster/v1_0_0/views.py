@@ -2844,7 +2844,6 @@ def get_cluster_storage(request, tenant_id, cluster_id):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error(str(e), extra=log_data)
 
@@ -3090,7 +3089,6 @@ def delete_cluster(request, tenant_id, cluster_id):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error(str(e), extra=log_data)
 
@@ -3196,7 +3194,6 @@ def remove_compute_node(request, tenant_id, cluster_id, node_id):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error(str(e), extra=log_data)
 
@@ -3269,7 +3266,6 @@ def stop_cluster(request, tenant_id, cluster_id):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error(str(e), extra=log_data)
 
@@ -3340,7 +3336,6 @@ def start_cluster(request, tenant_id, cluster_id):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error(str(e), extra=log_data)
 
@@ -3410,7 +3405,6 @@ def restart_cluster(request, tenant_id, cluster_id):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error(str(e), extra=log_data)
 
@@ -4766,7 +4760,6 @@ def delete_capi_cluster(request, tenant_id, cluster_id):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error(str(e), extra=log_data)
 
@@ -5068,7 +5061,6 @@ def delete_yaookcapi_cluster(request, tenant_id, cluster_id):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error(str(e), extra=log_data)
 
@@ -6006,7 +5998,6 @@ def cancel_cluster_creation(request, tenant_id, cluster_id):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error(str(e), extra=log_data)
 
@@ -7676,7 +7667,6 @@ def delete_service(request, tenant_id, cluster_id, service, namespace = None):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error(str(e), extra=log_data)
 
@@ -8039,7 +8029,6 @@ def delete_user_from_cluster(request, tenant_id, cluster_id, username):
         log_data = {
             'level': 'ERROR',
             'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
         }
         logger.error(str(e), extra=log_data)
 
