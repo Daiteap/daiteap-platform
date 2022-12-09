@@ -432,7 +432,9 @@ def remove_cloud_account_from_daiteap_project(google_key):
 
     for binding in old_policy['bindings']:
         if binding['role'] == 'roles/compute.imageUser':
-            binding['members'].remove('serviceAccount:' + credentials_json['client_email'])
+            # remove only bindings which exists, otherwise remove() will throw ValueError
+            if 'serviceAccount:' + credentials_json['client_email'] in binding['members']:
+                binding['members'].remove('serviceAccount:' + credentials_json['client_email'])
 
     policy = (
         service.projects()
