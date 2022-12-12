@@ -4,36 +4,52 @@ import os
 
 from cloudcluster.settings import YAOOKCAPI_MANAGEMENT_CLUSTER_KUBECONFIG_PATH
 
-from ..services import run_shell
 import json
 import pathlib
+import ansible_runner
+
+import logging
+logger = logging.getLogger(__name__)
 
 FILE_BASE_DIR = str(pathlib.Path(__file__).parent.absolute())
 
 class AnsibleClient:
     def run_playbook(self, user_id, environment_id, environment_name, inventory_path, playbook_path, extra_vars='', user='clouduser', become=False, extra_cmd=[]):
-        cmd = [
-            'ansible-playbook',
-            '-i', inventory_path,
-            '-e', extra_vars,
-            '-u', user,
-            '--timeout', '300'
-        ]
-
-        cmd += extra_cmd
-
+        cmd = ' '.join(extra_cmd) + ' -u' + user
         if become:
-            cmd.append('-b')
-            cmd.append('--become-user=root')
-            cmd.append('--become-method=sudo',)
+            cmd = cmd + ' -b --become-user=root --become-method=sudo'
+        extra_vars = json.loads(extra_vars)
 
-        cmd.append(playbook_path)
+        log_data = {
+            'level': 'DEBUG',
+            'environment_name': environment_name,
+            'environment_id': environment_id,
+            'user_id': user_id
+        }
 
-        log_data = {'user_id': user_id, 'environment_id': environment_id, 'environment_name': environment_name}
+        def ansible_event_handler(data):
+            log_data['level'] = 'DEBUG'
+            if 'fatal' in data['stdout']:
+                log_data['level'] = 'ERROR'
+            logger.debug(data['stdout'], extra=log_data)
+            return True
 
-        print('Running playbook: ' + playbook_path)
+        runner = ansible_runner.run(
+            inventory=inventory_path,
+            playbook=playbook_path,
+            extravars=extra_vars,
+            cmdline=cmd,
+            timeout=300,
+            event_handler=ansible_event_handler,
+            quiet=True,
+        )
 
-        run_shell.run_shell_with_subprocess_popen(cmd, return_stdout=True, raise_on_error=True, log_data=log_data)
+        if runner.status in ['failed', 'timeout']:
+            error = ''
+            for event in runner.events:
+                if 'fatal' in event['stdout']:
+                    error += event['stdout'] + '. '
+            raise Exception(error)
 
     def run_prepare_kubespray(self, user_id, environment_id, environment_name, kubespray_inventory_dir_name, kubernetes_configuration):
         if 'version' not in kubernetes_configuration:
