@@ -8,6 +8,8 @@ from cloudcluster.serializers.user_serializer import UserSerializer
 from cloudcluster.serializers.project_serializer import ProjectSerializer
 from cloudcluster.serializers.cloud_account_serializer import CloudAccountSerializer
 from cloudcluster.serializers.bucket_serializer import BucketSerializer
+from cloudcluster.serializers.tenant_serializer import TenantSerializer, TenantSettingsSerializer, ActiveTenantsSerializer
+from cloudcluster.serializers.service_serializer import ServiceSerializer
 from environment_providers.azure.services.oauth import AzureAuthClient
 import ipaddress
 import json
@@ -610,8 +612,8 @@ def cloud_account_detail(request, tenant_id, cloudaccount_id):
                 }
             }, status.HTTP_400_BAD_REQUEST)
 
-        # environment_providers.delete_cloud_credentials(cloudaccount)
-        # vault_service.delete_secret(cloudaccount.credentials)
+        environment_providers.delete_cloud_credentials(cloudaccount)
+        vault_service.delete_secret(cloudaccount.credentials)
         cloudaccount.delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -2033,7 +2035,7 @@ def get_valid_instances(request, tenant_id, cloudaccount_id, region, zone = None
     operation_summary="Get cloud credential operating systems.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.CloudAccountAccessPermission])
-#@cache_page(60 * 15)
+@cache_page(60 * 15)
 def get_valid_operating_systems(request, tenant_id, cloudaccount_id, region, environment_type):
     account = models.CloudAccount.objects.get(id=cloudaccount_id, tenant_id=tenant_id)
 
@@ -2124,7 +2126,7 @@ def get_valid_operating_systems(request, tenant_id, cloudaccount_id, region, env
     return JsonResponse(response)
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', ServiceSerializer(many=True))},
     operation_description="Get services.",
     operation_summary="Get services.")
 @api_view(['GET'])
@@ -2150,15 +2152,16 @@ def get_service_list(request):
             }
         )
 
-    response = {
-        'serviceList': service_list
-    }
-
-    # return JSON response
-    return JsonResponse(response)
+    serializer = ServiceSerializer(service_list, many=True)
+    return Response(serializer.data)
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'values': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
     operation_description="Get service values.",
     operation_summary="Get service values.")
 @api_view(['GET'])
@@ -2685,7 +2688,47 @@ def is_project_name_free(request, tenant_id, name):
     })
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'options': openapi.Schema(type=openapi.TYPE_OBJECT,
+                properties={
+                    'name': openapi.Schema(type=openapi.TYPE_OBJECT,
+                        properties={
+                            'choice': openapi.Schema(type=openapi.TYPE_STRING),
+                            'type': openapi.Schema(type=openapi.TYPE_STRING)
+                        }),
+                    'namespace': openapi.Schema(type=openapi.TYPE_OBJECT,
+                        properties={
+                            'choice': openapi.Schema(type=openapi.TYPE_STRING),
+                            'type': openapi.Schema(type=openapi.TYPE_STRING),
+                            'default': openapi.Schema(type=openapi.TYPE_STRING)
+                        }),
+                    'service_type': openapi.Schema(type=openapi.TYPE_OBJECT,
+                        properties={
+                            'choice': openapi.Schema(type=openapi.TYPE_STRING),
+                            'values': openapi.Schema(type=openapi.TYPE_ARRAY,
+                                items=openapi.Schema(type=openapi.TYPE_STRING)
+                            ),
+                            'default': openapi.Schema(type=openapi.TYPE_STRING)
+                        }),
+                    'cloud_providers': openapi.Schema(type=openapi.TYPE_OBJECT,
+                        properties={
+                            'choice': openapi.Schema(type=openapi.TYPE_STRING),
+                            'values': openapi.Schema(type=openapi.TYPE_ARRAY,
+                                items=openapi.Schema(type=openapi.TYPE_STRING)
+                            )
+                        }),
+                    'replicas': openapi.Schema(type=openapi.TYPE_OBJECT,
+                        properties={
+                            'choice': openapi.Schema(type=openapi.TYPE_STRING),
+                            'type': openapi.Schema(type=openapi.TYPE_STRING),
+                            'default': openapi.Schema(type=openapi.TYPE_NUMBER)
+                        }),
+                    'yamlConfig': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+                })
+        }
+    ))},
     operation_description="Get service options.",
     operation_summary="Get service options.")
 @api_view(['GET'])
@@ -3786,7 +3829,8 @@ def restart_cluster(request, tenant_id, cluster_id):
         type=openapi.TYPE_OBJECT, 
         properties={
             'machineProvider': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=9)
-        }
+        },
+        required=['machineProvider']
     ),
     responses={200: openapi.Response('', openapi.Schema(
         type=openapi.TYPE_OBJECT, 
@@ -3927,7 +3971,8 @@ def stop_machine(request, tenant_id, cluster_id, machine):
         type=openapi.TYPE_OBJECT, 
         properties={
             'machineProvider': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=9)
-        }
+        },
+        required=['machineProvider']
     ),
     responses={200: openapi.Response('', openapi.Schema(
         type=openapi.TYPE_OBJECT, 
@@ -4068,7 +4113,8 @@ def start_machine(request, tenant_id, cluster_id, machine):
         type=openapi.TYPE_OBJECT, 
         properties={
             'machineProvider': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=9)
-        }
+        },
+        required=['machineProvider']
     ),
     responses={200: openapi.Response('', openapi.Schema(
         type=openapi.TYPE_OBJECT, 
@@ -5796,7 +5842,8 @@ def create_k3s_cluster(request, tenant_id):
         type=openapi.TYPE_OBJECT, 
         properties={
             'version': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=50)
-        }
+        },
+        required=['version']
     ),
     responses={200: openapi.Response('', openapi.Schema(
         type=openapi.TYPE_OBJECT, 
@@ -5897,7 +5944,8 @@ def upgrade_kubernetes_cluster(request, tenant_id, cluster_id):
         type=openapi.TYPE_OBJECT, 
         properties={
             'version': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=50)
-        }
+        },
+        required=['version']
     ),
     responses={200: openapi.Response('', openapi.Schema(
         type=openapi.TYPE_OBJECT, 
@@ -6983,7 +7031,8 @@ def add_machines_to_dlcm_v2(request, tenant_id, cluster_id):
             'networks': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
                 type=openapi.TYPE_STRING
             ))
-        }
+        },
+        required=['networks']
     ),
     responses={200: openapi.Response('', openapi.Schema(
         type=openapi.TYPE_OBJECT, 
@@ -8448,7 +8497,8 @@ def can_update_user_password(request):
             'current_password': openapi.Schema(type=openapi.TYPE_STRING, minLength=2, maxLength=150),
             'new_password': openapi.Schema(type=openapi.TYPE_STRING, minLength=6, maxLength=100),
             'new_password_confirmation': openapi.Schema(type=openapi.TYPE_STRING, minLength=6, maxLength=100)
-        }
+        },
+        required=['current_password', 'new_password', 'new_password_confirmation']
     ),
     responses={200: openapi.Response('', openapi.Schema(
         type=openapi.TYPE_OBJECT, 
@@ -8617,14 +8667,13 @@ def get_usage(request, tenant_id):
     return JsonResponse(response_json)
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', ActiveTenantsSerializer)},
     operation_description="Get workspaces.",
     operation_summary="Get workspaces.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_active_tenants(request):
     daiteap_users = models.DaiteapUser.objects.filter(user=request.user)
-
     tenants = []
 
     if len(daiteap_users) > 0:
@@ -8643,17 +8692,20 @@ def get_active_tenants(request):
                     'selected': user.selected
                 })
 
-    return JsonResponse({
-        "activeTenants": tenants,
+    active_tenants = TenantSerializer(tenants, many=True)
+    serializer = ActiveTenantsSerializer({
+        "activeTenants": active_tenants.data,
         "selectedTenant": request.daiteap_user.tenant_id
     })
+    return Response(serializer.data)
 
 @swagger_auto_schema(method='post',
     request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT, 
         properties={
             'selectedTenant': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36)
-        }
+        },
+        required=['selectedTenant']
     ),
     responses={200: openapi.Response('', openapi.Schema(
         type=openapi.TYPE_OBJECT, 
@@ -8733,7 +8785,8 @@ def select_tenant(request):
         type=openapi.TYPE_OBJECT, 
         properties={
             'picture': openapi.Schema(type=openapi.TYPE_FILE)
-        }
+        },
+        required=['picture']
     ),
     responses={200: openapi.Response('', openapi.Schema(
         type=openapi.TYPE_OBJECT, 
@@ -8820,7 +8873,8 @@ def user_profile_picture(request):
         type=openapi.TYPE_OBJECT, 
         properties={
             'name': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=1024)
-        }
+        },
+        required=['name']
     ),
     operation_description="Create template from environment.",
     operation_summary="Create template from environment.")
@@ -9442,9 +9496,29 @@ def is_registered(request):
         return JsonResponse({'isRegistered': False})
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
-    operation_description="Create workspace.",
-    operation_summary="Create workspace.")
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'userinfo': openapi.Schema(type=openapi.TYPE_OBJECT,
+                properties={
+                    'preferred_username': openapi.Schema(type=openapi.TYPE_STRING),
+                    'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL),
+                    'given_name': openapi.Schema(type=openapi.TYPE_STRING),
+                    'family_name': openapi.Schema(type=openapi.TYPE_STRING)
+                },
+                required=['preferred_username', 'email']
+            )
+        },
+        required=['userinfo']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'user_created': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Register user.",
+    operation_summary="Register user.")
 @api_view(['POST'])
 @permission_classes([custom_permissions.IsUnregistered])
 def register_tenant_user(request):
@@ -9681,59 +9755,28 @@ def sync_users(task_delay=True):
     return True
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', TenantSerializer)},
     operation_description="Get workspace.",
     operation_summary="Get workspace.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def account_tenant(request, tenant_id):
-    tenant = models.Tenant.objects.filter(id=tenant_id).values('id', 'name', 'company')[0]
-
-    return JsonResponse({'tenant': tenant})
+    tenant = models.Tenant.objects.get(id=tenant_id)
+    serializer = TenantSerializer(tenant)
+    return Response(serializer.data)
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', TenantSettingsSerializer)},
     operation_description="Get workspace settings.",
     operation_summary="Get workspace settings.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def account_get_settings(request, tenant_id):
     tenant = models.Tenant.objects.get(id=tenant_id)
-
-    account = {
-        'name': tenant.name,
-        'owner': tenant.owner,
-        'email': tenant.email,
-        'phone': tenant.phone,
-        'company': tenant.company,
-        'status': tenant.status,
-    }
-
     settings = models.TenantSettings.objects.get(tenant=tenant)
-    account_settings = {
-        'enable_compute': settings.enable_compute,
-        'enable_storage': settings.enable_storage,
-        'enable_service_catalog': settings.enable_service_catalog,
-        'enable_templates': settings.enable_templates,
-        'enable_kubernetes_dlcm': settings.enable_kubernetes_dlcm,
-        'enable_kubernetes_k3s': settings.enable_kubernetes_k3s,
-        'enable_kubernetes_capi': settings.enable_kubernetes_capi,
-        'enable_kubernetes_yaookcapi': settings.enable_kubernetes_yaookcapi,
-        'advanced_cluster_configuration': settings.advanced_cluster_configuration,
-        'enable_cluster_resize': settings.enable_cluster_resize,
-        'providers_enable_gcp': settings.providers_enable_gcp,
-        'providers_enable_aws': settings.providers_enable_aws,
-        'providers_enable_ali': settings.providers_enable_ali,
-        'providers_enable_azure': settings.providers_enable_azure,
-        'providers_enable_onprem': settings.providers_enable_onprem,
-        'providers_enable_openstack': settings.providers_enable_openstack,
-        'providers_enable_arm': settings.providers_enable_arm,
-    }
 
-    return JsonResponse({
-        'account': account,
-        'account_settings': account_settings,
-    })
+    serializer = TenantSettingsSerializer(settings)
+    return Response(serializer.data)
 
 @swagger_auto_schema(method='get',
     responses={200: openapi.Response('', openapi.Schema(
@@ -9752,17 +9795,55 @@ def suggest_account_params(request, provider):
     return JsonResponse(autosuggested_params)
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
-    operation_description="Get bucket file.",
-    operation_summary="Get bucket file.")
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'content_type': openapi.Schema(type=openapi.TYPE_STRING),
+            'contents': openapi.Schema(type=openapi.TYPE_FILE, description='Byte array.'),
+            'files': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'path': openapi.Schema(type=openapi.TYPE_STRING),
+                    'basename': openapi.Schema(type=openapi.TYPE_STRING),
+                    'type': openapi.Schema(type=openapi.TYPE_STRING),
+                    'content_type': openapi.Schema(type=openapi.TYPE_STRING),
+                    'size': openapi.Schema(type=openapi.TYPE_NUMBER)
+                }
+            ))
+        }
+    ))},
+    operation_description="Buckets - get single file contents or all files in a directory.",
+    operation_summary="Buckets - get single file contents or all files in a directory.")
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
-    operation_description="Add bucket file.",
-    operation_summary="Add bucket file.")
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'content_type': openapi.Schema(type=openapi.TYPE_STRING,
+                description='For directories - "folder".'
+            ),
+            'contents': openapi.Schema(type=openapi.TYPE_FILE,
+                description='For directories - empty string, for files - byte array.'
+            )
+        },
+        required=['content_type', 'contents']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'done': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Buckets - add file or create directory.",
+    operation_summary="Buckets - add file or create directory.")
 @swagger_auto_schema(method='delete',
-    responses={200: openapi.Response('', ProfileSerializer)},
-    operation_description="Delete bucket file.",
-    operation_summary="Delete bucket file.")
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'done': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Buckets - delete file or directory.",
+    operation_summary="Buckets - delete file or directory.")
 @api_view(['GET', 'POST', 'DELETE'])
 @permission_classes([IsAuthenticated, custom_permissions.BucketAccessPermission])
 def bucket_files(request, tenant_id, bucket_id, path):
