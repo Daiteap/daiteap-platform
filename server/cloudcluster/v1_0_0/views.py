@@ -712,17 +712,39 @@ def bucket_detail(request, tenant_id, bucket_id):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', UserSerializer)},
     operation_description="Get workspace user.",
     operation_summary="Get workspace user.")
 @swagger_auto_schema(method='delete',
-    responses={200: openapi.Response('', ProfileSerializer)},
-    operation_description="Delete workspace user.",
-    operation_summary="Delete workspace user.")
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'delete_success': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+            'message': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="Remove user from workspace.",
+    operation_summary="Remove user from workspace.")
 @swagger_auto_schema(method='put',
-    responses={200: openapi.Response('', ProfileSerializer)},
-    operation_description="Update workspace user.",
-    operation_summary="Update workspace user.")
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'firstname': openapi.Schema(type=openapi.TYPE_STRING, minLength=2, maxLength=100),
+            'lastname': openapi.Schema(type=openapi.TYPE_STRING, minLength=2, maxLength=100),
+            'company': openapi.Schema(type=openapi.TYPE_STRING),
+            'phone': openapi.Schema(type=openapi.TYPE_STRING),
+            'password': openapi.Schema(type=openapi.TYPE_STRING, minLength=8, maxLength=100)
+        },
+        required=['firstname', 'lastname', 'company', 'phone']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'submitted': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Update user info.",
+    operation_summary="Update user info.")
 @api_view(['GET', 'DELETE', 'PUT'])
 @permission_classes([IsAuthenticated])
 def tenant_users_detail(request, tenant_id, username):
@@ -749,7 +771,8 @@ def tenant_users_detail(request, tenant_id, username):
             'email': daiteap_user.user.email,
             'username': daiteap_user.user.username
         }
-        return JsonResponse(user)
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
 
     if request.method == 'DELETE':
         if not request.daiteap_user.isAdmin():
@@ -1223,7 +1246,9 @@ def get_resize_status(request, tenant_id, cluster_id):
     return JsonResponse(response)
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_STRING
+    ))},
     operation_description="OAuth Azure - admin consent.",
     operation_summary="OAuth Azure - admin consent.")
 @api_view(['GET'])
@@ -1235,7 +1260,9 @@ def oauth_azure_adminconsent(request):
     return HttpResponseRedirect(redirect_url)
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_STRING
+    ))},
     operation_description="OAuth Azure - authorize.",
     operation_summary="OAuth Azure - authorize.")
 @api_view(['GET'])
@@ -1253,7 +1280,9 @@ def oauth_azure_authorize(request):
     return HttpResponseRedirect(redirect_url)
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_STRING
+    ))},
     operation_description="OAuth Azure - create app.",
     operation_summary="OAuth Azure - create app.")
 @api_view(['GET'])
@@ -1269,7 +1298,19 @@ def oauth_azure_createapp(request):
     return HttpResponseRedirect(redirect_url)
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'origin': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['origin']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'auth_url': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
     operation_description="OAuth Azure - get auth url admin consent.",
     operation_summary="OAuth Azure - get auth url admin consent.")
 @api_view(['POST'])
@@ -1312,7 +1353,20 @@ def oauth_azure_get_auth_url_admin_consent(request):
     return JsonResponse({'auth_url': auth_url})
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'origin': openapi.Schema(type=openapi.TYPE_STRING),
+            'tenant': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['origin', 'tenant']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'auth_url': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
     operation_description="OAuth Azure - get auth url authorize.",
     operation_summary="OAuth Azure - get auth url authorize.")
 @api_view(['POST'])
@@ -1359,7 +1413,21 @@ def oauth_azure_get_auth_url_authorize(request):
     return JsonResponse({'auth_url': auth_url})
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'origin': openapi.Schema(type=openapi.TYPE_STRING),
+            'tenant': openapi.Schema(type=openapi.TYPE_STRING),
+            'subscriptionId': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['origin', 'tenant', 'subscriptionId']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'auth_url': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
     operation_description="OAuth Azure - get auth url create app.",
     operation_summary="OAuth Azure - get auth url create app.")
 @api_view(['POST'])
@@ -1410,7 +1478,22 @@ def oauth_azure_get_auth_url_create_app(request):
     return JsonResponse({'auth_url': auth_url})
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'tenant': openapi.Schema(type=openapi.TYPE_STRING),
+            'subscriptionId': openapi.Schema(type=openapi.TYPE_STRING),
+            'authCode': openapi.Schema(type=openapi.TYPE_STRING),
+            'origin': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['tenant', 'subscriptionId', 'authCode', 'origin']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
     operation_description="OAuth Azure - create app.",
     operation_summary="OAuth Azure - create app.")
 @api_view(['POST'])
@@ -1460,7 +1543,28 @@ def oauth_azure_create_app(request):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'tenant': openapi.Schema(type=openapi.TYPE_STRING),
+            'authCode': openapi.Schema(type=openapi.TYPE_STRING),
+            'origin': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['tenant', 'authCode', 'origin']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'subscriptions': openapi.Schema(type=openapi.TYPE_ARRAY,
+                items=openapi.Schema(type=openapi.TYPE_OBJECT,
+                    properties={
+                        'displayName': openapi.Schema(type=openapi.TYPE_STRING),
+                        'subscriptionId': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            )
+        }
+    ))},
     operation_description="OAuth Azure - get subscriptions.",
     operation_summary="OAuth Azure - get subscriptions.")
 @api_view(['POST'])
@@ -1505,7 +1609,19 @@ def oauth_azure_get_subscriptions(request):
     return JsonResponse(response_subscriptions)
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'origin': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['origin']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'auth_url': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
     operation_description="OAuth Google - get auth url projects.",
     operation_summary="OAuth Google - get auth url projects.")
 @api_view(['POST'])
@@ -1557,7 +1673,19 @@ def oauth_google_get_auth_url_projects(request):
     return JsonResponse(auth_url)
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['projectId']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'submitted': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
     operation_description="OAuth Google - create service account.",
     operation_summary="OAuth Google - create service account.")
 @api_view(['POST'])
@@ -1625,7 +1753,9 @@ def oauth_google_create_service_account(request):
     return response
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_STRING
+    ))},
     operation_description="OAuth Google.",
     operation_summary="OAuth Google.")
 @api_view(['GET'])
@@ -1639,7 +1769,27 @@ def oauth_google(request):
     return HttpResponseRedirect(redirect_url)
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'authCode': openapi.Schema(type=openapi.TYPE_STRING),
+            'origin': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['authCode', 'origin']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'projects': openapi.Schema(type=openapi.TYPE_ARRAY,
+                items=openapi.Schema(type=openapi.TYPE_OBJECT,
+                    properties={
+                        'name': openapi.Schema(type=openapi.TYPE_STRING),
+                        'projectId': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            )
+        }
+    ))},
     operation_description="OAuth Google - get projects.",
     operation_summary="OAuth Google - get projects.")
 @api_view(['POST'])
@@ -2206,7 +2356,20 @@ def get_service_values(request, service):
     return JsonResponse(response)
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'connection_info': openapi.Schema(type=openapi.TYPE_OBJECT,
+                properties={
+                    'username': openapi.Schema(type=openapi.TYPE_STRING),
+                    'password': openapi.Schema(type=openapi.TYPE_STRING),
+                    'addresses': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                        type=openapi.TYPE_STRING
+                    ))
+                }
+            )
+        }
+    ))},
     operation_description="Get cluster service connection info.",
     operation_summary="Get cluster service connection info.")
 @api_view(['GET'])
@@ -2279,7 +2442,12 @@ def get_service_connection_info(request, tenant_id, cluster_id, service, namespa
     return JsonResponse(response)
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'defaultName': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
     operation_description="Get cluster service default name.",
     operation_summary="Get cluster service default name.")
 @api_view(['GET'])
@@ -6218,9 +6386,15 @@ def retry_create_dlcm(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
-    operation_description="Retry compute creation.",
-    operation_summary="Retry compute creation.")
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'taskId': openapi.Schema(type=openapi.TYPE_STRING),
+            'ID': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="Retry compute cluster creation.",
+    operation_summary="Retry compute cluster creation.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def retry_create_compute_vms(request, tenant_id, cluster_id):
@@ -7643,7 +7817,19 @@ def create_compute_VMs(request, tenant_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'free': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        },
+        required=['free']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
     operation_description="Add service to cluster.",
     operation_summary="Add service to cluster.")
 @api_view(['POST'])
@@ -7962,7 +8148,12 @@ def add_service(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='delete',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
     operation_description="Delete service from cluster.",
     operation_summary="Delete service from cluster.")
 @api_view(['DELETE'])
@@ -8197,9 +8388,27 @@ def is_cluster_username_valid(request, username):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
-    operation_description="Add cluster user.",
-    operation_summary="Add cluster user.")
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'username': openapi.Schema(type=openapi.TYPE_STRING),
+            'firstName': openapi.Schema(type=openapi.TYPE_STRING, maxLength=23),
+            'lastName': openapi.Schema(type=openapi.TYPE_STRING, maxLength=23),
+            'email': openapi.Schema(type=openapi.TYPE_STRING, maxLength=150, format=openapi.FORMAT_EMAIL),
+            'publicSSHKey': openapi.Schema(type=openapi.TYPE_STRING, minLength=20, maxLength=10000),
+            'clusterID': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36),
+            'kubernetesUser': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        },
+        required=['username', 'publicSSHKey', 'clusterID', 'kubernetesUser']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="Add user to cluster.",
+    operation_summary="Add user to cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def add_user_to_cluster(request, tenant_id, cluster_id):
@@ -9360,11 +9569,50 @@ def is_environment_template_name_free(request, tenant_id, name):
     })
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'users_list': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'username': openapi.Schema(type=openapi.TYPE_STRING),
+                    'firstname': openapi.Schema(type=openapi.TYPE_STRING),
+                    'lastname': openapi.Schema(type=openapi.TYPE_STRING),
+                    'projects': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                        type=openapi.TYPE_STRING
+                    )),
+                    'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL),
+                    'role': openapi.Schema(type=openapi.TYPE_STRING),
+                    'phone': openapi.Schema(type=openapi.TYPE_STRING),
+                    'company': openapi.Schema(type=openapi.TYPE_STRING),
+                    'id': openapi.Schema(type=openapi.TYPE_NUMBER)
+                }
+            ))
+        }
+    ))},
     operation_description="Get workspace users.",
     operation_summary="Get workspace users.")
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'username': openapi.Schema(type=openapi.TYPE_STRING),
+            'firstname': openapi.Schema(type=openapi.TYPE_STRING),
+            'lastname': openapi.Schema(type=openapi.TYPE_STRING),
+            'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL),
+            'company': openapi.Schema(type=openapi.TYPE_STRING),
+            'phone': openapi.Schema(type=openapi.TYPE_STRING),
+            'sshpubkey': openapi.Schema(type=openapi.TYPE_STRING),
+            'userRole': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['username', 'firstname', 'lastname', 'email', 'userRole']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'user_created': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
     operation_description="Add user to workspace.",
     operation_summary="Add user to workspace.")
 @api_view(['GET', 'POST'])
@@ -9421,7 +9669,8 @@ def tenant_users(request, tenant_id):
             profile.company  = request_body['company']
         if 'phone' in request_body:
             profile.phone = request_body['phone']
-        profile.sshpubkey = request_body['sshpubkey']
+        if 'sshpubkey' in request_body:
+            profile.sshpubkey = request_body['sshpubkey']
         daiteapuser.role = request_body['userRole']
         daiteapuser.save()
         profile.news_subscribbed = news_subscribbed
@@ -9440,7 +9689,7 @@ def tenant_users(request, tenant_id):
         return JsonResponse({'user_created': True})
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', UserSerializer(many=True))},
     operation_description="Get users who aren't in workspace.",
     operation_summary="Get users who aren't in workspace.")
 @api_view(['GET'])
@@ -9458,13 +9707,13 @@ def get_unregistered_users(request, tenant_id):
         platform_user = {
             'username': user['username'],
             'email': user['email'],
-            'firstName': '',
-            'lastName': ''
+            'first_name': '',
+            'last_name': ''
         }
         if 'firstName' in user:
-            platform_user['firstName'] = user['firstName']
+            platform_user['first_name'] = user['firstName']
         if 'lastName' in user:
-            platform_user['lastName'] = user['lastName']
+            platform_user['last_name'] = user['lastName']
         
         platform_users.append(platform_user)
 
@@ -9477,7 +9726,8 @@ def get_unregistered_users(request, tenant_id):
         if user['username'] not in all_tenant_users:
             unregisteredUsers.append(user)
 
-    return JsonResponse({'unregisteredUsers': unregisteredUsers})
+    serializer = UserSerializer(unregisteredUsers, many=True)
+    return Response(serializer.data)
 
 @swagger_auto_schema(method='get',
     responses={200: openapi.Response('', openapi.Schema(
@@ -9577,11 +9827,41 @@ def register_tenant_user(request):
     return JsonResponse({'user_created': True})
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'users_list': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'username': openapi.Schema(type=openapi.TYPE_STRING),
+                    'firstname': openapi.Schema(type=openapi.TYPE_STRING),
+                    'lastname': openapi.Schema(type=openapi.TYPE_STRING),
+                    'projects': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                        type=openapi.TYPE_STRING
+                    )),
+                    'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL),
+                    'role': openapi.Schema(type=openapi.TYPE_STRING),
+                    'phone': openapi.Schema(type=openapi.TYPE_STRING)
+                }
+            ))
+        }
+    ))},
     operation_description="Get project users.",
     operation_summary="Get project users.")
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'username': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['username']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'success': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
     operation_description="Add user to project.",
     operation_summary="Add user to project.")
 @api_view(['GET', 'POST'])
