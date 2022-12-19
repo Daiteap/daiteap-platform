@@ -1025,7 +1025,6 @@ def validate_credentials(request, tenant_id, cloudaccount_id = None):
         if error:
             return error
         payload['tenant_id'] = tenant_id
-        print(payload)
 
     schema = {
         "type": "object",
@@ -10079,7 +10078,7 @@ def sync_users(task_delay=True):
                 synchronized_machines = daiteap_user.user.profile.ssh_synchronized_machines.all()
 
                 if cluster.type in [constants.ClusterType.VMS.value, constants.ClusterType.COMPUTE_VMS.value]:
-                    cluster_machines = models.Machine.objects.filter(cluster_id=cluster.id)
+                    cluster_machines = models.Machine.objects.filter(cluster_id=cluster.id, status=0)
 
                     for machine in cluster_machines:
                         if machine not in synchronized_machines:
