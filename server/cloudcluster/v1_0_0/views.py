@@ -10,6 +10,8 @@ from cloudcluster.serializers.cloud_account_serializer import CloudAccountSerial
 from cloudcluster.serializers.bucket_serializer import BucketSerializer
 from cloudcluster.serializers.tenant_serializer import TenantSerializer, TenantSettingsSerializer, ActiveTenantsSerializer
 from cloudcluster.serializers.service_serializer import ServiceSerializer
+from cloudcluster.serializers.environment_template_serializer import EnvironmentTemplateSerializer
+from cloudcluster.serializers.cluster_serializer import ClustersSerializer
 from environment_providers.azure.services.oauth import AzureAuthClient
 import ipaddress
 import json
@@ -639,7 +641,6 @@ def bucket_list(request, tenant_id):
                 buckets.append(bucket)
 
         serializer = BucketSerializer(buckets, many=True)
-
         return Response(serializer.data)
 
     if request.method == 'POST':
@@ -956,9 +957,61 @@ def check_account_regions_update_status(request, tenant_id, cloudaccount_id):
     return JsonResponse(response)
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
-    operation_description="Validate credential.",
-    operation_summary="Validate credential.")
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        description="Needed when credential isn't created yet.",
+        properties={
+            'credentials': openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                description="Select one provider.",
+                properties={
+                    'aws': openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'label': openapi.Schema(type=openapi.TYPE_STRING),
+                            'description': openapi.Schema(type=openapi.TYPE_STRING),
+                            'aws_access_key_id': openapi.Schema(type=openapi.TYPE_STRING),
+                            'aws_secret_access_key': openapi.Schema(type=openapi.TYPE_STRING)
+                        }
+                    ),
+                    'google': openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'label': openapi.Schema(type=openapi.TYPE_STRING),
+                            'description': openapi.Schema(type=openapi.TYPE_STRING),
+                            'google_key': openapi.Schema(type=openapi.TYPE_STRING)
+                        }
+                    ),
+                    'azure': openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'label': openapi.Schema(type=openapi.TYPE_STRING),
+                            'description': openapi.Schema(type=openapi.TYPE_STRING),
+                            'azure_tenant_id': openapi.Schema(type=openapi.TYPE_STRING),
+                            'azure_subscription_id': openapi.Schema(type=openapi.TYPE_STRING),
+                            'azure_client_id': openapi.Schema(type=openapi.TYPE_STRING),
+                            'azure_client_secret': openapi.Schema(type=openapi.TYPE_STRING)
+                        }
+                    ),
+                    'openstack': openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'label': openapi.Schema(type=openapi.TYPE_STRING),
+                            'description': openapi.Schema(type=openapi.TYPE_STRING),
+                            'application_credential_id': openapi.Schema(type=openapi.TYPE_STRING),
+                            'application_credential_secret': openapi.Schema(type=openapi.TYPE_STRING),
+                            'region_name': openapi.Schema(type=openapi.TYPE_STRING),
+                            'external_network_id': openapi.Schema(type=openapi.TYPE_STRING),
+                            'auth_url': openapi.Schema(type=openapi.TYPE_STRING)
+                        }
+                    )     
+                }
+            )
+        }
+    ),
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Validate cloud credential.",
+    operation_summary="Validate cloud credential.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def validate_credentials(request, tenant_id, cloudaccount_id = None):
@@ -972,6 +1025,7 @@ def validate_credentials(request, tenant_id, cloudaccount_id = None):
         if error:
             return error
         payload['tenant_id'] = tenant_id
+        print(payload)
 
     schema = {
         "type": "object",
@@ -1488,12 +1542,7 @@ def oauth_azure_get_auth_url_create_app(request):
         },
         required=['tenant', 'subscriptionId', 'authCode', 'origin']
     ),
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
     operation_description="OAuth Azure - create app.",
     operation_summary="OAuth Azure - create app.")
 @api_view(['POST'])
@@ -2505,7 +2554,7 @@ def generate_cluster_service_default_name(request, tenant_id, cluster_id, servic
     return JsonResponse(response)
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', ClustersSerializer(many=True))},
     operation_description="Get clusters.",
     operation_summary="Get clusters.")
 @api_view(['GET'])
@@ -2650,8 +2699,8 @@ def get_cluster_list(request, tenant_id):
                              'services_count': cluster_services
         })
 
-    # return JSON response
-    return JsonResponse(cluster_list, safe=False)
+    serializer = ClustersSerializer(cluster_list, many=True)
+    return Response(serializer.data)
 
 @swagger_auto_schema(method='get',
     responses={200: openapi.Response('', openapi.Schema(
@@ -2926,11 +2975,24 @@ def get_service_options(request, service):
     return JsonResponse(response)
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', ClustersSerializer)},
     operation_description="Get cluster details.",
     operation_summary="Get cluster details.")
 @swagger_auto_schema(method='put',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'name': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=1024),
+            'description': openapi.Schema(type=openapi.TYPE_STRING, maxLength=1024)
+        },
+        required=['name', 'description']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'submitted': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
     operation_description="Update cluster.",
     operation_summary="Update cluster.")
 @api_view(['GET', 'PUT'])
@@ -3220,8 +3282,8 @@ def cluster_details(request, tenant_id, cluster_id):
                 response['kubernetesConfiguration']['podsSubnet'] = config['kubernetesConfiguration']['podsSubnet']
                 response['kubernetesConfiguration']['serviceAddresses'] = config['kubernetesConfiguration']['serviceAddresses']
 
-        # return JSON response
-        return JsonResponse(response)
+        serializer = ClustersSerializer(response)
+        return Response(serializer.data)
 
     if request.method == 'PUT':
         # Validate request
@@ -3290,12 +3352,7 @@ def cluster_details(request, tenant_id, cluster_id):
         })
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Get cluster storage.",
     operation_summary="Get cluster storage.")
 @api_view(['GET'])
@@ -3333,7 +3390,7 @@ def get_cluster_storage(request, tenant_id, cluster_id):
     responses={200: openapi.Response('', openapi.Schema(
         type=openapi.TYPE_OBJECT, 
         properties={
-            'config': openapi.Schema(type=openapi.TYPE_STRING),
+            'config': constants.ENVIRONMENT_CONFIG_SCHEMA,
             'projectId': openapi.Schema(type=openapi.TYPE_STRING),
             'name': openapi.Schema(type=openapi.TYPE_STRING),
             'description': openapi.Schema(type=openapi.TYPE_STRING),
@@ -3569,12 +3626,7 @@ def get_user_kubeconfig(request, tenant_id, cluster_id, username):
     })
 
 @swagger_auto_schema(method='delete',
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Delete cluster.",
     operation_summary="Delete cluster.")
 @api_view(['DELETE'])
@@ -3642,13 +3694,7 @@ def delete_cluster(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='delete',
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'ID': openapi.Schema(type=openapi.TYPE_STRING),
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Delete compute node.",
     operation_summary="Delete compute node.")
 @api_view(['DELETE'])
@@ -3681,7 +3727,7 @@ def remove_compute_node(request, tenant_id, cluster_id, node_id):
             if not account.checkUserAccess(request.daiteap_user):
                 return JsonResponse({
                     'error': {
-                        'message': 'Project access denied.',
+                        'message': 'Cloud credential access denied.',
                     }
                 }, status=403)
 
@@ -3759,12 +3805,7 @@ def remove_compute_node(request, tenant_id, cluster_id, node_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Stop cluster.",
     operation_summary="Stop cluster.")
 @api_view(['POST'])
@@ -3837,12 +3878,7 @@ def stop_cluster(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Start cluster.",
     operation_summary="Start cluster.")
 @api_view(['POST'])
@@ -3915,12 +3951,7 @@ def start_cluster(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Restart cluster.",
     operation_summary="Restart cluster.")
 @api_view(['POST'])
@@ -4000,12 +4031,7 @@ def restart_cluster(request, tenant_id, cluster_id):
         },
         required=['machineProvider']
     ),
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Stop machine.",
     operation_summary="Stop machine.")
 @api_view(['POST'])
@@ -4142,12 +4168,7 @@ def stop_machine(request, tenant_id, cluster_id, machine):
         },
         required=['machineProvider']
     ),
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Start machine.",
     operation_summary="Start machine.")
 @api_view(['POST'])
@@ -4284,12 +4305,7 @@ def start_machine(request, tenant_id, cluster_id, machine):
         },
         required=['machineProvider']
     ),
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Restart machine.",
     operation_summary="Restart machine.")
 @api_view(['POST'])
@@ -4521,7 +4537,17 @@ def get_supported_k3s_configurations(request):
     return JsonResponse(response)
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'clusterName': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=1024),
+            'clusterDescription': openapi.Schema(type=openapi.TYPE_STRING, maxLength=1024),
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36)
+        },
+        required=['clusterName', 'projectId'],
+        additional_properties=constants.ENVIRONMENT_CONFIG_SCHEMA
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Create DLCM cluster.",
     operation_summary="Create DLCM cluster.")
 @api_view(['POST'])
@@ -4712,9 +4738,17 @@ def create_dlcm(request):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
-    operation_description="Get terraform plan for resize.",
-    operation_summary="Get terraform plan for resize.")
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36)
+        },
+        required=['projectId'],
+        additional_properties=constants.ENVIRONMENT_CONFIG_SCHEMA
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Get Terraform plan for cluster resize.",
+    operation_summary="Get Terraform plan for cluster resize.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def get_tf_plan(request, tenant_id, cluster_id):
@@ -4722,6 +4756,7 @@ def get_tf_plan(request, tenant_id, cluster_id):
     payload, error = get_request_body(request)
     if error:
         return error
+    payload['clusterID'] = cluster_id
     schema = constants.RESIZE_KUBERNETES_INPUT_VALIDATION_SCHEMA
     schema = environment_providers.add_input_validation_schemas(schema, payload)
     try:
@@ -4794,7 +4829,15 @@ def get_tf_plan(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36)
+        },
+        required=['projectId'],
+        additional_properties=constants.ENVIRONMENT_CONFIG_SCHEMA
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Resize DLCMv2 cluster.",
     operation_summary="Resize DLCMv2 cluster.")
 @api_view(['POST'])
@@ -4804,6 +4847,7 @@ def resize_dlcm_v2(request, tenant_id, cluster_id):
     payload, error = get_request_body(request)
     if error:
         return error
+    payload['clusterID'] = cluster_id
     schema = constants.RESIZE_KUBERNETES_INPUT_VALIDATION_SCHEMA
     schema = environment_providers.add_input_validation_schemas(schema, payload)
     try:
@@ -4840,7 +4884,7 @@ def resize_dlcm_v2(request, tenant_id, cluster_id):
             if not account.checkUserAccess(request.daiteap_user):
                 return JsonResponse({
                     'error': {
-                        'message': 'Project access denied.',
+                        'message': 'Cloud credential access denied.',
                     }
                 }, status=403)
 
@@ -4951,7 +4995,17 @@ def resize_dlcm_v2(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'clusterName': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=1024),
+            'clusterDescription': openapi.Schema(type=openapi.TYPE_STRING, maxLength=1024),
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36)
+        },
+        required=['clusterName', 'projectId'],
+        additional_properties=constants.ENVIRONMENT_CONFIG_SCHEMA
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Create DLCMv2 cluster.",
     operation_summary="Create DLCMv2 cluster.")
 @api_view(['POST'])
@@ -4986,7 +5040,7 @@ def create_dlcm_v2(request, tenant_id):
             if not account.checkUserAccess(request.daiteap_user):
                 return JsonResponse({
                     'error': {
-                        'message': 'Project access denied.',
+                        'message': 'Cloud credential access denied.',
                     }
                 }, status=403)
 
@@ -5160,7 +5214,17 @@ def create_dlcm_v2(request, tenant_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'clusterName': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=1024),
+            'clusterDescription': openapi.Schema(type=openapi.TYPE_STRING, maxLength=1024),
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36)
+        },
+        required=['clusterName', 'projectId'],
+        additional_properties=constants.ENVIRONMENT_CONFIG_SCHEMA
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Create CAPI cluster.",
     operation_summary="Create CAPI cluster.")
 @api_view(['POST'])
@@ -5343,7 +5407,8 @@ def create_capi_cluster(request, tenant_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=constants.ENVIRONMENT_CONFIG_SCHEMA,
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Resize CAPI cluster.",
     operation_summary="Resize CAPI cluster.")
 @api_view(['POST'])
@@ -5353,6 +5418,7 @@ def resize_capi_cluster(request, tenant_id, cluster_id):
     payload, error = get_request_body(request)
     if error:
         return error
+    payload['clusterID'] = cluster_id
     schema = constants.RESIZE_CAPI_INPUT_VALIDATION_SCHEMA
     try:
         validate(instance=payload, schema=schema)
@@ -5430,12 +5496,7 @@ def resize_capi_cluster(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='delete',
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Delete CAPI cluster.",
     operation_summary="Delete CAPI cluster.")
 @api_view(['DELETE'])
@@ -5487,7 +5548,17 @@ def delete_capi_cluster(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'clusterName': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=1024),
+            'clusterDescription': openapi.Schema(type=openapi.TYPE_STRING, maxLength=1024),
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36)
+        },
+        required=['clusterName', 'projectId'],
+        additional_properties=constants.ENVIRONMENT_CONFIG_SCHEMA
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Create YaookCAPI cluster.",
     operation_summary="Create YaookCAPI cluster.")
 @api_view(['POST'])
@@ -5661,7 +5732,8 @@ def create_yaookcapi_cluster(request, tenant_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=constants.ENVIRONMENT_CONFIG_SCHEMA,
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Resize YaookCAPI cluster.",
     operation_summary="Resize YaookCAPI cluster.")
 @api_view(['POST'])
@@ -5671,6 +5743,7 @@ def resize_yaookcapi_cluster(request, tenant_id, cluster_id):
     payload, error = get_request_body(request)
     if error:
         return error
+    payload['clusterID'] = cluster_id
     schema = constants.RESIZE_YAOOKCAPI_INPUT_VALIDATION_SCHEMA
     try:
         validate(instance=payload, schema=schema)
@@ -5748,12 +5821,7 @@ def resize_yaookcapi_cluster(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='delete',
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Delete YaookCAPI cluster.",
     operation_summary="Delete YaookCAPI cluster.")
 @api_view(['DELETE'])
@@ -5805,7 +5873,17 @@ def delete_yaookcapi_cluster(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'clusterName': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=1024),
+            'clusterDescription': openapi.Schema(type=openapi.TYPE_STRING, maxLength=1024),
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36)
+        },
+        required=['clusterName', 'projectId'],
+        additional_properties=constants.ENVIRONMENT_CONFIG_SCHEMA
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Create K3S cluster.",
     operation_summary="Create K3S cluster.")
 @api_view(['POST'])
@@ -6013,13 +6091,7 @@ def create_k3s_cluster(request, tenant_id):
         },
         required=['version']
     ),
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING),
-            'ID': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Upgrade Kubernetes cluster.",
     operation_summary="Upgrade Kubernetes cluster.")
 @api_view(['POST'])
@@ -6115,13 +6187,7 @@ def upgrade_kubernetes_cluster(request, tenant_id, cluster_id):
         },
         required=['version']
     ),
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING),
-            'ID': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Upgrade K3S cluster.",
     operation_summary="Upgrade K3S cluster.")
 @api_view(['POST'])
@@ -6210,9 +6276,9 @@ def upgrade_k3s_cluster(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
-    operation_description="Retry K3S creation.",
-    operation_summary="Retry K3S creation.")
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Retry K3S cluster creation.",
+    operation_summary="Retry K3S cluster creation.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def retry_create_k3s_cluster(request, tenant_id, cluster_id):
@@ -6264,9 +6330,15 @@ def retry_create_k3s_cluster(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
-    operation_description="Retry cluster creation.",
-    operation_summary="Retry cluster creation.")
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'config': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=50)
+        }
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Retry DLCM cluster creation.",
+    operation_summary="Retry DLCM cluster creation.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def retry_create_dlcm(request, tenant_id, cluster_id):
@@ -6386,13 +6458,7 @@ def retry_create_dlcm(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING),
-            'ID': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Retry compute cluster creation.",
     operation_summary="Retry compute cluster creation.")
 @api_view(['POST'])
@@ -6440,12 +6506,7 @@ def retry_create_compute_vms(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Cancel cluster creation.",
     operation_summary="Cancel cluster creation.")
 @api_view(['POST'])
@@ -6502,9 +6563,20 @@ def cancel_cluster_creation(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
-    operation_description="Add machines to VMs.",
-    operation_summary="Add machines to VMs.")
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'provider': openapi.Schema(type=openapi.TYPE_STRING, minLength=2, maxLength=10),
+            'region': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=20),
+            'zone': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=25),
+            'nodes': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'instanceType': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=50)
+        },
+        required=['provider', 'region', 'zone', 'nodes', 'instanceType']
+    ),
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Add machines to VMs cluster.",
+    operation_summary="Add machines to VMs cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def add_machines_to_vms(request, tenant_id, cluster_id):
@@ -6674,9 +6746,20 @@ def add_machines_to_vms(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
-    operation_description="Add machines to K3S.",
-    operation_summary="Add machines to K3S.")
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'provider': openapi.Schema(type=openapi.TYPE_STRING, minLength=2, maxLength=10),
+            'region': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=20),
+            'zone': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=25),
+            'nodes': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'instanceType': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=50)
+        },
+        required=['provider', 'region', 'zone', 'nodes', 'instanceType']
+    ),
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Add machines to K3S cluster.",
+    operation_summary="Add machines to K3S cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def add_machines_to_k3s(request, tenant_id, cluster_id):
@@ -6847,9 +6930,20 @@ def add_machines_to_k3s(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
-    operation_description="Add machines to DLCM.",
-    operation_summary="Add machines to DLCM.")
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'provider': openapi.Schema(type=openapi.TYPE_STRING, minLength=2, maxLength=10),
+            'region': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=20),
+            'zone': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=25),
+            'nodes': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'instanceType': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=50)
+        },
+        required=['provider', 'region', 'zone', 'nodes', 'instanceType']
+    ),
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Add machines to DLCM cluster.",
+    operation_summary="Add machines to DLCM cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def add_machines_to_dlcm(request, tenant_id, cluster_id):
@@ -7020,9 +7114,20 @@ def add_machines_to_dlcm(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
-    operation_description="Add machines to DLCMv2.",
-    operation_summary="Add machines to DLCMv2.")
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'provider': openapi.Schema(type=openapi.TYPE_STRING, minLength=2, maxLength=10),
+            'region': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=20),
+            'zone': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=25),
+            'nodes': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'instanceType': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=50)
+        },
+        required=['provider', 'region', 'zone', 'nodes', 'instanceType']
+    ),
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Add machines to DLCMv2 cluster.",
+    operation_summary="Add machines to DLCMv2 cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def add_machines_to_dlcm_v2(request, tenant_id, cluster_id):
@@ -7649,7 +7754,17 @@ def create_VMs(request):
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'clusterName': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=1024),
+            'clusterDescription': openapi.Schema(type=openapi.TYPE_STRING, maxLength=1024),
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36)
+        },
+        required=['clusterName', 'projectId'],
+        additional_properties=constants.ENVIRONMENT_CONFIG_SCHEMA
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Create compute cluster.",
     operation_summary="Create compute cluster.")
 @api_view(['POST'])
@@ -7686,7 +7801,7 @@ def create_compute_VMs(request, tenant_id):
             if not account.checkUserAccess(request.daiteap_user):
                 return JsonResponse({
                     'error': {
-                        'message': 'Project access denied.',
+                        'message': 'Cloud credential access denied.',
                     }
                 }, status=403)
 
@@ -7820,16 +7935,19 @@ def create_compute_VMs(request, tenant_id):
     request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT, 
         properties={
-            'free': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+            'serviceName': openapi.Schema(type=openapi.TYPE_STRING, minLength=5, maxLength=30),
+            'configurationType': openapi.Schema(type=openapi.TYPE_STRING, minLength=10, maxLength=12),
+            'valuesFile': openapi.Schema(type=openapi.TYPE_FILE),
+            'name': openapi.Schema(type=openapi.TYPE_STRING),
+            'namespace': openapi.Schema(type=openapi.TYPE_STRING),
+            'service_type': openapi.Schema(type=openapi.TYPE_STRING),
+            'cloud_providers': openapi.Schema(type=openapi.TYPE_STRING),
+            'replicas': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'yamlConfig': openapi.Schema(type=openapi.TYPE_BOOLEAN)
         },
-        required=['free']
+        required=['serviceName', 'configurationType']
     ),
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Add service to cluster.",
     operation_summary="Add service to cluster.")
 @api_view(['POST'])
@@ -8148,12 +8266,7 @@ def add_service(request, tenant_id, cluster_id):
     })
 
 @swagger_auto_schema(method='delete',
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Delete service from cluster.",
     operation_summary="Delete service from cluster.")
 @api_view(['DELETE'])
@@ -8401,12 +8514,7 @@ def is_cluster_username_valid(request, username):
         },
         required=['username', 'publicSSHKey', 'clusterID', 'kubernetesUser']
     ),
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Add user to cluster.",
     operation_summary="Add user to cluster.")
 @api_view(['POST'])
@@ -8596,12 +8704,7 @@ users:
     })
 
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', openapi.Schema(
-        type=openapi.TYPE_OBJECT, 
-        properties={
-            'taskId': openapi.Schema(type=openapi.TYPE_STRING)
-        }
-    ))},
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
     operation_description="Remove cluster user.",
     operation_summary="Remove cluster user.")
 @api_view(['POST'])
@@ -9085,6 +9188,7 @@ def user_profile_picture(request):
         },
         required=['name']
     ),
+    responses={200: ''},
     operation_description="Create template from environment.",
     operation_summary="Create template from environment.")
 @api_view(['POST'])
@@ -9180,11 +9284,21 @@ def save_environment_template(request, tenant_id, cluster_id):
     return HttpResponse(status=201)
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', EnvironmentTemplateSerializer(many=True))},
     operation_description="Get environment templates.",
     operation_summary="Get environment templates.")
 @swagger_auto_schema(method='post',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'name': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=1024),
+            'description': openapi.Schema(type=openapi.TYPE_STRING, maxLength=1024),
+            'clusterName': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['name'],
+        additional_properties=constants.ENVIRONMENT_CONFIG_SCHEMA
+    ),
+    responses={200: ''},
     operation_description="Create environment template.",
     operation_summary="Create environment template.")
 @api_view(['GET', 'POST'])
@@ -9192,13 +9306,11 @@ def save_environment_template(request, tenant_id, cluster_id):
 def environment_templates_list(request, tenant_id):
     if request.method == 'GET':
         environment_templates = models.EnvironmentTemplate.objects.filter(tenant_id=tenant_id)
-
-        response = {'environmentTemplates': []}
+        user_env_templates = []
 
         for environment_template in environment_templates:
-            
             if environment_template.checkUserAccess(request.daiteap_user):
-                response['environmentTemplates'].append({
+                user_env_templates.append({
                     'name': environment_template.name,
                     'id': environment_template.id,
                     'created_at': environment_template.created_at,
@@ -9208,7 +9320,8 @@ def environment_templates_list(request, tenant_id):
                     'contact': environment_template.contact,
                 })
 
-        return JsonResponse(response, status=200)
+        serializer = EnvironmentTemplateSerializer(user_env_templates, many=True)
+        return Response(serializer.data)
 
     if request.method == 'POST':
         request_body, error = get_request_body(request)
@@ -9464,11 +9577,16 @@ def environment_templates_list(request, tenant_id):
         return HttpResponse(status=201)
 
 @swagger_auto_schema(method='get',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', EnvironmentTemplateSerializer)},
     operation_description="Get environment template.",
     operation_summary="Get environment template.")
 @swagger_auto_schema(method='delete',
-    responses={200: openapi.Response('', ProfileSerializer)},
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'submitted': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
     operation_description="Delete environment template.",
     operation_summary="Delete environment template.")
 @api_view(['GET', 'DELETE'])
@@ -9479,7 +9597,7 @@ def environment_template_detail(request, tenant_id, environment_template_id):
     if request.method == 'GET':
         config = json.loads(environment_template.config)
 
-        response = {
+        env_template = {
             'name': environment_template.name,
             'id': environment_template.id,
             'created_at': environment_template.created_at,
@@ -9490,7 +9608,8 @@ def environment_template_detail(request, tenant_id, environment_template_id):
             'config': config,
         }
 
-        return JsonResponse(response, status=200)
+        serializer = EnvironmentTemplateSerializer(env_template)
+        return JsonResponse(serializer.data)
 
     if request.method == 'DELETE':
         try:

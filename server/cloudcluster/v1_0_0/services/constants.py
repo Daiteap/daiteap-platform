@@ -1,4 +1,5 @@
 from enum import Enum
+from drf_yasg import openapi
 
 SAVE_PROJECT_VALIDATION_SCHEMA = {
     "type": "object",
@@ -334,6 +335,128 @@ PLAN_RESOURCES_INPUT_VALIDATION_SCHEMA = {
     },
     "required": ["internal_dns_zone"]
 }
+
+ENVIRONMENT_CONFIG_SCHEMA = openapi.Schema(
+    type = openapi.TYPE_OBJECT,
+    properties = {
+        'type': openapi.Schema(
+            type = openapi.TYPE_NUMBER
+        ),
+        'load_balancer_integration': openapi.Schema(
+            type = openapi.TYPE_STRING,
+            maxLength = 1024
+        ),
+        'internal_dns_zone': openapi.Schema(
+            type = openapi.TYPE_STRING,
+            maxLength = 1024
+        ),
+        'kubernetesConfiguration': openapi.Schema(
+            type = openapi.TYPE_OBJECT,
+            properties = {
+                'version': openapi.Schema(
+                    type = openapi.TYPE_STRING,
+                    maxLength = 1024
+                ),
+                'serviceAddresses': openapi.Schema(
+                    type = openapi.TYPE_STRING,
+                    maxLength = 1024
+                ),
+                'podsSubnet': openapi.Schema(
+                    type = openapi.TYPE_STRING,
+                    maxLength = 1024
+                ),
+                'networkPlugin': openapi.Schema(
+                    type = openapi.TYPE_STRING,
+                    maxLength = 1024
+                )
+            }
+        ),
+        'awsSelected': openapi.Schema(
+            type = openapi.TYPE_BOOLEAN
+        ),
+        'googleSelected': openapi.Schema(
+            type = openapi.TYPE_BOOLEAN
+        ),
+        'azureSelected': openapi.Schema(
+            type = openapi.TYPE_BOOLEAN
+        ),
+        'openstackSelected': openapi.Schema(
+            type = openapi.TYPE_BOOLEAN
+        ),
+        'onpremiseSelected': openapi.Schema(
+            type = openapi.TYPE_BOOLEAN
+        ),
+        'iotarmSelected': openapi.Schema(
+            type = openapi.TYPE_BOOLEAN
+        ),
+        'alicloudSelected': openapi.Schema(
+            type = openapi.TYPE_BOOLEAN
+        ),
+        'provider_name': openapi.Schema(
+            type = openapi.TYPE_OBJECT,
+            description = 'One for each selected provider.',
+            properties = {
+                'account': openapi.Schema(
+                    type = openapi.TYPE_NUMBER
+                ),
+                'region': openapi.Schema(
+                    type = openapi.TYPE_STRING
+                ),
+                'vpcCidr': openapi.Schema(
+                    type = openapi.TYPE_STRING
+                ),
+                'nodes': openapi.Schema(
+                    type = openapi.TYPE_ARRAY,
+                    items = openapi.Schema(
+                        type = openapi.TYPE_OBJECT,
+                        properties = {
+                            'is_control_plane': openapi.Schema(
+                                type = openapi.TYPE_BOOLEAN
+                            ),
+                            'zone': openapi.Schema(
+                                type = openapi.TYPE_STRING
+                            ),
+                            'instanceType': openapi.Schema(
+                                type = openapi.TYPE_STRING,
+                                minLength = 6,
+                                maxLength = 50
+                            ),
+                            'operatingSystem': openapi.Schema(
+                                type = openapi.TYPE_STRING,
+                                minLength = 6,
+                                maxLength = 200
+                            )
+                        }
+                    )
+                )
+            }
+        )
+    }
+)        
+
+TASK_ID_RESPONSE_SCHEMA = openapi.Schema(
+    type = openapi.TYPE_OBJECT,
+    properties = {
+        'taskId': openapi.Schema(
+            type = openapi.TYPE_STRING,
+            format = openapi.FORMAT_UUID
+        )
+    }
+)
+
+ENV_ID_TASK_ID_RESPONSE_SCHEMA = openapi.Schema(
+    type = openapi.TYPE_OBJECT,
+    properties = {
+        'ID': openapi.Schema(
+            type = openapi.TYPE_STRING,
+            format = openapi.FORMAT_UUID
+        ),
+        'taskId': openapi.Schema(
+            type = openapi.TYPE_STRING,
+            format = openapi.FORMAT_UUID
+        )
+    }
+)
 
 OPENSTACK_CLOUDS_CONF = '''
 [Global]
