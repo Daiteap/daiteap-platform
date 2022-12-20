@@ -23,7 +23,7 @@ rabbitmqbrokerConnectionTimeout: 600
 rabbitmqbrokerVhost: ""
 
 daiteapEnvironmentUrl: dev.daiteap.com/#/app/platform/clusterdetails/
-userGuideUrl: daiteap.gitbook.io/daiteap/
+userGuideUrl: dev.daiteap.com/documentation/
 daiteapLogoUrl: dev.daiteap.com/img/logo.ce08e0fb.png
 appName: Daiteap
 singleUserMode: "False"
