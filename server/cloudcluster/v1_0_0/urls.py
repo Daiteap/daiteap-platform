@@ -135,7 +135,7 @@ urlpatterns = [
    path('clusters/yaook-supported-configurations', views.get_supported_yaookcapi_kubernetes_configurations),
    path('clusters/username-valid/<str:username>', views.is_cluster_username_valid),
    path('check-ip-address/<str:network>/<str:ip>', views.check_ip_address),
-   path('checkforipconflicts', views.check_for_ip_conflicts),
+   path('check-ip-conflicts', views.check_for_ip_conflicts),
 
    path('oauth/azure/createApp', views.oauth_azure_create_app),
    path('oauth/azure/getsubscriptions', views.oauth_azure_get_subscriptions),

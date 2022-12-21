@@ -8,6 +8,10 @@ from cloudcluster.serializers.user_serializer import UserSerializer
 from cloudcluster.serializers.project_serializer import ProjectSerializer
 from cloudcluster.serializers.cloud_account_serializer import CloudAccountSerializer
 from cloudcluster.serializers.bucket_serializer import BucketSerializer
+from cloudcluster.serializers.tenant_serializer import TenantSerializer, TenantSettingsSerializer, ActiveTenantsSerializer
+from cloudcluster.serializers.service_serializer import ServiceSerializer
+from cloudcluster.serializers.environment_template_serializer import EnvironmentTemplateSerializer
+from cloudcluster.serializers.cluster_serializer import ClustersSerializer
 from environment_providers.azure.services.oauth import AzureAuthClient
 import ipaddress
 import json
@@ -285,6 +289,15 @@ def check_ip_addresses(networks):
 
     return None
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'status': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Check if server is live.",
+    operation_summary="Check if server is live.")
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def is_alive(request):
@@ -292,7 +305,18 @@ def is_alive(request):
         'status': True
     })
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'version': openapi.Schema(type=openapi.TYPE_STRING),
+            'gitsha': openapi.Schema(type=openapi.TYPE_STRING),
+            'date': openapi.Schema(type=openapi.TYPE_STRING),
+            'time': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="Get API version.",
+    operation_summary="Get API version.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_version(request):
@@ -403,7 +427,7 @@ def project_list(request, tenant_id):
         operation_description="Get project.",
         operation_summary="Get project.")
 @swagger_auto_schema(method='put',
-        request_body= ProjectSerializer,
+        request_body=ProjectSerializer,
         responses={200: openapi.Response('', ProjectSerializer)},
         operation_description="Update project.",
         operation_summary="Update project.")
@@ -617,7 +641,6 @@ def bucket_list(request, tenant_id):
                 buckets.append(bucket)
 
         serializer = BucketSerializer(buckets, many=True)
-
         return Response(serializer.data)
 
     if request.method == 'POST':
@@ -689,6 +712,40 @@ def bucket_detail(request, tenant_id, bucket_id):
         bucket.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', UserSerializer)},
+    operation_description="Get workspace user.",
+    operation_summary="Get workspace user.")
+@swagger_auto_schema(method='delete',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'delete_success': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+            'message': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="Remove user from workspace.",
+    operation_summary="Remove user from workspace.")
+@swagger_auto_schema(method='put',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'firstname': openapi.Schema(type=openapi.TYPE_STRING, minLength=2, maxLength=100),
+            'lastname': openapi.Schema(type=openapi.TYPE_STRING, minLength=2, maxLength=100),
+            'company': openapi.Schema(type=openapi.TYPE_STRING),
+            'phone': openapi.Schema(type=openapi.TYPE_STRING),
+            'password': openapi.Schema(type=openapi.TYPE_STRING, minLength=8, maxLength=100)
+        },
+        required=['firstname', 'lastname', 'company', 'phone']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'submitted': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Update user info.",
+    operation_summary="Update user info.")
 @api_view(['GET', 'DELETE', 'PUT'])
 @permission_classes([IsAuthenticated])
 def tenant_users_detail(request, tenant_id, username):
@@ -715,7 +772,8 @@ def tenant_users_detail(request, tenant_id, username):
             'email': daiteap_user.user.email,
             'username': daiteap_user.user.username
         }
-        return JsonResponse(user)
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
 
     if request.method == 'DELETE':
         if not request.daiteap_user.isAdmin():
@@ -847,6 +905,21 @@ def tenant_users_detail(request, tenant_id, username):
             'submitted': True
         })
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'aws_key_provided': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+            'google_key_provided': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+            'azure_key_provided': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+            'openstack_key_provided': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+            'iotarm_key_provided': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+            'onpremise_key_provided': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+            'alicloud_key_provided': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Check provided credentials.",
+    operation_summary="Check provided credentials.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def check_provided_credentials(request, tenant_id):
@@ -854,6 +927,19 @@ def check_provided_credentials(request, tenant_id):
 
     return JsonResponse(response)
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'provider': openapi.Schema(type=openapi.TYPE_OBJECT,
+                properties={
+                    'status': openapi.Schema(type=openapi.TYPE_NUMBER),
+                    'error': openapi.Schema(type=openapi.TYPE_STRING)
+                })
+        }
+    ))},
+    operation_description="Check regions update status.",
+    operation_summary="Check regions update status.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.CloudAccountAccessPermission])
 def check_account_regions_update_status(request, tenant_id, cloudaccount_id):
@@ -870,7 +956,62 @@ def check_account_regions_update_status(request, tenant_id, cloudaccount_id):
 
     return JsonResponse(response)
 
-
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        description="Needed when credential isn't created yet.",
+        properties={
+            'credentials': openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                description="Select one provider.",
+                properties={
+                    'aws': openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'label': openapi.Schema(type=openapi.TYPE_STRING),
+                            'description': openapi.Schema(type=openapi.TYPE_STRING),
+                            'aws_access_key_id': openapi.Schema(type=openapi.TYPE_STRING),
+                            'aws_secret_access_key': openapi.Schema(type=openapi.TYPE_STRING)
+                        }
+                    ),
+                    'google': openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'label': openapi.Schema(type=openapi.TYPE_STRING),
+                            'description': openapi.Schema(type=openapi.TYPE_STRING),
+                            'google_key': openapi.Schema(type=openapi.TYPE_STRING)
+                        }
+                    ),
+                    'azure': openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'label': openapi.Schema(type=openapi.TYPE_STRING),
+                            'description': openapi.Schema(type=openapi.TYPE_STRING),
+                            'azure_tenant_id': openapi.Schema(type=openapi.TYPE_STRING),
+                            'azure_subscription_id': openapi.Schema(type=openapi.TYPE_STRING),
+                            'azure_client_id': openapi.Schema(type=openapi.TYPE_STRING),
+                            'azure_client_secret': openapi.Schema(type=openapi.TYPE_STRING)
+                        }
+                    ),
+                    'openstack': openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'label': openapi.Schema(type=openapi.TYPE_STRING),
+                            'description': openapi.Schema(type=openapi.TYPE_STRING),
+                            'application_credential_id': openapi.Schema(type=openapi.TYPE_STRING),
+                            'application_credential_secret': openapi.Schema(type=openapi.TYPE_STRING),
+                            'region_name': openapi.Schema(type=openapi.TYPE_STRING),
+                            'external_network_id': openapi.Schema(type=openapi.TYPE_STRING),
+                            'auth_url': openapi.Schema(type=openapi.TYPE_STRING)
+                        }
+                    )     
+                }
+            )
+        }
+    ),
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Validate cloud credential.",
+    operation_summary="Validate cloud credential.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def validate_credentials(request, tenant_id, cloudaccount_id = None):
@@ -1056,6 +1197,16 @@ def __update_user_cloud_credentials(request, payload):
         'submitted': True
     })
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'installStep': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'errorMsg': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="Get cluster installation status.",
+    operation_summary="Get cluster installation status.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def get_installation_status(request, tenant_id, cluster_id):
@@ -1106,7 +1257,16 @@ def get_installation_status(request, tenant_id, cluster_id):
     # return JSON response
     return JsonResponse(response)
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'resizeStep': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'errorMsg': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="Get cluster resize status.",
+    operation_summary="Get cluster resize status.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def get_resize_status(request, tenant_id, cluster_id):
@@ -1138,6 +1298,12 @@ def get_resize_status(request, tenant_id, cluster_id):
     # return JSON response
     return JsonResponse(response)
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_STRING
+    ))},
+    operation_description="OAuth Azure - admin consent.",
+    operation_summary="OAuth Azure - admin consent.")
 @api_view(['GET'])
 def oauth_azure_adminconsent(request):
     print('oauth_azure_adminconsent')
@@ -1146,6 +1312,12 @@ def oauth_azure_adminconsent(request):
 
     return HttpResponseRedirect(redirect_url)
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_STRING
+    ))},
+    operation_description="OAuth Azure - authorize.",
+    operation_summary="OAuth Azure - authorize.")
 @api_view(['GET'])
 def oauth_azure_authorize(request):
     print('oauth_azure_authorize')
@@ -1160,6 +1332,12 @@ def oauth_azure_authorize(request):
 
     return HttpResponseRedirect(redirect_url)
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_STRING
+    ))},
+    operation_description="OAuth Azure - create app.",
+    operation_summary="OAuth Azure - create app.")
 @api_view(['GET'])
 def oauth_azure_createapp(request):
     print('oauth_azure_createapp')
@@ -1172,6 +1350,22 @@ def oauth_azure_createapp(request):
 
     return HttpResponseRedirect(redirect_url)
 
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'origin': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['origin']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'auth_url': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="OAuth Azure - get auth url admin consent.",
+    operation_summary="OAuth Azure - get auth url admin consent.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def oauth_azure_get_auth_url_admin_consent(request):
@@ -1211,7 +1405,23 @@ def oauth_azure_get_auth_url_admin_consent(request):
 
     return JsonResponse({'auth_url': auth_url})
 
-
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'origin': openapi.Schema(type=openapi.TYPE_STRING),
+            'tenant': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['origin', 'tenant']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'auth_url': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="OAuth Azure - get auth url authorize.",
+    operation_summary="OAuth Azure - get auth url authorize.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def oauth_azure_get_auth_url_authorize(request):
@@ -1255,7 +1465,24 @@ def oauth_azure_get_auth_url_authorize(request):
 
     return JsonResponse({'auth_url': auth_url})
 
-
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'origin': openapi.Schema(type=openapi.TYPE_STRING),
+            'tenant': openapi.Schema(type=openapi.TYPE_STRING),
+            'subscriptionId': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['origin', 'tenant', 'subscriptionId']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'auth_url': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="OAuth Azure - get auth url create app.",
+    operation_summary="OAuth Azure - get auth url create app.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def oauth_azure_get_auth_url_create_app(request):
@@ -1303,7 +1530,20 @@ def oauth_azure_get_auth_url_create_app(request):
 
     return JsonResponse({'auth_url': auth_url})
 
-
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'tenant': openapi.Schema(type=openapi.TYPE_STRING),
+            'subscriptionId': openapi.Schema(type=openapi.TYPE_STRING),
+            'authCode': openapi.Schema(type=openapi.TYPE_STRING),
+            'origin': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['tenant', 'subscriptionId', 'authCode', 'origin']
+    ),
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="OAuth Azure - create app.",
+    operation_summary="OAuth Azure - create app.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def oauth_azure_create_app(request):
@@ -1350,7 +1590,31 @@ def oauth_azure_create_app(request):
         'taskId': celerytask.id
     })
 
-
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'tenant': openapi.Schema(type=openapi.TYPE_STRING),
+            'authCode': openapi.Schema(type=openapi.TYPE_STRING),
+            'origin': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['tenant', 'authCode', 'origin']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'subscriptions': openapi.Schema(type=openapi.TYPE_ARRAY,
+                items=openapi.Schema(type=openapi.TYPE_OBJECT,
+                    properties={
+                        'displayName': openapi.Schema(type=openapi.TYPE_STRING),
+                        'subscriptionId': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            )
+        }
+    ))},
+    operation_description="OAuth Azure - get subscriptions.",
+    operation_summary="OAuth Azure - get subscriptions.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def oauth_azure_get_subscriptions(request):
@@ -1392,7 +1656,22 @@ def oauth_azure_get_subscriptions(request):
 
     return JsonResponse(response_subscriptions)
 
-
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'origin': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['origin']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'auth_url': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="OAuth Google - get auth url projects.",
+    operation_summary="OAuth Google - get auth url projects.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def oauth_google_get_auth_url_projects(request):
@@ -1441,7 +1720,22 @@ def oauth_google_get_auth_url_projects(request):
 
     return JsonResponse(auth_url)
 
-
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['projectId']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'submitted': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="OAuth Google - create service account.",
+    operation_summary="OAuth Google - create service account.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def oauth_google_create_service_account(request):
@@ -1506,6 +1800,12 @@ def oauth_google_create_service_account(request):
 
     return response
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_STRING
+    ))},
+    operation_description="OAuth Google.",
+    operation_summary="OAuth Google.")
 @api_view(['GET'])
 def oauth_google(request):
     # get current uri
@@ -1516,7 +1816,30 @@ def oauth_google(request):
 
     return HttpResponseRedirect(redirect_url)
 
-
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'authCode': openapi.Schema(type=openapi.TYPE_STRING),
+            'origin': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['authCode', 'origin']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'projects': openapi.Schema(type=openapi.TYPE_ARRAY,
+                items=openapi.Schema(type=openapi.TYPE_OBJECT,
+                    properties={
+                        'name': openapi.Schema(type=openapi.TYPE_STRING),
+                        'projectId': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            )
+        }
+    ))},
+    operation_description="OAuth Google - get projects.",
+    operation_summary="OAuth Google - get projects.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def oauth_google_get_projects(request):
@@ -1560,7 +1883,20 @@ def oauth_google_get_projects(request):
 
     return JsonResponse(projects)
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'accounts': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'label': openapi.Schema(type=openapi.TYPE_STRING),
+                    'id': openapi.Schema(type=openapi.TYPE_NUMBER)
+                }
+        ))}
+    ))},
+    operation_description="Get provider credentials.",
+    operation_summary="Get provider credentials.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_provider_accounts(request, tenant_id, provider):
@@ -1616,7 +1952,17 @@ def get_provider_accounts(request, tenant_id, provider):
     # return JSON response
     return JsonResponse(response)
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'regions': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_STRING
+            ))
+        }
+    ))},
+    operation_description="Get cloud credential regions.",
+    operation_summary="Get cloud credential regions.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.CloudAccountAccessPermission])
 def get_valid_regions(request, tenant_id, cloudaccount_id):
@@ -1687,7 +2033,17 @@ def get_valid_regions(request, tenant_id, cloudaccount_id):
     # return JSON response
     return JsonResponse(response)
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'zones': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_STRING
+            ))
+        }
+    ))},
+    operation_description="Get cloud credential zones.",
+    operation_summary="Get cloud credential zones.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.CloudAccountAccessPermission])
 def get_valid_zones(request, tenant_id, cloudaccount_id, region):
@@ -1763,7 +2119,21 @@ def get_valid_zones(request, tenant_id, cloudaccount_id, region):
     # return JSON response
     return JsonResponse(response)
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'instances': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'name': openapi.Schema(type=openapi.TYPE_STRING),
+                    'description': openapi.Schema(type=openapi.TYPE_STRING)
+                }
+            ))
+        }
+    ))},
+    operation_description="Get cloud credential instances.",
+    operation_summary="Get cloud credential instances.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.CloudAccountAccessPermission])
 def get_valid_instances(request, tenant_id, cloudaccount_id, region, zone = None):
@@ -1846,7 +2216,21 @@ def get_valid_instances(request, tenant_id, cloudaccount_id, region, zone = None
     # return JSON response
     return JsonResponse(response)
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'operatingSystems': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'value': openapi.Schema(type=openapi.TYPE_STRING),
+                    'os': openapi.Schema(type=openapi.TYPE_STRING)
+                }
+            ))
+        }
+    ))},
+    operation_description="Get cloud credential operating systems.",
+    operation_summary="Get cloud credential operating systems.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.CloudAccountAccessPermission])
 @cache_page(60 * 15)
@@ -1939,7 +2323,10 @@ def get_valid_operating_systems(request, tenant_id, cloudaccount_id, region, env
     # return JSON response
     return JsonResponse(response)
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', ServiceSerializer(many=True))},
+    operation_description="Get services.",
+    operation_summary="Get services.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_service_list(request):
@@ -1963,14 +2350,18 @@ def get_service_list(request):
             }
         )
 
-    response = {
-        'serviceList': service_list
-    }
+    serializer = ServiceSerializer(service_list, many=True)
+    return Response(serializer.data)
 
-    # return JSON response
-    return JsonResponse(response)
-
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'values': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="Get service values.",
+    operation_summary="Get service values.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_service_values(request, service):
@@ -2012,7 +2403,23 @@ def get_service_values(request, service):
     # return JSON response
     return JsonResponse(response)
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'connection_info': openapi.Schema(type=openapi.TYPE_OBJECT,
+                properties={
+                    'username': openapi.Schema(type=openapi.TYPE_STRING),
+                    'password': openapi.Schema(type=openapi.TYPE_STRING),
+                    'addresses': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                        type=openapi.TYPE_STRING
+                    ))
+                }
+            )
+        }
+    ))},
+    operation_description="Get cluster service connection info.",
+    operation_summary="Get cluster service connection info.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def get_service_connection_info(request, tenant_id, cluster_id, service, namespace = None):
@@ -2082,7 +2489,15 @@ def get_service_connection_info(request, tenant_id, cluster_id, service, namespa
     # return JSON response
     return JsonResponse(response)
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'defaultName': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="Get cluster service default name.",
+    operation_summary="Get cluster service default name.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def generate_cluster_service_default_name(request, tenant_id, cluster_id, service):
@@ -2137,7 +2552,10 @@ def generate_cluster_service_default_name(request, tenant_id, cluster_id, servic
     # return JSON response
     return JsonResponse(response)
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', ClustersSerializer(many=True))},
+    operation_description="Get clusters.",
+    operation_summary="Get clusters.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_cluster_list(request, tenant_id):
@@ -2280,9 +2698,18 @@ def get_cluster_list(request, tenant_id):
                              'services_count': cluster_services
         })
 
-    # return JSON response
-    return JsonResponse(cluster_list, safe=False)
+    serializer = ClustersSerializer(cluster_list, many=True)
+    return Response(serializer.data)
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'free': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Check if cluster name is available.",
+    operation_summary="Check if cluster name is available.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def is_cluster_name_free(request, tenant_id, name):
@@ -2340,6 +2767,15 @@ def is_cluster_name_free(request, tenant_id, name):
         'free': True
     })
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'free': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Check if compute cluster name is available.",
+    operation_summary="Check if compute cluster name is available.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def is_compute_name_free(request, tenant_id, name):
@@ -2385,6 +2821,15 @@ def is_compute_name_free(request, tenant_id, name):
         'free': True
     })
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'free': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Check if DLCMv2 cluster name is available.",
+    operation_summary="Check if DLCMv2 cluster name is available.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def is_dlcmv2_name_free(request, tenant_id, name):
@@ -2430,6 +2875,15 @@ def is_dlcmv2_name_free(request, tenant_id, name):
         'free': True
     })
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'free': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Check if project name is available.",
+    operation_summary="Check if project name is available.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def is_project_name_free(request, tenant_id, name):
@@ -2449,7 +2903,50 @@ def is_project_name_free(request, tenant_id, name):
         'free': True
     })
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'options': openapi.Schema(type=openapi.TYPE_OBJECT,
+                properties={
+                    'name': openapi.Schema(type=openapi.TYPE_OBJECT,
+                        properties={
+                            'choice': openapi.Schema(type=openapi.TYPE_STRING),
+                            'type': openapi.Schema(type=openapi.TYPE_STRING)
+                        }),
+                    'namespace': openapi.Schema(type=openapi.TYPE_OBJECT,
+                        properties={
+                            'choice': openapi.Schema(type=openapi.TYPE_STRING),
+                            'type': openapi.Schema(type=openapi.TYPE_STRING),
+                            'default': openapi.Schema(type=openapi.TYPE_STRING)
+                        }),
+                    'service_type': openapi.Schema(type=openapi.TYPE_OBJECT,
+                        properties={
+                            'choice': openapi.Schema(type=openapi.TYPE_STRING),
+                            'values': openapi.Schema(type=openapi.TYPE_ARRAY,
+                                items=openapi.Schema(type=openapi.TYPE_STRING)
+                            ),
+                            'default': openapi.Schema(type=openapi.TYPE_STRING)
+                        }),
+                    'cloud_providers': openapi.Schema(type=openapi.TYPE_OBJECT,
+                        properties={
+                            'choice': openapi.Schema(type=openapi.TYPE_STRING),
+                            'values': openapi.Schema(type=openapi.TYPE_ARRAY,
+                                items=openapi.Schema(type=openapi.TYPE_STRING)
+                            )
+                        }),
+                    'replicas': openapi.Schema(type=openapi.TYPE_OBJECT,
+                        properties={
+                            'choice': openapi.Schema(type=openapi.TYPE_STRING),
+                            'type': openapi.Schema(type=openapi.TYPE_STRING),
+                            'default': openapi.Schema(type=openapi.TYPE_NUMBER)
+                        }),
+                    'yamlConfig': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+                })
+        }
+    ))},
+    operation_description="Get service options.",
+    operation_summary="Get service options.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_service_options(request, service):
@@ -2476,7 +2973,27 @@ def get_service_options(request, service):
     # return JSON response
     return JsonResponse(response)
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', ClustersSerializer)},
+    operation_description="Get cluster details.",
+    operation_summary="Get cluster details.")
+@swagger_auto_schema(method='put',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'name': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=1024),
+            'description': openapi.Schema(type=openapi.TYPE_STRING, maxLength=1024)
+        },
+        required=['name', 'description']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'submitted': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Update cluster.",
+    operation_summary="Update cluster.")
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def cluster_details(request, tenant_id, cluster_id):
@@ -2764,8 +3281,8 @@ def cluster_details(request, tenant_id, cluster_id):
                 response['kubernetesConfiguration']['podsSubnet'] = config['kubernetesConfiguration']['podsSubnet']
                 response['kubernetesConfiguration']['serviceAddresses'] = config['kubernetesConfiguration']['serviceAddresses']
 
-        # return JSON response
-        return JsonResponse(response)
+        serializer = ClustersSerializer(response)
+        return Response(serializer.data)
 
     if request.method == 'PUT':
         # Validate request
@@ -2833,7 +3350,10 @@ def cluster_details(request, tenant_id, cluster_id):
             'submitted': True
         })
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Get cluster storage.",
+    operation_summary="Get cluster storage.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def get_cluster_storage(request, tenant_id, cluster_id):
@@ -2865,7 +3385,19 @@ def get_cluster_storage(request, tenant_id, cluster_id):
         'taskId': celerytask.id
     })
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'config': constants.ENVIRONMENT_CONFIG_SCHEMA,
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING),
+            'name': openapi.Schema(type=openapi.TYPE_STRING),
+            'description': openapi.Schema(type=openapi.TYPE_STRING),
+            'gatewayCloud': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="Get cluster config.",
+    operation_summary="Get cluster config.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def get_cluster_config(request, tenant_id, cluster_id):
@@ -2917,7 +3449,17 @@ def get_cluster_config(request, tenant_id, cluster_id):
     # return JSON response
     return JsonResponse(response)
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'upgradeVersions': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_STRING
+            ))
+        }
+    ))},
+    operation_description="Get Kubernetes upgrade versions.",
+    operation_summary="Get Kubernetes upgrade versions.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def get_kubernetes_available_upgrade_versions(request, tenant_id, cluster_id):
@@ -2949,6 +3491,17 @@ def get_kubernetes_available_upgrade_versions(request, tenant_id, cluster_id):
     # return JSON response
     return JsonResponse(response)
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'upgradeVersions': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_STRING
+            ))
+        }
+    ))},
+    operation_description="Get K3S upgrade versions.",
+    operation_summary="Get K3S upgrade versions.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def get_k3s_available_upgrade_versions(request, tenant_id, cluster_id):
@@ -2978,6 +3531,15 @@ def get_k3s_available_upgrade_versions(request, tenant_id, cluster_id):
     # return JSON response
     return JsonResponse(response)
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'kubeconfig': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="Get cluster kubeconfig.",
+    operation_summary="Get cluster kubeconfig.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def get_cluster_kubeconfig(request, tenant_id, cluster_id):
@@ -2998,6 +3560,15 @@ def get_cluster_kubeconfig(request, tenant_id, cluster_id):
         'kubeconfig': config
     })
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'wireguardconfig': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="Get cluster wireguard config.",
+    operation_summary="Get cluster wireguard config.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def get_wireguard_config(request, tenant_id, cluster_id):
@@ -3016,7 +3587,15 @@ def get_wireguard_config(request, tenant_id, cluster_id):
         'wireguardconfig': wireguard_user_config
     })
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'kubeconfig': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="Get user kubeconfig.",
+    operation_summary="Get user kubeconfig.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def get_user_kubeconfig(request, tenant_id, cluster_id, username):
@@ -3045,7 +3624,10 @@ def get_user_kubeconfig(request, tenant_id, cluster_id, username):
         'kubeconfig': config
     })
 
-
+@swagger_auto_schema(method='delete',
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Delete cluster.",
+    operation_summary="Delete cluster.")
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def delete_cluster(request, tenant_id, cluster_id):
@@ -3110,6 +3692,10 @@ def delete_cluster(request, tenant_id, cluster_id):
         'taskId': celerytask.id
     })
 
+@swagger_auto_schema(method='delete',
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Delete compute node.",
+    operation_summary="Delete compute node.")
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def remove_compute_node(request, tenant_id, cluster_id, node_id):
@@ -3140,7 +3726,7 @@ def remove_compute_node(request, tenant_id, cluster_id, node_id):
             if not account.checkUserAccess(request.daiteap_user):
                 return JsonResponse({
                     'error': {
-                        'message': 'Project access denied.',
+                        'message': 'Cloud credential access denied.',
                     }
                 }, status=403)
 
@@ -3217,7 +3803,10 @@ def remove_compute_node(request, tenant_id, cluster_id, node_id):
         'taskId': celerytask.id
     })
 
-
+@swagger_auto_schema(method='post',
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Stop cluster.",
+    operation_summary="Stop cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def stop_cluster(request, tenant_id, cluster_id):
@@ -3287,7 +3876,10 @@ def stop_cluster(request, tenant_id, cluster_id):
         'taskId': celerytask.id
     })
 
-
+@swagger_auto_schema(method='post',
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Start cluster.",
+    operation_summary="Start cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def start_cluster(request, tenant_id, cluster_id):
@@ -3357,6 +3949,10 @@ def start_cluster(request, tenant_id, cluster_id):
         'taskId': celerytask.id
     })
 
+@swagger_auto_schema(method='post',
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Restart cluster.",
+    operation_summary="Restart cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def restart_cluster(request, tenant_id, cluster_id):
@@ -3426,6 +4022,17 @@ def restart_cluster(request, tenant_id, cluster_id):
         'taskId': celerytask.id
     })
 
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'machineProvider': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=9)
+        },
+        required=['machineProvider']
+    ),
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Stop machine.",
+    operation_summary="Stop machine.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def stop_machine(request, tenant_id, cluster_id, machine):
@@ -3552,7 +4159,17 @@ def stop_machine(request, tenant_id, cluster_id, machine):
         'taskId': celerytask.id
     })
 
-
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'machineProvider': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=9)
+        },
+        required=['machineProvider']
+    ),
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Start machine.",
+    operation_summary="Start machine.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def start_machine(request, tenant_id, cluster_id, machine):
@@ -3679,7 +4296,17 @@ def start_machine(request, tenant_id, cluster_id, machine):
         'taskId': celerytask.id
     })
 
-
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'machineProvider': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=9)
+        },
+        required=['machineProvider']
+    ),
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Restart machine.",
+    operation_summary="Restart machine.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def restart_machine(request, tenant_id, cluster_id, machine):
@@ -3806,7 +4433,20 @@ def restart_machine(request, tenant_id, cluster_id, machine):
         'taskId': celerytask.id
     })
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'supportedKubernetesVersions': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_STRING
+            )),
+            'supportedKubernetesNetworkPlugins': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_STRING
+            ))
+        }
+    ))},
+    operation_description="Get supported Kubernetes configurations.",
+    operation_summary="Get supported Kubernetes configurations.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_supported_kubernetes_configurations(request):
@@ -3815,6 +4455,20 @@ def get_supported_kubernetes_configurations(request):
 
     return JsonResponse(response)
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'supportedKubernetesVersions': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_STRING
+            )),
+            'supportedKubernetesNetworkPlugins': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_STRING
+            ))
+        }
+    ))},
+    operation_description="Get supported Kubeadm configurations.",
+    operation_summary="Get supported Kubeadm configurations.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_supported_kubeadm_configurations(request):
@@ -3823,6 +4477,17 @@ def get_supported_kubeadm_configurations(request):
 
     return JsonResponse(response)
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'supportedKubernetesVersions': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_STRING
+            ))
+        }
+    ))},
+    operation_description="Get supported CAPI configurations.",
+    operation_summary="Get supported CAPI configurations.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_supported_capi_kubernetes_configurations(request):
@@ -3830,6 +4495,17 @@ def get_supported_capi_kubernetes_configurations(request):
 
     return JsonResponse(response)
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'supportedKubernetesVersions': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_STRING
+            ))
+        }
+    ))},
+    operation_description="Get supported YaookCAPI configurations.",
+    operation_summary="Get supported YaookCAPI configurations.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_supported_yaookcapi_kubernetes_configurations(request):
@@ -3837,6 +4513,20 @@ def get_supported_yaookcapi_kubernetes_configurations(request):
 
     return JsonResponse(response)
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'supportedKubernetesVersions': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_STRING
+            )),
+            'supportedKubernetesNetworkPlugins': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_STRING
+            ))
+        }
+    ))},
+    operation_description="Get supported K3S configurations.",
+    operation_summary="Get supported K3S configurations.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_supported_k3s_configurations(request):
@@ -3845,7 +4535,20 @@ def get_supported_k3s_configurations(request):
 
     return JsonResponse(response)
 
-
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'clusterName': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=1024),
+            'clusterDescription': openapi.Schema(type=openapi.TYPE_STRING, maxLength=1024),
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36)
+        },
+        required=['clusterName', 'projectId'],
+        additional_properties=constants.ENVIRONMENT_CONFIG_SCHEMA
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Create DLCM cluster.",
+    operation_summary="Create DLCM cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_dlcm(request):
@@ -4033,6 +4736,18 @@ def create_dlcm(request):
         'taskId': celerytask.id
     })
 
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36)
+        },
+        required=['projectId'],
+        additional_properties=constants.ENVIRONMENT_CONFIG_SCHEMA
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Get Terraform plan for cluster resize.",
+    operation_summary="Get Terraform plan for cluster resize.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def get_tf_plan(request, tenant_id, cluster_id):
@@ -4040,6 +4755,7 @@ def get_tf_plan(request, tenant_id, cluster_id):
     payload, error = get_request_body(request)
     if error:
         return error
+    payload['clusterID'] = cluster_id
     schema = constants.RESIZE_KUBERNETES_INPUT_VALIDATION_SCHEMA
     schema = environment_providers.add_input_validation_schemas(schema, payload)
     try:
@@ -4111,6 +4827,18 @@ def get_tf_plan(request, tenant_id, cluster_id):
         'taskId': celerytask.id
     })
 
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36)
+        },
+        required=['projectId'],
+        additional_properties=constants.ENVIRONMENT_CONFIG_SCHEMA
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Resize DLCMv2 cluster.",
+    operation_summary="Resize DLCMv2 cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def resize_dlcm_v2(request, tenant_id, cluster_id):
@@ -4118,6 +4846,7 @@ def resize_dlcm_v2(request, tenant_id, cluster_id):
     payload, error = get_request_body(request)
     if error:
         return error
+    payload['clusterID'] = cluster_id
     schema = constants.RESIZE_KUBERNETES_INPUT_VALIDATION_SCHEMA
     schema = environment_providers.add_input_validation_schemas(schema, payload)
     try:
@@ -4154,7 +4883,7 @@ def resize_dlcm_v2(request, tenant_id, cluster_id):
             if not account.checkUserAccess(request.daiteap_user):
                 return JsonResponse({
                     'error': {
-                        'message': 'Project access denied.',
+                        'message': 'Cloud credential access denied.',
                     }
                 }, status=403)
 
@@ -4264,7 +4993,20 @@ def resize_dlcm_v2(request, tenant_id, cluster_id):
         'taskId': celerytask.id
     })
 
-
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'clusterName': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=1024),
+            'clusterDescription': openapi.Schema(type=openapi.TYPE_STRING, maxLength=1024),
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36)
+        },
+        required=['clusterName', 'projectId'],
+        additional_properties=constants.ENVIRONMENT_CONFIG_SCHEMA
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Create DLCMv2 cluster.",
+    operation_summary="Create DLCMv2 cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_dlcm_v2(request, tenant_id):
@@ -4297,7 +5039,7 @@ def create_dlcm_v2(request, tenant_id):
             if not account.checkUserAccess(request.daiteap_user):
                 return JsonResponse({
                     'error': {
-                        'message': 'Project access denied.',
+                        'message': 'Cloud credential access denied.',
                     }
                 }, status=403)
 
@@ -4470,6 +5212,20 @@ def create_dlcm_v2(request, tenant_id):
         'taskId': celerytask.id
     })
 
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'clusterName': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=1024),
+            'clusterDescription': openapi.Schema(type=openapi.TYPE_STRING, maxLength=1024),
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36)
+        },
+        required=['clusterName', 'projectId'],
+        additional_properties=constants.ENVIRONMENT_CONFIG_SCHEMA
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Create CAPI cluster.",
+    operation_summary="Create CAPI cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_capi_cluster(request, tenant_id):
@@ -4649,6 +5405,11 @@ def create_capi_cluster(request, tenant_id):
         'taskId': celerytask.id
     })
 
+@swagger_auto_schema(method='post',
+    request_body=constants.ENVIRONMENT_CONFIG_SCHEMA,
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Resize CAPI cluster.",
+    operation_summary="Resize CAPI cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def resize_capi_cluster(request, tenant_id, cluster_id):
@@ -4656,6 +5417,7 @@ def resize_capi_cluster(request, tenant_id, cluster_id):
     payload, error = get_request_body(request)
     if error:
         return error
+    payload['clusterID'] = cluster_id
     schema = constants.RESIZE_CAPI_INPUT_VALIDATION_SCHEMA
     try:
         validate(instance=payload, schema=schema)
@@ -4732,7 +5494,10 @@ def resize_capi_cluster(request, tenant_id, cluster_id):
         'taskId': celerytask.id
     })
 
-
+@swagger_auto_schema(method='delete',
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Delete CAPI cluster.",
+    operation_summary="Delete CAPI cluster.")
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def delete_capi_cluster(request, tenant_id, cluster_id):
@@ -4779,8 +5544,22 @@ def delete_capi_cluster(request, tenant_id, cluster_id):
 
     return JsonResponse({
         'taskId': celerytask.id
-        })
+    })
 
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'clusterName': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=1024),
+            'clusterDescription': openapi.Schema(type=openapi.TYPE_STRING, maxLength=1024),
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36)
+        },
+        required=['clusterName', 'projectId'],
+        additional_properties=constants.ENVIRONMENT_CONFIG_SCHEMA
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Create YaookCAPI cluster.",
+    operation_summary="Create YaookCAPI cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_yaookcapi_cluster(request, tenant_id):
@@ -4951,6 +5730,11 @@ def create_yaookcapi_cluster(request, tenant_id):
         'taskId': celerytask.id
     })
 
+@swagger_auto_schema(method='post',
+    request_body=constants.ENVIRONMENT_CONFIG_SCHEMA,
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Resize YaookCAPI cluster.",
+    operation_summary="Resize YaookCAPI cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def resize_yaookcapi_cluster(request, tenant_id, cluster_id):
@@ -4958,6 +5742,7 @@ def resize_yaookcapi_cluster(request, tenant_id, cluster_id):
     payload, error = get_request_body(request)
     if error:
         return error
+    payload['clusterID'] = cluster_id
     schema = constants.RESIZE_YAOOKCAPI_INPUT_VALIDATION_SCHEMA
     try:
         validate(instance=payload, schema=schema)
@@ -5034,6 +5819,10 @@ def resize_yaookcapi_cluster(request, tenant_id, cluster_id):
         'taskId': celerytask.id
     })
 
+@swagger_auto_schema(method='delete',
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Delete YaookCAPI cluster.",
+    operation_summary="Delete YaookCAPI cluster.")
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def delete_yaookcapi_cluster(request, tenant_id, cluster_id):
@@ -5080,8 +5869,22 @@ def delete_yaookcapi_cluster(request, tenant_id, cluster_id):
 
     return JsonResponse({
         'taskId': celerytask.id
-        })
+    })
 
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'clusterName': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=1024),
+            'clusterDescription': openapi.Schema(type=openapi.TYPE_STRING, maxLength=1024),
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36)
+        },
+        required=['clusterName', 'projectId'],
+        additional_properties=constants.ENVIRONMENT_CONFIG_SCHEMA
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Create K3S cluster.",
+    operation_summary="Create K3S cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_k3s_cluster(request, tenant_id):
@@ -5279,6 +6082,17 @@ def create_k3s_cluster(request, tenant_id):
         'taskId': celerytask.id
     })
 
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'version': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=50)
+        },
+        required=['version']
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Upgrade Kubernetes cluster.",
+    operation_summary="Upgrade Kubernetes cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def upgrade_kubernetes_cluster(request, tenant_id, cluster_id):
@@ -5364,6 +6178,17 @@ def upgrade_kubernetes_cluster(request, tenant_id, cluster_id):
         'ID': cluster.id
     })
 
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'version': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=50)
+        },
+        required=['version']
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Upgrade K3S cluster.",
+    operation_summary="Upgrade K3S cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def upgrade_k3s_cluster(request, tenant_id, cluster_id):
@@ -5449,6 +6274,10 @@ def upgrade_k3s_cluster(request, tenant_id, cluster_id):
         'ID': cluster.id
     })
 
+@swagger_auto_schema(method='post',
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Retry K3S cluster creation.",
+    operation_summary="Retry K3S cluster creation.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def retry_create_k3s_cluster(request, tenant_id, cluster_id):
@@ -5499,6 +6328,16 @@ def retry_create_k3s_cluster(request, tenant_id, cluster_id):
         'ID': cluster.id
     })
 
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'config': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=50)
+        }
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Retry DLCM cluster creation.",
+    operation_summary="Retry DLCM cluster creation.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def retry_create_dlcm(request, tenant_id, cluster_id):
@@ -5617,311 +6456,10 @@ def retry_create_dlcm(request, tenant_id, cluster_id):
         'ID': cluster.id
     })
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def retry_resize_dlcm(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            }
-        },
-        "required": ["clusterID"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    username = request.user
-
-    # Get user's cluster
-    try:
-        cluster = models.Clusters.objects.filter(project__tenant__daiteapuser__user=username, id=payload['clusterID'])[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
-
-    if cluster.resizestep >= 0:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Cluster status does not allow retry'
-            }
-        }, status=500)
-
-    try:
-        task = tasks.worker_add_machines_to_dlcm.delay(json.loads(cluster.config), cluster.id, request.user.id)
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    # Remove user old entries
-    old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
-    old_celerytasks.delete()
-
-    # Create new entry
-    celerytask = models.CeleryTask(user=request.user, task_id=task.id)
-    celerytask.save()
-
-    # return JSON response
-    return JsonResponse({
-        'taskId': celerytask.id,
-        'ID': cluster.id
-    })
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def retry_resize_dlcm_v2(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            }
-        },
-        "required": ["clusterID"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    username = request.user
-
-    # Get user's cluster
-    try:
-        cluster = models.Clusters.objects.filter(project__tenant__daiteapuser__user=username, id=payload['clusterID'])[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
-
-    workspace_settings = models.TenantSettings.objects.get(tenant=cluster.project.tenant)
-    if not workspace_settings.enable_cluster_resize:
-        return JsonResponse({
-            'error': {
-                'message': 'Resize is not enabled in the workspace',
-            }
-        }, status=400)
-
-    if cluster.resizestep >= 0:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Cluster status does not allow retry'
-            }
-        }, status=500)
-
-    try:
-        task = tasks.worker_add_machines_to_dlcm_v2.delay(json.loads(cluster.config), cluster.id, request.user.id)
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    # Remove user old entries
-    old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
-    old_celerytasks.delete()
-
-    # Create new entry
-    celerytask = models.CeleryTask(user=request.user, task_id=task.id)
-    celerytask.save()
-
-    # return JSON response
-    return JsonResponse({
-        'taskId': celerytask.id,
-        'ID': cluster.id
-    })
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def retry_resize_vms_cluster(request):
-    # Validate request
-    payload, error = get_request_body(request)
-    if error is not None:
-        return error
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "clusterID": {
-                "type": "string",
-                "minLength": 36,
-                "maxLength": 36
-            }
-        },
-        "required": ["clusterID"]
-    }
-
-    try:
-        validate(instance=payload, schema=schema)
-    except ValidationError as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    username = request.user
-
-    # Get user's cluster
-    try:
-        cluster = models.Clusters.objects.filter(project__tenant__daiteapuser__user=username, id=payload['clusterID'])[0]
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Invalid parameter clusterID'
-            }
-        }, status=500)
-
-    if cluster.resizestep >= 0:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'environment_id': payload['clusterID'],
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error('Invalid parameter clusterID', extra=log_data)
-        return JsonResponse({
-            'error': {
-                'message': 'Cluster status does not allow retry'
-            }
-        }, status=500)
-
-    try:
-        task = tasks.worker_add_machines_to_vms.delay(json.loads(cluster.config), request.user.id)
-    except Exception as e:
-        log_data = {
-            'level': 'ERROR',
-            'user_id': str(request.user.id),
-            'client_request': json.loads(request.body.decode('utf-8')),
-        }
-        logger.error(str(e), extra=log_data)
-
-        return JsonResponse({
-            'error': {
-                'message': str(e),
-            }
-        }, status=400)
-
-    # Remove user old entries
-    old_celerytasks = models.CeleryTask.objects.filter(user=request.user, created_at__lte=(timezone.now()-timedelta(hours=1)))
-    old_celerytasks.delete()
-
-    # Create new entry
-    celerytask = models.CeleryTask(user=request.user, task_id=task.id)
-    celerytask.save()
-
-    # return JSON response
-    return JsonResponse({
-        'taskId': celerytask.id,
-        'ID': cluster.id
-    })
-
-
+@swagger_auto_schema(method='post',
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Retry compute cluster creation.",
+    operation_summary="Retry compute cluster creation.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def retry_create_compute_vms(request, tenant_id, cluster_id):
@@ -5966,6 +6504,10 @@ def retry_create_compute_vms(request, tenant_id, cluster_id):
         'ID': cluster.id
     })
 
+@swagger_auto_schema(method='post',
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Cancel cluster creation.",
+    operation_summary="Cancel cluster creation.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def cancel_cluster_creation(request, tenant_id, cluster_id):
@@ -6019,7 +6561,21 @@ def cancel_cluster_creation(request, tenant_id, cluster_id):
         'taskId': celerytask.id
     })
 
-
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'provider': openapi.Schema(type=openapi.TYPE_STRING, minLength=2, maxLength=10),
+            'region': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=20),
+            'zone': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=25),
+            'nodes': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'instanceType': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=50)
+        },
+        required=['provider', 'region', 'zone', 'nodes', 'instanceType']
+    ),
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Add machines to VMs cluster.",
+    operation_summary="Add machines to VMs cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def add_machines_to_vms(request, tenant_id, cluster_id):
@@ -6188,6 +6744,21 @@ def add_machines_to_vms(request, tenant_id, cluster_id):
         'taskId': celerytask.id
     })
 
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'provider': openapi.Schema(type=openapi.TYPE_STRING, minLength=2, maxLength=10),
+            'region': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=20),
+            'zone': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=25),
+            'nodes': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'instanceType': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=50)
+        },
+        required=['provider', 'region', 'zone', 'nodes', 'instanceType']
+    ),
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Add machines to K3S cluster.",
+    operation_summary="Add machines to K3S cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def add_machines_to_k3s(request, tenant_id, cluster_id):
@@ -6357,6 +6928,21 @@ def add_machines_to_k3s(request, tenant_id, cluster_id):
         'taskId': celerytask.id
     })
 
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'provider': openapi.Schema(type=openapi.TYPE_STRING, minLength=2, maxLength=10),
+            'region': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=20),
+            'zone': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=25),
+            'nodes': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'instanceType': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=50)
+        },
+        required=['provider', 'region', 'zone', 'nodes', 'instanceType']
+    ),
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Add machines to DLCM cluster.",
+    operation_summary="Add machines to DLCM cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def add_machines_to_dlcm(request, tenant_id, cluster_id):
@@ -6526,7 +7112,21 @@ def add_machines_to_dlcm(request, tenant_id, cluster_id):
         'taskId': celerytask.id
     })
 
-
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'provider': openapi.Schema(type=openapi.TYPE_STRING, minLength=2, maxLength=10),
+            'region': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=20),
+            'zone': openapi.Schema(type=openapi.TYPE_STRING, minLength=3, maxLength=25),
+            'nodes': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'instanceType': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=50)
+        },
+        required=['provider', 'region', 'zone', 'nodes', 'instanceType']
+    ),
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Add machines to DLCMv2 cluster.",
+    operation_summary="Add machines to DLCMv2 cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def add_machines_to_dlcm_v2(request, tenant_id, cluster_id):
@@ -6702,7 +7302,25 @@ def add_machines_to_dlcm_v2(request, tenant_id, cluster_id):
         'taskId': celerytask.id
     })
 
-
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'networks': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_STRING
+            ))
+        },
+        required=['networks']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'conflicts': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+            'message': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="Check for IP conflicts.",
+    operation_summary="Check for IP conflicts.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def check_for_ip_conflicts(request):
@@ -6749,6 +7367,15 @@ def check_for_ip_conflicts(request):
         'conflicts': False,
     })
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'error': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Check IP address.",
+    operation_summary="Check IP address.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def check_ip_address(request, network, ip):
@@ -6764,6 +7391,10 @@ def check_ip_address(request, network, ip):
         'error': False,
     })
 
+@swagger_auto_schema(method='post',
+    responses={200: openapi.Response('', ProfileSerializer)},
+    operation_description="Delete machine from VMs.",
+    operation_summary="Delete machine from VMs.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def delete_machine_from_vms(request):
@@ -6894,7 +7525,23 @@ def delete_machine_from_vms(request):
         'submitted': True
     })
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'status': openapi.Schema(type=openapi.TYPE_STRING),
+            'error': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+            'errorMessage': openapi.Schema(type=openapi.TYPE_STRING),
+            'lcmStatuses': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'field': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                }
+            ))
+        }
+    ))},
+    operation_description="Get task message.",
+    operation_summary="Get task message.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_task_message(request, task_id):
@@ -6954,7 +7601,10 @@ def get_task_message(request, task_id):
 
     return JsonResponse(response)
 
-
+@swagger_auto_schema(method='post',
+    responses={200: openapi.Response('', ProfileSerializer)},
+    operation_description="Create VMs.",
+    operation_summary="Create VMs.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_VMs(request):
@@ -7102,6 +7752,20 @@ def create_VMs(request):
         'ID': cluster.id
     })
 
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'clusterName': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=1024),
+            'clusterDescription': openapi.Schema(type=openapi.TYPE_STRING, maxLength=1024),
+            'projectId': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36)
+        },
+        required=['clusterName', 'projectId'],
+        additional_properties=constants.ENVIRONMENT_CONFIG_SCHEMA
+    ),
+    responses={200: openapi.Response('', constants.ENV_ID_TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Create compute cluster.",
+    operation_summary="Create compute cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_compute_VMs(request, tenant_id):
@@ -7136,7 +7800,7 @@ def create_compute_VMs(request, tenant_id):
             if not account.checkUserAccess(request.daiteap_user):
                 return JsonResponse({
                     'error': {
-                        'message': 'Project access denied.',
+                        'message': 'Cloud credential access denied.',
                     }
                 }, status=403)
 
@@ -7266,6 +7930,25 @@ def create_compute_VMs(request, tenant_id):
         'ID': cluster.id
     })
 
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'serviceName': openapi.Schema(type=openapi.TYPE_STRING, minLength=5, maxLength=30),
+            'configurationType': openapi.Schema(type=openapi.TYPE_STRING, minLength=10, maxLength=12),
+            'valuesFile': openapi.Schema(type=openapi.TYPE_FILE),
+            'name': openapi.Schema(type=openapi.TYPE_STRING),
+            'namespace': openapi.Schema(type=openapi.TYPE_STRING),
+            'service_type': openapi.Schema(type=openapi.TYPE_STRING),
+            'cloud_providers': openapi.Schema(type=openapi.TYPE_STRING),
+            'replicas': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'yamlConfig': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        },
+        required=['serviceName', 'configurationType']
+    ),
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Add service to cluster.",
+    operation_summary="Add service to cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def add_service(request, tenant_id, cluster_id):
@@ -7581,6 +8264,10 @@ def add_service(request, tenant_id, cluster_id):
         'taskId': celerytask.id
     })
 
+@swagger_auto_schema(method='delete',
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Delete service from cluster.",
+    operation_summary="Delete service from cluster.")
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def delete_service(request, tenant_id, cluster_id, service, namespace = None):
@@ -7688,6 +8375,15 @@ def delete_service(request, tenant_id, cluster_id, service, namespace = None):
         'taskId': celerytask.id
     })
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'free': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Check if cluster username is available.",
+    operation_summary="Check if cluster username is available.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def is_cluster_username_free(request, tenant_id, cluster_id, username):
@@ -7749,7 +8445,15 @@ def is_cluster_username_free(request, tenant_id, cluster_id, username):
         'free': True
     })
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'valid': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Check if cluster username is valid.",
+    operation_summary="Check if cluster username is valid.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def is_cluster_username_valid(request, username):
@@ -7795,6 +8499,23 @@ def is_cluster_username_valid(request, username):
         'valid': True
     })
 
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'username': openapi.Schema(type=openapi.TYPE_STRING),
+            'firstName': openapi.Schema(type=openapi.TYPE_STRING, maxLength=23),
+            'lastName': openapi.Schema(type=openapi.TYPE_STRING, maxLength=23),
+            'email': openapi.Schema(type=openapi.TYPE_STRING, maxLength=150, format=openapi.FORMAT_EMAIL),
+            'publicSSHKey': openapi.Schema(type=openapi.TYPE_STRING, minLength=20, maxLength=10000),
+            'clusterID': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36),
+            'kubernetesUser': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        },
+        required=['username', 'publicSSHKey', 'clusterID', 'kubernetesUser']
+    ),
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Add user to cluster.",
+    operation_summary="Add user to cluster.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def add_user_to_cluster(request, tenant_id, cluster_id):
@@ -7981,7 +8702,10 @@ users:
         'taskId': celerytask.id
     })
 
-
+@swagger_auto_schema(method='post',
+    responses={200: openapi.Response('', constants.TASK_ID_RESPONSE_SCHEMA)},
+    operation_description="Remove cluster user.",
+    operation_summary="Remove cluster user.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def delete_user_from_cluster(request, tenant_id, cluster_id, username):
@@ -8050,7 +8774,15 @@ def delete_user_from_cluster(request, tenant_id, cluster_id, username):
         'taskId': celerytask.id
     })
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'canUpdateUserPassword': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Check if password can be changed.",
+    operation_summary="Check if password can be changed.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def can_update_user_password(request):
@@ -8069,7 +8801,24 @@ def can_update_user_password(request):
         'canUpdateUserPassword': can_update_password
     })
 
-
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'current_password': openapi.Schema(type=openapi.TYPE_STRING, minLength=2, maxLength=150),
+            'new_password': openapi.Schema(type=openapi.TYPE_STRING, minLength=6, maxLength=100),
+            'new_password_confirmation': openapi.Schema(type=openapi.TYPE_STRING, minLength=6, maxLength=100)
+        },
+        required=['current_password', 'new_password', 'new_password_confirmation']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'submitted': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Change password.",
+    operation_summary="Change password.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def change_user_password(request):
@@ -8196,7 +8945,22 @@ def change_user_password(request):
         'submitted': True
     })
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'limit_kubernetes_cluster_environments': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'limit_compute_vms_environments': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'limit_nodes': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'limit_services': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'used_kubernetes_cluster_environments': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'used_compute_vms_environments': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'used_nodes': openapi.Schema(type=openapi.TYPE_NUMBER),
+            'used_services': openapi.Schema(type=openapi.TYPE_NUMBER)
+        }
+    ))},
+    operation_description="Get resource quotas.",
+    operation_summary="Get resource quotas.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_usage(request, tenant_id):
@@ -8213,11 +8977,14 @@ def get_usage(request, tenant_id):
 
     return JsonResponse(response_json)
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', ActiveTenantsSerializer)},
+    operation_description="Get workspaces.",
+    operation_summary="Get workspaces.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_active_tenants(request):
     daiteap_users = models.DaiteapUser.objects.filter(user=request.user)
-
     tenants = []
 
     if len(daiteap_users) > 0:
@@ -8236,11 +9003,29 @@ def get_active_tenants(request):
                     'selected': user.selected
                 })
 
-    return JsonResponse({
-        "activeTenants": tenants,
+    active_tenants = TenantSerializer(tenants, many=True)
+    serializer = ActiveTenantsSerializer({
+        "activeTenants": active_tenants.data,
         "selectedTenant": request.daiteap_user.tenant_id
     })
+    return Response(serializer.data)
 
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'selectedTenant': openapi.Schema(type=openapi.TYPE_STRING, minLength=36, maxLength=36)
+        },
+        required=['selectedTenant']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'submitted': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Change workspace.",
+    operation_summary="Change workspace.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def select_tenant(request):
@@ -8288,6 +9073,40 @@ def select_tenant(request):
 
     return JsonResponse({'submitted': True})
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'location': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="Get profile picture.",
+    operation_summary="Get profile picture.")
+@swagger_auto_schema(method='delete',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'done': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Delete profile picture.",
+    operation_summary="Delete profile picture.")
+@swagger_auto_schema(method='put',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'picture': openapi.Schema(type=openapi.TYPE_FILE)
+        },
+        required=['picture']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'submitted': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Update profile picture.",
+    operation_summary="Update profile picture.")
 @api_view(['GET', 'DELETE', 'PUT'])
 @permission_classes([IsAuthenticated])
 def user_profile_picture(request):
@@ -8316,8 +9135,8 @@ def user_profile_picture(request):
         profile.save()
 
         return JsonResponse({
-                'done': True
-            }, status=200)
+            'done': True
+        }, status=200)
 
     if request.method == 'PUT':
         if 'CONTENT_TYPE' not in request.META:
@@ -8360,6 +9179,17 @@ def user_profile_picture(request):
 
         return JsonResponse({'submitted': True})
 
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'name': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=1024)
+        },
+        required=['name']
+    ),
+    responses={200: ''},
+    operation_description="Create template from environment.",
+    operation_summary="Create template from environment.")
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ClusterAccessPermission])
 def save_environment_template(request, tenant_id, cluster_id):
@@ -8452,19 +9282,34 @@ def save_environment_template(request, tenant_id, cluster_id):
 
     return HttpResponse(status=201)
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', EnvironmentTemplateSerializer(many=True))},
+    operation_description="Get environment templates.",
+    operation_summary="Get environment templates.")
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'name': openapi.Schema(type=openapi.TYPE_STRING, minLength=1, maxLength=1024),
+            'description': openapi.Schema(type=openapi.TYPE_STRING, maxLength=1024),
+            'clusterName': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['name'],
+        additional_properties=constants.ENVIRONMENT_CONFIG_SCHEMA
+    ),
+    responses={200: ''},
+    operation_description="Create environment template.",
+    operation_summary="Create environment template.")
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def environment_templates_list(request, tenant_id):
     if request.method == 'GET':
         environment_templates = models.EnvironmentTemplate.objects.filter(tenant_id=tenant_id)
-
-        response = {'environmentTemplates': []}
+        user_env_templates = []
 
         for environment_template in environment_templates:
-            
             if environment_template.checkUserAccess(request.daiteap_user):
-                response['environmentTemplates'].append({
+                user_env_templates.append({
                     'name': environment_template.name,
                     'id': environment_template.id,
                     'created_at': environment_template.created_at,
@@ -8474,7 +9319,8 @@ def environment_templates_list(request, tenant_id):
                     'contact': environment_template.contact,
                 })
 
-        return JsonResponse(response, status=200)
+        serializer = EnvironmentTemplateSerializer(user_env_templates, many=True)
+        return Response(serializer.data)
 
     if request.method == 'POST':
         request_body, error = get_request_body(request)
@@ -8729,7 +9575,19 @@ def environment_templates_list(request, tenant_id):
 
         return HttpResponse(status=201)
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', EnvironmentTemplateSerializer)},
+    operation_description="Get environment template.",
+    operation_summary="Get environment template.")
+@swagger_auto_schema(method='delete',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'submitted': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Delete environment template.",
+    operation_summary="Delete environment template.")
 @api_view(['GET', 'DELETE'])
 @permission_classes([IsAuthenticated, custom_permissions.EnvironmentTemplateAccessPermission])
 def environment_template_detail(request, tenant_id, environment_template_id):
@@ -8738,7 +9596,7 @@ def environment_template_detail(request, tenant_id, environment_template_id):
     if request.method == 'GET':
         config = json.loads(environment_template.config)
 
-        response = {
+        env_template = {
             'name': environment_template.name,
             'id': environment_template.id,
             'created_at': environment_template.created_at,
@@ -8749,7 +9607,8 @@ def environment_template_detail(request, tenant_id, environment_template_id):
             'config': config,
         }
 
-        return JsonResponse(response, status=200)
+        serializer = EnvironmentTemplateSerializer(env_template)
+        return JsonResponse(serializer.data)
 
     if request.method == 'DELETE':
         try:
@@ -8770,7 +9629,15 @@ def environment_template_detail(request, tenant_id, environment_template_id):
             'submitted': True
         })
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'free': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Check if environment template name is available.",
+    operation_summary="Check if environment template name is available.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def is_environment_template_name_free(request, tenant_id, name):
@@ -8819,21 +9686,53 @@ def is_environment_template_name_free(request, tenant_id, name):
         'free': True
     })
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_timezones(_):
-
-    timezones = []
-
-    for tz in pytz.common_timezones:
-        tz_info = ({'name': tz, 'offset': datetime.datetime.now(pytz.timezone(tz)).strftime('%z')})
-        timezones.append(tz_info)
-
-    response = {'timezones': timezones}
-
-    return JsonResponse(response, status=200)
-
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'users_list': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'username': openapi.Schema(type=openapi.TYPE_STRING),
+                    'firstname': openapi.Schema(type=openapi.TYPE_STRING),
+                    'lastname': openapi.Schema(type=openapi.TYPE_STRING),
+                    'projects': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                        type=openapi.TYPE_STRING
+                    )),
+                    'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL),
+                    'role': openapi.Schema(type=openapi.TYPE_STRING),
+                    'phone': openapi.Schema(type=openapi.TYPE_STRING),
+                    'company': openapi.Schema(type=openapi.TYPE_STRING),
+                    'id': openapi.Schema(type=openapi.TYPE_NUMBER)
+                }
+            ))
+        }
+    ))},
+    operation_description="Get workspace users.",
+    operation_summary="Get workspace users.")
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'username': openapi.Schema(type=openapi.TYPE_STRING),
+            'firstname': openapi.Schema(type=openapi.TYPE_STRING),
+            'lastname': openapi.Schema(type=openapi.TYPE_STRING),
+            'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL),
+            'company': openapi.Schema(type=openapi.TYPE_STRING),
+            'phone': openapi.Schema(type=openapi.TYPE_STRING),
+            'sshpubkey': openapi.Schema(type=openapi.TYPE_STRING),
+            'userRole': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['username', 'firstname', 'lastname', 'email', 'userRole']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'user_created': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Add user to workspace.",
+    operation_summary="Add user to workspace.")
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated, custom_permissions.IsAdmin])
 def tenant_users(request, tenant_id):
@@ -8888,7 +9787,8 @@ def tenant_users(request, tenant_id):
             profile.company  = request_body['company']
         if 'phone' in request_body:
             profile.phone = request_body['phone']
-        profile.sshpubkey = request_body['sshpubkey']
+        if 'sshpubkey' in request_body:
+            profile.sshpubkey = request_body['sshpubkey']
         daiteapuser.role = request_body['userRole']
         daiteapuser.save()
         profile.news_subscribbed = news_subscribbed
@@ -8906,6 +9806,10 @@ def tenant_users(request, tenant_id):
 
         return JsonResponse({'user_created': True})
 
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', UserSerializer(many=True))},
+    operation_description="Get users who aren't in workspace.",
+    operation_summary="Get users who aren't in workspace.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.IsAdmin])
 def get_unregistered_users(request, tenant_id):
@@ -8921,13 +9825,13 @@ def get_unregistered_users(request, tenant_id):
         platform_user = {
             'username': user['username'],
             'email': user['email'],
-            'firstName': '',
-            'lastName': ''
+            'first_name': '',
+            'last_name': ''
         }
         if 'firstName' in user:
-            platform_user['firstName'] = user['firstName']
+            platform_user['first_name'] = user['firstName']
         if 'lastName' in user:
-            platform_user['lastName'] = user['lastName']
+            platform_user['last_name'] = user['lastName']
         
         platform_users.append(platform_user)
 
@@ -8940,9 +9844,18 @@ def get_unregistered_users(request, tenant_id):
         if user['username'] not in all_tenant_users:
             unregisteredUsers.append(user)
 
-    return JsonResponse({'unregisteredUsers': unregisteredUsers})
+    serializer = UserSerializer(unregisteredUsers, many=True)
+    return Response(serializer.data)
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'isRegistered': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Check if user is registered.",
+    operation_summary="Check if user is registered.")
 @api_view(['GET'])
 def is_registered(request):
     if hasattr(request, 'userinfo') and request.userinfo and request.user:
@@ -8950,7 +9863,30 @@ def is_registered(request):
     else:
         return JsonResponse({'isRegistered': False})
 
-
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'userinfo': openapi.Schema(type=openapi.TYPE_OBJECT,
+                properties={
+                    'preferred_username': openapi.Schema(type=openapi.TYPE_STRING),
+                    'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL),
+                    'given_name': openapi.Schema(type=openapi.TYPE_STRING),
+                    'family_name': openapi.Schema(type=openapi.TYPE_STRING)
+                },
+                required=['preferred_username', 'email']
+            )
+        },
+        required=['userinfo']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'user_created': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Register user.",
+    operation_summary="Register user.")
 @api_view(['POST'])
 @permission_classes([custom_permissions.IsUnregistered])
 def register_tenant_user(request):
@@ -9008,7 +9944,44 @@ def register_tenant_user(request):
 
     return JsonResponse({'user_created': True})
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'users_list': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'username': openapi.Schema(type=openapi.TYPE_STRING),
+                    'firstname': openapi.Schema(type=openapi.TYPE_STRING),
+                    'lastname': openapi.Schema(type=openapi.TYPE_STRING),
+                    'projects': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                        type=openapi.TYPE_STRING
+                    )),
+                    'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL),
+                    'role': openapi.Schema(type=openapi.TYPE_STRING),
+                    'phone': openapi.Schema(type=openapi.TYPE_STRING)
+                }
+            ))
+        }
+    ))},
+    operation_description="Get project users.",
+    operation_summary="Get project users.")
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'username': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['username']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'success': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Add user to project.",
+    operation_summary="Add user to project.")
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated, custom_permissions.ProjectAccessPermission])
 def project_users(request, tenant_id, project_id):
@@ -9056,6 +10029,15 @@ def project_users(request, tenant_id, project_id):
 
         return JsonResponse({'success': True})
 
+@swagger_auto_schema(method='delete',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'success': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Remove user from project.",
+    operation_summary="Remove user from project.")
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated, custom_permissions.ProjectAccessPermission])
 def project_users_detail(request, tenant_id, project_id, username):
@@ -9170,56 +10152,39 @@ def sync_users(task_delay=True):
 
     return True
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', TenantSerializer)},
+    operation_description="Get workspace.",
+    operation_summary="Get workspace.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def account_tenant(request, tenant_id):
-    tenant = models.Tenant.objects.filter(id=tenant_id).values('id', 'name', 'company')[0]
+    tenant = models.Tenant.objects.get(id=tenant_id)
+    serializer = TenantSerializer(tenant)
+    return Response(serializer.data)
 
-    return JsonResponse({'tenant': tenant})
-
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', TenantSettingsSerializer)},
+    operation_description="Get workspace settings.",
+    operation_summary="Get workspace settings.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def account_get_settings(request, tenant_id):
     tenant = models.Tenant.objects.get(id=tenant_id)
-
-    account = {
-        'name': tenant.name,
-        'owner': tenant.owner,
-        'email': tenant.email,
-        'phone': tenant.phone,
-        'company': tenant.company,
-        'status': tenant.status,
-    }
-
     settings = models.TenantSettings.objects.get(tenant=tenant)
-    account_settings = {
-        'enable_compute': settings.enable_compute,
-        'enable_storage': settings.enable_storage,
-        'enable_service_catalog': settings.enable_service_catalog,
-        'enable_templates': settings.enable_templates,
-        'enable_kubernetes_dlcm': settings.enable_kubernetes_dlcm,
-        'enable_kubernetes_k3s': settings.enable_kubernetes_k3s,
-        'enable_kubernetes_capi': settings.enable_kubernetes_capi,
-        'enable_kubernetes_yaookcapi': settings.enable_kubernetes_yaookcapi,
-        'advanced_cluster_configuration': settings.advanced_cluster_configuration,
-        'enable_cluster_resize': settings.enable_cluster_resize,
-        'providers_enable_gcp': settings.providers_enable_gcp,
-        'providers_enable_aws': settings.providers_enable_aws,
-        'providers_enable_ali': settings.providers_enable_ali,
-        'providers_enable_azure': settings.providers_enable_azure,
-        'providers_enable_onprem': settings.providers_enable_onprem,
-        'providers_enable_openstack': settings.providers_enable_openstack,
-        'providers_enable_arm': settings.providers_enable_arm,
-    }
 
-    return JsonResponse({
-        'account': account,
-        'account_settings': account_settings,
-    })
+    serializer = TenantSettingsSerializer(settings)
+    return Response(serializer.data)
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'region_name': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="Get provider parameters.",
+    operation_summary="Get provider parameters.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def suggest_account_params(request, provider):
@@ -9227,7 +10192,56 @@ def suggest_account_params(request, provider):
 
     return JsonResponse(autosuggested_params)
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'content_type': openapi.Schema(type=openapi.TYPE_STRING),
+            'contents': openapi.Schema(type=openapi.TYPE_FILE, description='Byte array.'),
+            'files': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'path': openapi.Schema(type=openapi.TYPE_STRING),
+                    'basename': openapi.Schema(type=openapi.TYPE_STRING),
+                    'type': openapi.Schema(type=openapi.TYPE_STRING),
+                    'content_type': openapi.Schema(type=openapi.TYPE_STRING),
+                    'size': openapi.Schema(type=openapi.TYPE_NUMBER)
+                }
+            ))
+        }
+    ))},
+    operation_description="Buckets - get single file contents or all files in a directory.",
+    operation_summary="Buckets - get single file contents or all files in a directory.")
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'content_type': openapi.Schema(type=openapi.TYPE_STRING,
+                description='For directories - "folder".'
+            ),
+            'contents': openapi.Schema(type=openapi.TYPE_FILE,
+                description='For directories - empty string, for files - byte array.'
+            )
+        },
+        required=['content_type', 'contents']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'done': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Buckets - add file or create directory.",
+    operation_summary="Buckets - add file or create directory.")
+@swagger_auto_schema(method='delete',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'done': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+        }
+    ))},
+    operation_description="Buckets - delete file or directory.",
+    operation_summary="Buckets - delete file or directory.")
 @api_view(['GET', 'POST', 'DELETE'])
 @permission_classes([IsAuthenticated, custom_permissions.BucketAccessPermission])
 def bucket_files(request, tenant_id, bucket_id, path):
@@ -9338,7 +10352,21 @@ def bucket_files(request, tenant_id, bucket_id, path):
         else:
             return JsonResponse(response, status=200)
 
-
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'storage_accounts': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'name': openapi.Schema(type=openapi.TYPE_STRING),
+                    'credential_id': openapi.Schema(type=openapi.TYPE_STRING)
+                }
+            ))
+        }
+    ))},
+    operation_description="Get storage accounts for cloud credential.",
+    operation_summary="Get storage accounts for cloud credential.")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, custom_permissions.CloudAccountAccessPermission])
 def get_storage_accounts(request, tenant_id, cloudaccount_id):
