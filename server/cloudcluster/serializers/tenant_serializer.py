@@ -5,11 +5,14 @@ from rest_framework import serializers
 
 class TenantSerializer(serializers.ModelSerializer):
     selected = serializers.BooleanField(required=False)
+    createdAt = serializers.DateTimeField(required=False)
+    updatedAt = serializers.DateTimeField(required=False)
 
     class Meta:
         model = Tenant
         fields = ("id", "name", "owner", "email", "phone", "company",
-                  "status", "created_at", "updated_at", "selected")
+                  "status", "created_at", "updated_at", "selected",
+                  "createdAt", "updatedAt")
         read_only_fields = ("id", "created_at", "updated_at")
 
     def create(self, validated_data):
@@ -32,6 +35,8 @@ class ActiveTenantsSerializer(serializers.Serializer):
 
 
 class TenantSettingsSerializer(serializers.ModelSerializer):
+    tenant = TenantSerializer(required=True)
+
     class Meta:
         model = TenantSettings
         fields = ("tenant", "enable_compute", "enable_storage", "enable_service_catalog", "enable_templates",
