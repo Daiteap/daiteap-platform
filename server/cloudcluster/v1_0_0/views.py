@@ -1075,19 +1075,11 @@ def validate_credentials(request, tenant_id, cloudaccount_id = None):
 
             # Check if there's an active validation for this credential
             celerytasks = celery.app.control.inspect()
-            workers = celerytasks.active()
-            for worker in workers:
-                for task in workers[worker]:
-                    if 'validate_credentials' in task['name']:
-                        if task['args'][0]['id'] == account.id:
-                            return JsonResponse({
-                                'error': {
-                                    'message': 'Credential validation is currently in progress.'
-                                }
-                            }, status=400)
-            workers = celerytasks.reserved()
-            for worker in workers:
-                for task in workers[worker]:
+            active_tasks = celerytasks.active()
+            reserved_tasks = celerytasks.reserved()
+            for worker in active_tasks:
+                active_tasks[worker].extend(reserved_tasks[worker])
+                for task in active_tasks[worker]:
                     if 'validate_credentials' in task['name']:
                         if task['args'][0]['id'] == account.id:
                             return JsonResponse({
