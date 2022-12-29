@@ -33,7 +33,7 @@ import yaml
 from rest_framework.response import Response
 from _datetime import timedelta
 from celery.result import AsyncResult
-from cloudcluster import models
+from cloudcluster import models, celery
 from cloudcluster.settings import (API_GIT_COMMIT_INFO,
                                    AZURE_CLIENT_ADMINCONSENT_URI,
                                    AZURE_CLIENT_AUTHORIZE_URI,
@@ -1073,12 +1073,20 @@ def validate_credentials(request, tenant_id, cloudaccount_id = None):
                     }
                 }, status=403)
 
-            if account.valid == None:
-                return JsonResponse({
-                    'error': {
-                        'message': 'Account validation is not fisnished yet'
-                    }
-                }, status=403)
+            # Check if there's an active validation for this credential
+            celerytasks = celery.app.control.inspect()
+            active_tasks = celerytasks.active()
+            reserved_tasks = celerytasks.reserved()
+            for worker in active_tasks:
+                active_tasks[worker].extend(reserved_tasks[worker])
+                for task in active_tasks[worker]:
+                    if 'validate_credentials' in task['name']:
+                        if task['args'][0]['id'] == account.id:
+                            return JsonResponse({
+                                'error': {
+                                    'message': 'Credential validation is currently in progress.'
+                                }
+                            }, status=400)
 
             account.valid = None
             account.save()

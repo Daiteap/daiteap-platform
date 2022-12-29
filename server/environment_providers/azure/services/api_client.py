@@ -220,7 +220,7 @@ def get_missing_client_permissions(azure_tenant_id, azure_subscription_id, azure
     )
     accessToken = app.acquire_token_for_client(scopes=['https://graph.microsoft.com/.default'])
     decodedAccessToken = jwt.decode(accessToken['access_token'], verify=False)
-    if 'Directory.Read.All' not in decodedAccessToken['roles']:
+    if 'roles' not in decodedAccessToken or 'Directory.Read.All' not in decodedAccessToken['roles']:
         missing_permissions.append('Missing permission for Microsoft Graph')
 
     if '*' in all_client_permissions:
@@ -943,13 +943,14 @@ def get_cloud_account_info(azure_credentials):
     cloud_data['application'] = application['value'][0]['displayName']
     app_id = application['value'][0]['id']
 
+    cloud_data['user_principal_name'] = ""
     app_owners = msgraph_client.get('/applications/' + app_id + '/owners').json()
     if len(app_owners['value']) > 0:
         cloud_data['created_by'] = app_owners['value'][0]['displayName']
         try:
             cloud_data['user_principal_name'] = app_owners['value'][0]['userPrincipalName']
         except:
-            cloud_data['user_principal_name'] = ""
+            pass
 
     cloud_data['organization'] = msgraph_client.get('/organization').json()['value'][0]['displayName']
 
