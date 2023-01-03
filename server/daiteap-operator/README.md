@@ -17,13 +17,13 @@ scripts/kind-cluster.sh
 0. Install CRDs
 
 ```sh
-kubectl apply -f server/daiteap-operator/config/crd/bases/cluster.daiteap.com_kubernetesclusters.yaml
+make install
 ```
 
 1. Install Instances of Custom Resources:
 
 ```sh
-kubectl apply -f server/daiteap-operator/config/samples/cluster_v1alpha1_kubernetescluster.yaml
+kubectl apply -f config/samples/cluster_v1alpha1_kubernetescluster.yaml
 ```
 
 2. Build and push your image to the location specified by `IMG`:
