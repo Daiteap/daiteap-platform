@@ -10,7 +10,8 @@
 		"ghcr.io/mpriscella/features/kind:1": {},
 		"ghcr.io/natescherer/devcontainers-custom-features/k9s:1": {},
 		"ghcr.io/devcontainers/features/go:1": {},
-		"ghcr.io/devcontainers/features/docker-in-docker:2": {}
+		"ghcr.io/devcontainers/features/docker-in-docker:2": {},
+		"ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {}
 	}
 
 	// Features to add to the dev container. More info: https://containers.dev/features.

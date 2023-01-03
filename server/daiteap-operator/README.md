@@ -8,11 +8,22 @@ This operator will manage resources of type KubernetesCluster, which will implem
 You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
 **Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
 
+To create a local kind cluster, run the script:
+```sh
+scripts/kind-cluster.sh
+```
+
 ### Running on the cluster
+0. Install CRDs
+
+```sh
+kubectl apply -f server/daiteap-operator/config/crd/bases/cluster.daiteap.com_kubernetesclusters.yaml
+```
+
 1. Install Instances of Custom Resources:
 
 ```sh
-kubectl apply -f config/samples/
+kubectl apply -f server/daiteap-operator/config/samples/cluster_v1alpha1_kubernetescluster.yaml
 ```
 
 2. Build and push your image to the location specified by `IMG`:
