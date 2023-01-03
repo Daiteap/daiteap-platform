@@ -1,0 +1,12 @@
+apiVersion: cluster.daiteap.com/v1alpha1
+kind: KubernetesCluster
+metadata:
+  labels:
+    app.kubernetes.io/name: kubernetescluster
+    app.kubernetes.io/instance: kubernetescluster-sample
+    app.kubernetes.io/part-of: daiteap-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: daiteap-operator
+  name: kubernetescluster-sample
+spec:
+  # TODO(user): Add fields here

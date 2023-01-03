@@ -1,0 +1,31 @@
+# permissions for end users to edit kubernetesclusters.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: kubernetescluster-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: daiteap-operator
+    app.kubernetes.io/part-of: daiteap-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: kubernetescluster-editor-role
+rules:
+- apiGroups:
+  - cluster.daiteap.com
+  resources:
+  - kubernetesclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cluster.daiteap.com
+  resources:
+  - kubernetesclusters/status
+  verbs:
+  - get
