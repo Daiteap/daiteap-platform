@@ -1,27 +1,31 @@
-# permissions for end users to view kubernetesclusters.
+# permissions for end users to edit cloudinstances.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
     app.kubernetes.io/name: clusterrole
-    app.kubernetes.io/instance: kubernetescluster-viewer-role
+    app.kubernetes.io/instance: cloudinstance-editor-role
     app.kubernetes.io/component: rbac
     app.kubernetes.io/created-by: daiteap-operator
     app.kubernetes.io/part-of: daiteap-operator
     app.kubernetes.io/managed-by: kustomize
-  name: kubernetescluster-viewer-role
+  name: cloudinstance-editor-role
 rules:
 - apiGroups:
   - daiteap.com.daiteap.com
   resources:
-  - kubernetesclusters
+  - cloudinstances
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - daiteap.com.daiteap.com
   resources:
-  - kubernetesclusters/status
+  - cloudinstances/status
   verbs:
   - get

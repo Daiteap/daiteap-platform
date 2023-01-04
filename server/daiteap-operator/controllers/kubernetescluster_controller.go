@@ -19,12 +19,14 @@ package controllers
 import (
 	"context"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	clusterv1alpha1 "github.com/Daiteap/daiteap-platform/api/v1alpha1"
+	daiteapcomv1alpha1 "github.com/daiteap/daiteap-operator/api/v1alpha1"
 )
 
 // KubernetesClusterReconciler reconciles a KubernetesCluster object
@@ -33,9 +35,9 @@ type KubernetesClusterReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=cluster.daiteap.com,resources=kubernetesclusters,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=cluster.daiteap.com,resources=kubernetesclusters/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=cluster.daiteap.com,resources=kubernetesclusters/finalizers,verbs=update
+//+kubebuilder:rbac:groups=daiteap.com.daiteap.com,resources=kubernetesclusters,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=daiteap.com.daiteap.com,resources=kubernetesclusters/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=daiteap.com.daiteap.com,resources=kubernetesclusters/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -50,7 +52,78 @@ func (r *KubernetesClusterReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	logger := log.FromContext(ctx)
 
 	// TODO(user): your logic here
-	logger.Info("Reconcile msg")
+	kubernetescluster := &daiteapcomv1alpha1.KubernetesCluster{}
+	err := r.Get(ctx, req.NamespacedName, kubernetescluster)
+	if err != nil {
+		logger.Error(err, "Failed to retrieve object")
+		return ctrl.Result{}, err
+	}
+
+	// check if associated CloudInstances exist
+	var listInstances daiteapcomv1alpha1.CloudInstanceList
+	logger.Info("Checking for 1 CloudInstance")
+	err = r.List(ctx, &listInstances, &client.ListOptions{Raw: &v1.ListOptions{}})
+	if err != nil {
+		logger.Error(err, "Failed list CloudInstances")
+		return ctrl.Result{}, err
+	}
+
+	count := 0
+	for _, instance := range listInstances.Items {
+		println("Instance ownerReferences: ", len(instance.OwnerReferences))
+		for _, ref := range instance.OwnerReferences {
+			if ref.APIVersion == kubernetescluster.APIVersion &&
+				ref.Kind == "KubernetesCluster" &&
+				ref.UID == kubernetescluster.UID &&
+				ref.Name == kubernetescluster.Name {
+				count++
+			}
+		}
+	}
+	println("--- found instances: ", count)
+
+	switch kubernetescluster.Spec.Size {
+	case "S":
+		if count < 1 {
+			// create 1 CloudInstance per provider
+			newInstance := daiteapcomv1alpha1.CloudInstance{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "instance1",
+					Namespace: kubernetescluster.Namespace,
+				},
+				Spec: daiteapcomv1alpha1.CloudInstanceSpec{
+					Flavor:          "flavor1",
+					CloudCredential: kubernetescluster.Spec.CloudCredential[0], // hardcode first CloudCredential
+				},
+			}
+			err = r.Create(ctx, &newInstance)
+			if err != nil {
+				logger.Error(err, "Failed to create CloudInstance object")
+				return ctrl.Result{}, err
+			}
+			logger.Info("Created CloudInstance object")
+
+			err = controllerutil.SetOwnerReference(kubernetescluster, &newInstance, r.Scheme)
+			if err != nil {
+				logger.Error(err, "Failed to set OwnerReference")
+				return ctrl.Result{}, err
+			}
+			err = r.Update(ctx, &newInstance)
+			if err != nil {
+				logger.Error(err, "Failed to update CloudInstance object")
+				return ctrl.Result{}, err
+			}
+
+			logger.Info("OwnerReference set")
+		}
+
+	case "M":
+		logger.Info("Checking for 2 CloudInstances")
+	case "L":
+		logger.Info("Checking for 3 CloudInstances")
+	case "XL":
+		logger.Info("Checking for 4 CloudInstances")
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -58,6 +131,6 @@ func (r *KubernetesClusterReconciler) Reconcile(ctx context.Context, req ctrl.Re
 // SetupWithManager sets up the controller with the Manager.
 func (r *KubernetesClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&clusterv1alpha1.KubernetesCluster{}).
+		For(&daiteapcomv1alpha1.KubernetesCluster{}).
 		Complete(r)
 }
