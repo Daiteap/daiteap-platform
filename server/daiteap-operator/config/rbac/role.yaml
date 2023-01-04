@@ -1,0 +1,85 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - daiteap.com.daiteap.com
+  resources:
+  - cloudcredentials
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - daiteap.com.daiteap.com
+  resources:
+  - cloudcredentials/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - daiteap.com.daiteap.com
+  resources:
+  - cloudcredentials/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - daiteap.com.daiteap.com
+  resources:
+  - cloudinstances
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - daiteap.com.daiteap.com
+  resources:
+  - cloudinstances/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - daiteap.com.daiteap.com
+  resources:
+  - cloudinstances/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - daiteap.com.daiteap.com
+  resources:
+  - kubernetesclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - daiteap.com.daiteap.com
+  resources:
+  - kubernetesclusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - daiteap.com.daiteap.com
+  resources:
+  - kubernetesclusters/status
+  verbs:
+  - get
+  - patch
+  - update
