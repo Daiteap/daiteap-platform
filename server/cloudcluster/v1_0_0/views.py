@@ -61,7 +61,7 @@ from PIL import Image
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from .services import authorization_service, constants, vault_service
+from .services import authorization_service, constants, vault_service, data_masker
 from .keycloak.keycloak import KeycloakConnect
 from .services.random_string import (get_random_alphanumeric_string,
                                      get_random_lowercase_hex_letters)
@@ -7584,7 +7584,7 @@ def get_task_message(request, task_id):
 
         if 'error' in msg:
             response['error'] = True
-            response['errorMessage'] = msg['error']
+            response['errorMessage'] = data_masker.mask_in_string(msg['error'])
             response['status'] = 'ERROR'
 
         for key in msg.keys():
