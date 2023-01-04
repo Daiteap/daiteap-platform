@@ -8,6 +8,11 @@ This operator will manage resources of type KubernetesCluster, which will implem
 You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
 **Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
 
+Install operator-sdk:
+```sh
+scripts/install.sh
+```
+
 To create a local kind cluster, run the script:
 ```sh
 scripts/kind-cluster.sh

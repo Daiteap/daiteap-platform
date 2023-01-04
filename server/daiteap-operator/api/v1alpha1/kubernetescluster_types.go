@@ -29,7 +29,11 @@ type KubernetesClusterSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of KubernetesCluster. Edit kubernetescluster_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Project     string `json:"project,omitempty"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+
+	Size string `json:"size"`
 }
 
 // KubernetesClusterStatus defines the observed state of KubernetesCluster
