@@ -52,6 +52,15 @@ class Command(BaseCommand):
                     'implemented': True
                 },
                 {
+                    'name': 'nginx-ingress',
+                    'logo_url': '/media/service_logo/nginx-ingress.png',
+                    'description': 'NGINX is a free, open-source, high-performance HTTP server and reverse proxy, as well as an IMAP/POP3 proxy server.',
+                    'options': '{"name": {"choice": "custom", "type": "string"}, "namespace": {"choice": "custom", "type": "string", "default": "default"}, "service_type": {"choice": "single", "values": ["NodePort", "LoadBalancer"], "default": "NodePort"}, "cloud_providers": {"choice": "multiple", "values": ["google", "aws", "azure", "alicloud", "openstack"]}, "replicas": {"choice": "custom", "type": "int", "default": 1}, "yamlConfig": true}',
+                    'categories': [],
+                    'implemented': True,
+                    'visible': False,
+                },
+                {
                     'name': 'nextcloud',
                     'logo_url': '/media/service_logo/nextcloud.png',
                     'description': 'Nextcloud is a suite of client-server software for creating and using file hosting services. It is enterprise-ready with comprehensive support options.',
@@ -225,7 +234,8 @@ class Command(BaseCommand):
                     'logo_url': '/media/service_logo/cert-manager.png',
                     'description': 'Cert Manager is a native Kubernetes certificate management controller.',
                     'options': '',
-                    'categories': []
+                    'categories': [],
+                    'visible': False
                 },
                 {
                     'name': 'php-myadmin',
@@ -267,6 +277,14 @@ class Command(BaseCommand):
             for service in services:
                 if Service.objects.filter(name=service['name']).count() == 0:
                     service_obj = Service(name=service['name'],logo_url=service['logo_url'],description=service['description'],options=service['options'])
+                    if 'accessible_from_browser' in service:
+                        service_obj.accessible_from_browser = service['accessible_from_browser']
+                    if 'implemented' in service:
+                        service_obj.implemented = service['implemented']
+                    if 'visible' in service:
+                        service_obj.visible = service['visible']
+                    if 'supports_multiple_installs' in service:
+                        service_obj.supports_multiple_installs = service['supports_multiple_installs']
                     service_obj.save()
                     for category in service['categories']:
                         service_obj.categories.add(ServiceCategory.objects.filter(name=category)[0])
@@ -279,6 +297,8 @@ class Command(BaseCommand):
                         service_obj.accessible_from_browser = service['accessible_from_browser']
                     if 'implemented' in service:
                         service_obj.implemented = service['implemented']
+                    if 'visible' in service:
+                        service_obj.visible = service['visible']
                     if 'supports_multiple_installs' in service:
                         service_obj.supports_multiple_installs = service['supports_multiple_installs']
                     service_obj.save()
