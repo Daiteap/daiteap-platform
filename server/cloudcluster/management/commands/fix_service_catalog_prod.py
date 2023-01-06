@@ -84,6 +84,14 @@ class Command(BaseCommand):
             for service in services:
                 if Service.objects.filter(name=service['name']).count() == 0:
                     service_obj = Service(name=service['name'],logo_url=service['logo_url'],description=service['description'],options=service['options'])
+                    if 'accessible_from_browser' in service:
+                        service_obj.accessible_from_browser = service['accessible_from_browser']
+                    if 'implemented' in service:
+                        service_obj.implemented = service['implemented']
+                    if 'visible' in service:
+                        service_obj.visible = service['visible']
+                    if 'supports_multiple_installs' in service:
+                        service_obj.supports_multiple_installs = service['supports_multiple_installs']
                     service_obj.save()
                     for category in service['categories']:
                         service_obj.categories.add(ServiceCategory.objects.filter(name=category)[0])
