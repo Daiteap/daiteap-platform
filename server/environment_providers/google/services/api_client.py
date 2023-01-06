@@ -98,27 +98,31 @@ def check_user_permissions(google_key, storage_enabled):
 
     missing_roles = []
 
+    required_roles = [
+        'roles/dns.admin',
+        'roles/compute.admin',
+        'roles/iam.serviceAccountUser',
+        'roles/cloudasset.viewer',
+        'roles/storage.admin'
+    ]
+
+    listed_roles = [ binding['role'] for binding in response['bindings'] ]
+    for role in required_roles:
+        if role not in listed_roles:
+            missing_roles.append(role)
+
     for binding in response['bindings']:
-        if binding['role'] == 'roles/dns.admin':
+        if binding['role'] == 'roles/storage.admin' and storage_enabled:
             if not any(email in member for member in binding['members']):
-                missing_roles.append('Missing role roles/dns.admin')
-        if binding['role'] == 'roles/compute.admin':
+                missing_roles.append(binding['role'])
+        elif binding['role'] in required_roles:
             if not any(email in member for member in binding['members']):
-                missing_roles.append('Missing role roles/compute.admin')
-        if binding['role'] == 'roles/iam.serviceAccountUser':
-            if not any(email in member for member in binding['members']):
-                missing_roles.append('Missing role roles/iam.serviceAccountUser')
-        if binding['role'] == 'roles/cloudasset.viewer':
-            if not any(email in member for member in binding['members']):
-                missing_roles.append('Missing role roles/cloudasset.viewer')
-        if storage_enabled and binding['role'] == 'roles/storage.admin':
-            if not any(email in member for member in binding['members']):
-                missing_roles.append('Missing storage permissions.')
+                missing_roles.append(binding['role'])
 
     if missing_roles:
-        return missing_roles
+        missing_roles = 'Missing roles: ' + ', '.join(missing_roles)
 
-    return ''
+    return missing_roles
 
 def check_compute_api_enabled(google_key):
     if not google_key:
