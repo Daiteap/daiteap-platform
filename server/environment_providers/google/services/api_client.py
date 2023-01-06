@@ -263,6 +263,149 @@ def restart_instances(google_key, zone, instances):
 
     return
 
+def get_loadbalancer_names(service, credentials_json, vpc_name):
+    # get loadbalancer name
+    load_balancer_names = []
+    health_check_names = []
+    firewall_rules = service.firewalls()
+    firewall_rules_list = firewall_rules.list(project=credentials_json['project_id']).execute()
+
+    if 'items' not in firewall_rules_list:
+        return False
+
+    for firewall_rule in firewall_rules_list['items']:
+        if 'targetTags' not in firewall_rule:
+            continue
+        if vpc_name in firewall_rule['targetTags']:
+            if 'name' in firewall_rule and firewall_rule['name'].startswith('k8s-fw-'):
+                load_balancer_names.append(firewall_rule['name'].split('-')[2])
+            elif 'name' in firewall_rule and firewall_rule['name'].startswith('k8s-'):
+                print("Found k8s- in firewall rule" + str(firewall_rule))
+                health_check_names.append(firewall_rule['name'].split('-')[1])
+
+    return load_balancer_names, health_check_names
+
+def delete_health_checks(project, health_check_name, service):
+    # Delete health checks
+    request = service.httpHealthChecks().list(project=project)
+
+    while request is not None:
+        response = request.execute()
+        if 'items' not in response:
+            print("No health checks found")
+            break
+        for health_check in response['items']:
+            if len(health_check['name'].split('-')) > 1:
+                if health_check['name'].split('-')[1] == health_check_name:
+                    print('Deleting health check: {}'.format(health_check['name']))
+                    request_delete = service.httpHealthChecks().delete(project=project, httpHealthCheck=health_check['name'])
+
+                    response_delete = request_delete.execute()
+                    operation_name = response_delete['name']
+                    wait_for_global_operation(service, project, operation_name)
+
+        request = service.httpHealthChecks().list_next(previous_request=request, previous_response=response)
+
+def delete_loadbalancers(project, region, vpc_name, service, load_balancer_name):
+    # Delete Forwarding rules
+    request = service.forwardingRules().list(project=project, region=region)
+
+    while request is not None:
+        response = request.execute()
+        if 'items' not in response:
+            print("No forwarding rules found")
+            break
+        for forwarding_rule in response['items']:
+            if forwarding_rule['name'] == load_balancer_name:
+                print('Deleting forwarding rule: {}'.format(forwarding_rule['name']))
+                request_delete = service.forwardingRules().delete(project=project, region=region, forwardingRule=forwarding_rule['name'])
+                response_delete = request_delete.execute()
+                operation_name = response_delete['name']
+                print('Waiting for operation {} to complete...'.format(operation_name))
+                wait_for_regional_operation(service, project, region, operation_name)
+
+
+        request = service.forwardingRules().list_next(previous_request=request, previous_response=response)
+
+    # Target pools
+    request = service.targetPools().list(project=project, region=region)
+
+    while request is not None:
+        response = request.execute()
+        if 'items' not in response:
+            print("No target pools found")
+            break
+        for target_pool in response['items']:
+            if target_pool['name'] == load_balancer_name:
+                print('Deleting target pool: {}'.format(target_pool['name']))
+                request_delete = service.targetPools().delete(project=project, region=region, targetPool=target_pool['name'])
+
+                response_delete = request_delete.execute()
+                operation_name = response_delete['name']
+                wait_for_regional_operation(service, project, region, operation_name)
+
+        request = service.targetPools().list_next(previous_request=request, previous_response=response)
+
+def wait_for_regional_operation(service, project, region, operation_name):
+    print('Waiting for regional operation {} to complete...'.format(operation_name))
+
+    retries = 24
+    timeout = 20
+
+    for i in range(retries):
+        request = service.regionOperations().get(project=project, region=region, operation=operation_name)
+        response = request.execute()
+        if 'status' in response and response['status'] == 'DONE':
+            if 'error' in response:
+                raise Exception(response['error'])
+            print('Operation {} completed'.format(operation_name))
+            return
+        print('Operation {} not done. Waiting {} seconds'.format(operation_name, timeout))
+        time.sleep(timeout)
+
+    raise Exception('Operation {} timed out'.format(operation_name))
+
+def wait_for_global_operation(service, project, operation_name):
+    print('Waiting for global operation {} to complete...'.format(operation_name))
+
+    retries = 24
+    timeout = 20
+
+    for i in range(retries):
+        request = service.globalOperations().get(project=project, operation=operation_name)
+        response = request.execute()
+        if 'status' in response and response['status'] == 'DONE':
+            if 'error' in response:
+                raise Exception(response['error'])
+            print('Operation {} completed'.format(operation_name))
+            return
+        print('Operation {} not done. Waiting {} seconds'.format(operation_name, timeout))
+        time.sleep(timeout)
+
+    raise Exception('Operation {} timed out'.format(operation_name))
+
+
+def delete_firewall_rules(project, vpc_name, service):
+    # Delete firewall rules
+    request = service.firewalls().list(project=project)
+
+    while request is not None:
+        response = request.execute()
+        if 'items' not in response:
+            print("No firewall rules found")
+            break
+        for firewall_rule in response['items']:
+            if 'targetTags' not in firewall_rule:
+                continue
+            if vpc_name in firewall_rule['targetTags']:
+                print('Deleting firewall rule: {}'.format(firewall_rule['name']))
+                request_delete = service.firewalls().delete(project=project, firewall=firewall_rule['name'])
+
+                response_delete = request_delete.execute()
+                operation_name = response_delete['name']
+                wait_for_global_operation(service, project, operation_name)
+
+        request = service.firewalls().list_next(previous_request=request, previous_response=response)
 
 def delete_loadbalancer_resources(google_key, region, vpc_name, user_id, cluster_id):
     if not google_key:
@@ -277,27 +420,9 @@ def delete_loadbalancer_resources(google_key, region, vpc_name, user_id, cluster
     service = discovery.build('compute', 'v1', credentials=credentials)
     project = credentials_json['project_id']
 
-    # get loadbalancer name
-    load_balancer_name = ""
-    firewall_rules = service.firewalls()
-    firewall_rules_list = firewall_rules.list(project=credentials_json['project_id']).execute()
-
-    if 'items' not in firewall_rules_list:
-        return False
-
-    for firewall_rule in firewall_rules_list['items']:
-        if 'targetTags' not in firewall_rule:
-            continue
-        if vpc_name in firewall_rule['targetTags']:
-            if 'name' in firewall_rule and firewall_rule['name'].startswith('k8s-fw-'):
-                load_balancer_name = firewall_rule['name'].split('-')[2]
-                break
-            if 'name' in firewall_rule and firewall_rule['name'].startswith('k8s-'):
-                load_balancer_name = firewall_rule['name'].split('-')[1]
-                break
-
-    if load_balancer_name == "":
-        return False
+    load_balancer_names, health_check_names = get_loadbalancer_names(service, credentials_json, vpc_name)
+    print(load_balancer_names)
+    print(health_check_names)
 
     try:
         # stop instances
@@ -306,68 +431,13 @@ def delete_loadbalancer_resources(google_key, region, vpc_name, user_id, cluster
         print(str(e))
         pass
 
-    # delete forwardingRules
-    request = service.forwardingRules().list(project=project, region=region)
-    while request is not None:
-        forwarding_rules_response = request.execute()
+    for load_balancer_name in load_balancer_names:
+        delete_loadbalancers(project, region, vpc_name, service, load_balancer_name)
 
-        if 'items' in forwarding_rules_response:
-            for forwarding_rule in forwarding_rules_response['items']:
-                # check if forwarding rule is for the vpc
-                if forwarding_rule['name'] == load_balancer_name:
-                    # delete forwardingRule
-                    request = service.forwardingRules().delete(project=project, region=region, forwardingRule=forwarding_rule['name'])
-                    print(request.execute())
+    for health_check_name in health_check_names:
+        delete_health_checks(project, health_check_name, service)
 
-        request = service.forwardingRules().list_next(previous_request=request, previous_response=forwarding_rules_response)
-
-    # delete health checks
-    request = service.regionHealthChecks().list(project=project, region=region)
-    while request is not None:
-        health_checks_response = request.execute()
-
-        if 'items' in health_checks_response:
-            for health_check in health_checks_response['items']:
-                # check if health check is for the vpc
-                if health_check['name'] == load_balancer_name:
-                    # delete health check
-                    request = service.regionHealthChecks().delete(project=project, healthCheck=health_check['name'], region=region)
-                    print(request.execute())
-
-        request = service.regionHealthChecks().list_next(previous_request=request, previous_response=health_checks_response)
-
-    # delete static IPs
-    request = service.addresses().list(project=project, region=region)
-    while request is not None:
-        addresses_response = request.execute()
-
-        if 'items' in addresses_response:
-            for address in addresses_response['items']:
-                # check if address is for the vpc
-                if address['name'] == load_balancer_name:
-                    # delete address
-                    request = service.addresses().delete(project=project, address=address['name'], region=region)
-                    print(request.execute())
-
-        request = service.addresses().list_next(previous_request=request, previous_response=addresses_response)
-
-    # delete firewall rules
-    firewall_rules = service.firewalls()
-    firewall_rules_list = firewall_rules.list(project=credentials_json['project_id']).execute()
-
-    if 'items' not in firewall_rules_list:
-        return False
-
-    for firewall_rule in firewall_rules_list['items']:
-        if 'targetTags' not in firewall_rule:
-            continue
-        if vpc_name in firewall_rule['targetTags']:
-            if 'name' in firewall_rule and firewall_rule['name'].startswith('k8s-'):
-                # delete firewall rule
-                request = service.firewalls().delete(project=project, firewall=firewall_rule['name'])
-                request.execute()
-
-    return True
+    delete_firewall_rules(project, vpc_name, service)
 
 
 def add_cloud_account_to_daiteap_project(google_key):
