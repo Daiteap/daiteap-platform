@@ -186,7 +186,8 @@ class AzureAuthClient():
         # Create new app
         request_body = {
             'displayName': APP_NAME,
-            'signInAudience': 'AzureADMyOrg'
+            'signInAudience': 'AzureADMyOrg',
+            'requiredResourceAccess': [{"@odata.type": "Directory.Read.All"}],
         }
 
         new_application_data = requests.post(
