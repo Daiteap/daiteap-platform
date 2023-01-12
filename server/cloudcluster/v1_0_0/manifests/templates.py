@@ -43,6 +43,47 @@ spec:
               number: ${service_port}
 ''')
 
+SERVICE_INGRESS_MANIFEST_WITH_AUTH = Template('''
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: basic-auth-"${name}"
+  namespace: "${namespace}"
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: "${name}"
+    nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required '
+spec:
+  tls:
+  - hosts:
+    - "${name}.${clusterId}.${domain}"
+    secretName: "cert-${name}"
+  rules:
+  - host: "${name}.${clusterId}.${domain}"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: "${name}"
+            port:
+              number: ${service_port}
+''')
+
+SERVICE_SECRET_MANIFEST = Template('''
+apiVersion: v1
+kind: Secret
+metadata:
+  name: basic-auth-"${name}"
+  namespace: "${namespace}"
+type: Opaque
+data:
+  auth: "${auth}"
+''')
+
 CALICO_MANIFEST = '''
 ---
 # Source: calico/templates/calico-config.yaml

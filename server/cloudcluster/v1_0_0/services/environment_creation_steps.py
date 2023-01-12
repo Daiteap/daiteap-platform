@@ -37,6 +37,7 @@ from ..mailgun.mailgun_client import MailgunClient
 from ..services import random_string, run_shell, ssh_client, vault_service, vpn_client
 from ..services.kubespray_inventory import build_inventory
 
+LONGHORN_PASSWORD_LENGTH = 16
 GRAFANA_PASSWORD_LENGTH = 16
 GRAFANA_PORT = 31000
 KIBANA_PORT = 31001
@@ -1178,6 +1179,12 @@ def install_longhorn_storage(cluster_id):
         # make longhorn default storage class
         command = ['kubectl', '--kubeconfig=' + kubeconfig_path, 'patch', 'storageclass', 'longhorn', '-p', '{"metadata": {"annotations": {"storageclass.kubernetes.io/is-default-class": "true"}}}']
         run_shell.run_shell_with_subprocess_call(command, workdir='./')
+
+        cluster.longhorn_username = 'admin'
+        cluster.longhorn_password = random_string.get_random_alphanumeric_string(LONGHORN_PASSWORD_LENGTH)
+
+        cluster.longhorn_address = tasks.create_service_addresses(credentials_path, "longhorn-frontend", "longhorn-system", cluster.id, kubeconfig_path, cluster.username, cluster.longhorn_password)[0]
+        cluster.save()
 
     return
 
