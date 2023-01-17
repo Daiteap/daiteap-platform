@@ -475,6 +475,9 @@ def get_tf_code(environment_type):
     if environment_type in [constants.ClusterType.DLCM.value, constants.ClusterType.VMS.value, constants.ClusterType.COMPUTE_VMS.value]:
         with open(os.path.join(settings.BASE_DIR + '/environment_providers/azure/terraform/config_compute.tf'), 'r') as tf_file:
             code += tf_file.read()
+    elif environment_type == constants.ClusterType.DLCM_V2.value:
+        with open(os.path.join(settings.BASE_DIR + '/environment_providers/azure/terraform/config_k8s.tf'), 'r') as tf_file:
+            code += tf_file.read()
     else:
         with open(os.path.join(settings.BASE_DIR + '/environment_providers/azure/terraform/config.tf'), 'r') as tf_file:
             code += tf_file.read()

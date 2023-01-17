@@ -57,6 +57,26 @@ def get_created_cluster_resources(aws_access_key_id, aws_secret_access_key, regi
                     logger.debug(e)
                     continue
 
+            if resource['ResourceARN'].startswith('arn:aws:ec2:') and resource['ResourceARN'].split(':')[-1].split('/')[0] == 'volume':
+                ec2 = boto3.resource(
+                    'ec2',
+                    aws_access_key_id=aws_access_key_id,
+                    aws_secret_access_key=aws_secret_access_key,
+                    region_name=region_name
+                )
+
+                try:
+                    volume = ec2.Volume(resource['ResourceARN'].split(':')[-1].split('/')[-1])
+                    if not volume or volume.state == 'deleted':
+                        continue
+                except botocore.exceptions.ClientError as e:
+                    if e.response['Error']['Code'] == 'InvalidVolume.NotFound':
+                        continue
+                    raise e
+                except AttributeError as e:
+                    logger.debug(e)
+                    continue
+
             resources_list.append(resource)
 
     route53 = boto3.client(
