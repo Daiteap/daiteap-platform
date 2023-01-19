@@ -219,13 +219,14 @@ CELERY_TASK_SEND_SENT_EVENT = True
 
 LDAP_KUBERNETES_USERS_GROUP_NAME = "kubernetes_users"
 
-AZURE_CLIENT_ID = os.getenv('AZURE_CLIENT_ID')
-AZURE_CLIENT_SECRET = os.getenv('AZURE_CLIENT_SECRET')
-AZURE_AUTH_SCOPES = os.getenv('AZURE_AUTH_SCOPES')
+AZURE_CLIENT_ID = os.getenv('AZURE_CLIENT_ID', '9b88a2d2-6020-4b29-a20d-27bbadc51e37')
+AZURE_CLIENT_SECRET = os.getenv('AZURE_CLIENT_SECRET', 'oyD8Q~KWyhMaTtYQOni9Ms8kmgFdLrF~xbdl6cYe')
+AZURE_AUTH_SCOPES = os.getenv('AZURE_AUTH_SCOPES', 'https://management.azure.com/user_impersonation')
 
 AZURE_CLIENT_CREATE_APP_URI = '/#/app/platform/cloudprofile/oauth/azure/createapp'
 AZURE_CLIENT_AUTHORIZE_URI = '/#/app/platform/cloudprofile/oauth/azure/authorize'
 AZURE_CLIENT_ADMINCONSENT_URI = '/#/app/platform/cloudprofile/oauth/azure/adminconsent'
+AZURE_CLIENT_GRANTADMINCONSENT_URI = '/#/app/platform/cloudprofile/oauth/azure/grantadminconsent'
 
 GOOGLE_SERVICE_OAUTH_ACCOUNTS_PREFIX = os.getenv('GOOGLE_SERVICE_OAUTH_ACCOUNTS_PREFIX', 'datera')
 AZURE_SERVICE_OAUTH_ACCOUNTS_PREFIX = os.getenv('AZURE_SERVICE_OAUTH_ACCOUNTS_PREFIX', 'datera')
