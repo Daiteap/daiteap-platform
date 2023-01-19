@@ -598,7 +598,5 @@ class AzureAuthClient():
             print("redirect_uri is empty")
             raise Exception(MESSAGE_EMPTY_REDIRECT_URI)
 
-        print("redirect_uri is not empty")
         auth_url = f'{AZURE_LOGIN_URL}/common/adminconsent?client_id={app_id}&redirect_uri={redirect_uri}'
-        print("auth_url: " + auth_url)
         return auth_url
