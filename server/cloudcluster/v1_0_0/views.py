@@ -1325,8 +1325,8 @@ def oauth_azure_adminconsent(request):
     responses={200: openapi.Response('', openapi.Schema(
         type=openapi.TYPE_STRING
     ))},
-    operation_description="OAuth Azure - admin consent.",
-    operation_summary="OAuth Azure - admin consent.")
+    operation_description="OAuth Azure - grant admin consent.",
+    operation_summary="OAuth Azure - grant admin consent.")
 @api_view(['GET'])
 def oauth_azure_grantadminconsent(request):
     print('oauth_azure_grantadminconsent')
