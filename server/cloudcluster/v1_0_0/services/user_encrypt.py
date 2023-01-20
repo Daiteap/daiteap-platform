@@ -9,4 +9,4 @@ def encrypt(username, password):
     p.stdin.close()
     p.wait()
 
-    return base64.b64encode(username + ":" + p.stdout.read())
+    return base64.b64encode((username + ":" + p.stdout.read().decode("utf-8")).encode("utf-8")).decode("utf-8")
