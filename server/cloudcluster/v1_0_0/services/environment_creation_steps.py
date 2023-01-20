@@ -249,7 +249,7 @@ def install_ingress_controller(clusterId):
                 'service',
                 '--namespace',
                 'daiteap-ingress',
-                'daiteap-nginx-ingress',
+                'daiteap-ingress-nginx-controller',
                 '--ignore-not-found'
             ]
             max_retries = 30
@@ -275,7 +275,7 @@ def install_ingress_controller(clusterId):
             'service',
             '--namespace',
             'daiteap-ingress',
-            'daiteap-nginx-ingress',
+            'daiteap-ingress-nginx-controller',
             '-o',
             'jsonpath="{.status.loadBalancer.ingress[0].*}"'
         ]
