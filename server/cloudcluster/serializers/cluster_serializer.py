@@ -16,6 +16,9 @@ class ClustersSerializer(serializers.ModelSerializer):
     krb_admin_password = serializers.CharField(required=False)
     kdc_master_password = serializers.CharField(required=False)
     ldap_admin_password = serializers.CharField(required=False)
+    longhorn_address = serializers.CharField(required=False)
+    longhorn_password = serializers.CharField(required=False)
+    longhorn_username = serializers.CharField(required=False)
     vpn_secrets = serializers.CharField(required=False)
     ca_password = serializers.CharField(required=False)
     clusterType = serializers.IntegerField(required=False)
@@ -44,7 +47,7 @@ class ClustersSerializer(serializers.ModelSerializer):
                   "terraform_graph_index", "gateway_cloud", "machines_count", "users_count", "services_count",
                   "project_id", "project_name", "clusterType", "loadBalancerIntegration",
                   "hasLoadBalancerIntegration", "kubernetesConfiguration", "errorMsg",
-                  "kubeUpgradeStatus", "terraform_graph_index_path", "usersList", "machinesList", "serviceList")
+                  "kubeUpgradeStatus", "terraform_graph_index_path", "usersList", "machinesList", "serviceList", 'longhorn_address', 'longhorn_password', 'longhorn_username')
         read_only_fields = ("id", "created_at", "project", "user")
         required = ("id", "name")
 

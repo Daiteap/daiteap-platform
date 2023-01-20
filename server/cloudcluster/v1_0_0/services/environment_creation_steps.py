@@ -1180,10 +1180,14 @@ def install_longhorn_storage(cluster_id):
         command = ['kubectl', '--kubeconfig=' + kubeconfig_path, 'patch', 'storageclass', 'longhorn', '-p', '{"metadata": {"annotations": {"storageclass.kubernetes.io/is-default-class": "true"}}}']
         run_shell.run_shell_with_subprocess_call(command, workdir='./')
 
-        cluster.longhorn_username = 'admin'
-        cluster.longhorn_password = random_string.get_random_alphanumeric_string(LONGHORN_PASSWORD_LENGTH)
+        if settings.USE_DNS_FOR_SERVICES:
+            cluster.longhorn_username = 'admin'
+            cluster.longhorn_password = random_string.get_random_alphanumeric_string(LONGHORN_PASSWORD_LENGTH)
+        else:
+            cluster.longhorn_username = ''
+            cluster.longhorn_password = ''
 
-        cluster.longhorn_address = tasks.create_service_addresses(credentials_path, "longhorn-frontend", "longhorn-system", cluster.id, kubeconfig_path, cluster.username, cluster.longhorn_password)[0]
+        cluster.longhorn_address = tasks.create_service_addresses(credentials_path, "longhorn-frontend", "longhorn-system", cluster.id, kubeconfig_path, cluster.longhorn_username, cluster.longhorn_password)[0]
         cluster.save()
 
     return

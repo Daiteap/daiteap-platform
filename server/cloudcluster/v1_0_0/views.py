@@ -3332,7 +3332,10 @@ def cluster_details(request, tenant_id, cluster_id):
                 'grafana_admin_password': cluster.grafana_admin_password,
                 'grafana_address': cluster.grafana_address,
                 'es_admin_password': cluster.es_admin_password,
-                'kibana_address': cluster.kibana_address
+                'kibana_address': cluster.kibana_address,
+                'longhorn_address': cluster.longhorn_address,
+                'longhorn_password': cluster.longhorn_password,
+                'longhorn_username': cluster.longhorn_username,
             }
             response.update(additional_services)
 
