@@ -164,7 +164,7 @@ class AzureAuthClient():
                     if data['responses'][0]['httpStatusCode'] > 299:
                         raise Exception(str(data))
 
-    def __getOrCreateApp(self, access_token):
+    def __getOrCreateApp(self, access_token, origin):
 
         # Check for existing app
         applications_data = requests.get(
@@ -187,7 +187,16 @@ class AzureAuthClient():
         request_body = {
             'displayName': APP_NAME,
             'signInAudience': 'AzureADMyOrg',
-            'requiredResourceAccess': [{"@odata.type": "Directory.Read.All"}],
+            'requiredResourceAccess': [{
+                'resourceAppId': '00000003-0000-0000-c000-000000000000', # Microsoft Graph
+                'resourceAccess': [{
+                    'id': '7ab1d382-f21e-4acd-a863-ba3e13f7da61', # Directory.Read.All
+                    'type': 'Role',
+                }]
+            }],
+            'web': {
+                'redirectUris': [origin + '/server/azuregrantadminconsent']
+            },
         }
 
         new_application_data = requests.post(
@@ -355,8 +364,8 @@ class AzureAuthClient():
         self.__checkForError(graph_token)
         return graph_token['access_token']
 
-    def __createAppWithPass(self, user, graph_token):
-        app = self.__getOrCreateApp(graph_token)
+    def __createAppWithPass(self, user, graph_token, origin):
+        app = self.__getOrCreateApp(graph_token, origin)
 
         self.__removeOldPasswords(graph_token, app['id'], user)
         secret = self.__addPassword(graph_token, app['id'], user)['secretText']
@@ -531,7 +540,7 @@ class AzureAuthClient():
 
         # Creates app and secret
         app = self.__createAppWithPass(
-            user, graph_token
+            user, graph_token, origin
         )
 
         service_principal_id = self.__getOrCreateServiceAccount(
@@ -581,4 +590,13 @@ class AzureAuthClient():
             raise Exception(MESSAGE_EMPTY_TENANT)
 
         auth_url = f'{AZURE_LOGIN_URL}/{tenant}/oauth2/v2.0/authorize?scope={AZURE_AUTH_SCOPES}&response_type=code&redirect_uri={redirect_uri}&client_id={AZURE_CLIENT_ID}&response_mode=query&state={tenant}|{subscription_id}'
+        return auth_url
+
+    @staticmethod
+    def getGrantAuthUrlAdminConsent(redirect_uri, app_id):
+        if redirect_uri in ('', None):
+            print("redirect_uri is empty")
+            raise Exception(MESSAGE_EMPTY_REDIRECT_URI)
+
+        auth_url = f'{AZURE_LOGIN_URL}/common/adminconsent?client_id={app_id}&redirect_uri={redirect_uri}'
         return auth_url

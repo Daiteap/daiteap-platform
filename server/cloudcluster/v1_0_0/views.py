@@ -36,6 +36,7 @@ from celery.result import AsyncResult
 from cloudcluster import models, celery
 from cloudcluster.settings import (API_GIT_COMMIT_INFO,
                                    AZURE_CLIENT_ADMINCONSENT_URI,
+                                   AZURE_CLIENT_GRANTADMINCONSENT_URI,
                                    AZURE_CLIENT_AUTHORIZE_URI,
                                    AZURE_CLIENT_CREATE_APP_URI,
                                    SUPPORTED_K3S_NETWORK_PLUGINS,
@@ -1324,6 +1325,20 @@ def oauth_azure_adminconsent(request):
     responses={200: openapi.Response('', openapi.Schema(
         type=openapi.TYPE_STRING
     ))},
+    operation_description="OAuth Azure - grant admin consent.",
+    operation_summary="OAuth Azure - grant admin consent.")
+@api_view(['GET'])
+def oauth_azure_grantadminconsent(request):
+    print('oauth_azure_grantadminconsent')
+    query_params = request.build_absolute_uri().split('?')[1]
+    redirect_url = AZURE_CLIENT_GRANTADMINCONSENT_URI + '?' + query_params 
+
+    return HttpResponseRedirect(redirect_url)
+
+@swagger_auto_schema(method='get',
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_STRING
+    ))},
     operation_description="OAuth Azure - authorize.",
     operation_summary="OAuth Azure - authorize.")
 @api_view(['GET'])
@@ -1410,6 +1425,65 @@ def oauth_azure_get_auth_url_admin_consent(request):
     redirect_uri = payload['origin'] + "/server/azureadminconsent"
 
     auth_url = AzureAuthClient.getAuthUrlAdminConsent(redirect_uri)
+
+    return JsonResponse({'auth_url': auth_url})
+
+@swagger_auto_schema(method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'origin': openapi.Schema(type=openapi.TYPE_STRING)
+        },
+        required=['origin']
+    ),
+    responses={200: openapi.Response('', openapi.Schema(
+        type=openapi.TYPE_OBJECT, 
+        properties={
+            'auth_url': openapi.Schema(type=openapi.TYPE_STRING)
+        }
+    ))},
+    operation_description="OAuth Azure - get grant auth url admin consent.",
+    operation_summary="OAuth Azure - get grant auth url admin consent.")
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def oauth_azure_get_grant_auth_url_admin_consent(request):
+    # Validate request
+    payload, error = get_request_body(request)
+    if error is not None:
+        return error
+
+    schema = {
+        "type": "object",
+        "roperties": {
+            "origin": {
+                "type": "string"
+            }
+        },
+        "required": ["origin"]
+    }
+
+    try:
+        validate(instance=payload, schema=schema)
+    except ValidationError as e:
+        log_data = {
+            'level': 'ERROR',
+            'user_id': str(request.user.id),
+            'client_request': json.loads(request.body.decode('utf-8')),
+        }
+        logger.error(str(e), extra=log_data)
+        return JsonResponse({
+            'error': {
+                'message': str(e),
+            }
+        }, status=400)
+
+    redirect_uri = payload['origin'] + "/server/azuregrantadminconsent"
+
+    account_label = "azure-oauth-" + str(payload['subscriptionId'][0:8])
+    account = models.CloudAccount.objects.filter(label=account_label, provider='azure', user=request.user).first()
+    azure_account_credentials = vault_service.read_secret(account.credentials)
+
+    auth_url = AzureAuthClient.getGrantAuthUrlAdminConsent(redirect_uri, azure_account_credentials['azure_client_id'])
 
     return JsonResponse({'auth_url': auth_url})
 
