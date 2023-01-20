@@ -48,7 +48,7 @@ SERVICE_INGRESS_MANIFEST_WITH_AUTH = Template('''
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: basic-auth-"${name}"
+  name: basic-auth-${name}
   namespace: "${namespace}"
   annotations:
     kubernetes.io/ingress.class: "nginx"
@@ -77,7 +77,7 @@ SERVICE_SECRET_MANIFEST = Template('''
 apiVersion: v1
 kind: Secret
 metadata:
-  name: basic-auth-"${name}"
+  name: basic-auth-${name}
   namespace: "${namespace}"
 type: Opaque
 data:
