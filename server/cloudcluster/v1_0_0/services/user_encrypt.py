@@ -1,3 +1,4 @@
+import base64
 import subprocess
 
 def encrypt(username, password):
@@ -8,4 +9,4 @@ def encrypt(username, password):
     p.stdin.close()
     p.wait()
 
-    return username + ":" + p.stdout.read().decode("utf-8")
+    return base64.b64encode(username + ":" + p.stdout.read())
