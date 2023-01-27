@@ -94,15 +94,7 @@ resource "google_compute_firewall" "default" {
 
 resource "google_compute_network" "vpc_network" {
   name                    = var.google_vpc_name
-  auto_create_subnetworks = "false"
-
-  description = var.google_environment_id
-}
-
-resource "google_compute_subnetwork" "vpc_subnetwork" {
-  name          = var.google_vpc_name
-  network       = google_compute_network.vpc_network.name
-  ip_cidr_range = var.google_vpc_cidr
+  auto_create_subnetworks = "true"
 
   description = var.google_environment_id
 }
@@ -177,7 +169,7 @@ resource "google_compute_instance" "google_nodes" {
     access_config {
       nat_ip = google_compute_address.static[each.key].address
     }
-    subnetwork = google_compute_subnetwork.vpc_subnetwork.name
+    network = google_compute_network.vpc_network.name
   }
 
   metadata = {
