@@ -509,13 +509,9 @@ def get_all_available_daiteap_os_parameters(azure_client_id, azure_client_secret
     # all_os_parameters.extend(ubuntu_images)
     all_os_parameters = [
         {
-        'value': '/subscriptions/af5bb549-d639-4ea4-9632-5b6aa6881cd8/resourceGroups/Packer/providers/Microsoft.Compute/galleries/Packer_image_gallery/images/dlcm-ubuntu-1804/versions/1.0.1', 
+        'value': '/subscriptions/af5bb549-d639-4ea4-9632-5b6aa6881cd8/resourceGroups/Packer/providers/Microsoft.Compute/galleries/Packer_image_gallery/images/dlcm-ubuntu-1804/versions/1.0.2', 
         'os': 'Ubuntu 18 LTS'
         },
-        {
-        'value': '/subscriptions/af5bb549-d639-4ea4-9632-5b6aa6881cd8/resourceGroups/Packer/providers/Microsoft.Compute/galleries/Packer_image_gallery/images/dlcm-ubuntu-1804-sshbug/versions/1.0.1', 
-        'os': 'Ubuntu 18 LTS (sshbug) 1.0.1'
-        }
     ]
 
     return all_os_parameters

@@ -429,8 +429,12 @@ def get_machine_records(cloud_config, environment_provider, tfstate_resources, c
 
 def get_tf_code(environment_type):
     code = ''
-    with open(os.path.join(settings.BASE_DIR + '/environment_providers/google/terraform/config.tf'), 'r') as tf_file:
-        code += tf_file.read()
+    if environment_type == constants.ClusterType.DLCM_V2.value:
+        with open(os.path.join(settings.BASE_DIR + '/environment_providers/google/terraform/config_k8s.tf'), 'r') as tf_file:
+            code += tf_file.read()
+    else:
+        with open(os.path.join(settings.BASE_DIR + '/environment_providers/google/terraform/config.tf'), 'r') as tf_file:
+            code += tf_file.read()
     return code
 
 def get_valid_operating_systems(payload, environment_type, user_id):

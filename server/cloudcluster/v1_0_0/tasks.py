@@ -57,8 +57,8 @@ from .helm.values_templates.templates import (
     mysql_template_with_replicas,
 )
 from .mailgun.mailgun_client import MailgunClient
-from .manifests.templates import SERVICE_CERTIFICATE_MANIFEST, SERVICE_INGRESS_MANIFEST
-from .services import constants, environment_creation_steps, run_shell, vpn_client
+from .manifests.templates import SERVICE_CERTIFICATE_MANIFEST, SERVICE_INGRESS_MANIFEST, SERVICE_INGRESS_MANIFEST_WITH_AUTH, SERVICE_SECRET_MANIFEST
+from .services import constants, environment_creation_steps, run_shell, vpn_client, user_encrypt
 from .services.kubespray_inventory import (
     add_kubernetes_roles_to_nodes,
     add_kubernetes_roles_to_tfstate_resources,
@@ -72,7 +72,7 @@ GRAFANA_PORT = 31000
 
 FILE_BASE_DIR = str(pathlib.Path(__file__).parent.absolute())
 
-def create_service_addresses(credentials_path, service_name, service_namespace, clusterId, kubeconfig_path):
+def create_service_addresses(credentials_path, service_name, service_namespace, clusterId, kubeconfig_path, service_username='', service_password=''):
     if settings.USE_DNS_FOR_SERVICES:
         domain = str(service_name + '.' + str(clusterId).replace('-','')[:10] + '.' + settings.SERVICES_DNS_DOMAIN)
         cmd = [
@@ -131,7 +131,26 @@ def create_service_addresses(credentials_path, service_name, service_namespace, 
             if i == max_retries - 1:
                 raise Exception('Timeout while waiting service certificate to create')
 
-        ingress_template = SERVICE_INGRESS_MANIFEST
+        if service_username and service_password:
+            auth = user_encrypt.encrypt(service_username, service_password)
+
+            secret_template = SERVICE_SECRET_MANIFEST
+            secret_file = secret_template.substitute(
+                name=service_name,
+                namespace=service_namespace,
+                auth=auth,
+            )
+            with open(credentials_path + 'secret.yaml', 'a') as text_file:
+                text_file.write(secret_file)
+
+            command[4] = credentials_path + 'secret.yaml'
+            run_shell.run_shell_with_subprocess_call(command, workdir='./')
+
+        if service_username and service_password:
+            ingress_template = SERVICE_INGRESS_MANIFEST_WITH_AUTH
+        else:
+            ingress_template = SERVICE_INGRESS_MANIFEST
+
         ingress_file = ingress_template.substitute(
             name=service_name,
             namespace=service_namespace,
@@ -139,6 +158,7 @@ def create_service_addresses(credentials_path, service_name, service_namespace, 
             service_port=service_port['stdout'][0].strip('"'),
             domain=settings.SERVICES_DNS_DOMAIN,
         )
+
         with open(credentials_path + 'ingress.yaml', 'a') as text_file:
             text_file.write(ingress_file)
 
@@ -1355,6 +1375,37 @@ def worker_create_dlcm_v2_environment(resources, cluster_id, user_id, tag_values
                 cluster.save()
 
             if cluster.installstep == 24:
+                environment_providers.kubernetes_loadbalancer_integration(resources, user_id, clouds, control_plane_private_ip, gateway_address, cluster_id)
+
+                cluster = Clusters.objects.filter(id=cluster_id)[0]
+                cluster.installstep += 1
+                cluster.save()
+
+            if cluster.installstep == 25:
+                if settings.USE_DNS_FOR_SERVICES:
+                    ingress_ip_list = environment_creation_steps.install_ingress_controller(cluster.id)
+
+                cluster = Clusters.objects.filter(id=cluster_id)[0]
+                cluster.installstep += 1
+                cluster.save()
+
+            if cluster.installstep == 26:
+                if settings.USE_DNS_FOR_SERVICES:
+                    environment_creation_steps.create_daiteap_dns_record(cluster.id, ingress_ip_list)
+
+                cluster = Clusters.objects.filter(id=cluster_id)[0]
+                cluster.installstep += 1
+                cluster.save()
+
+            if cluster.installstep == 27:
+                if settings.USE_DNS_FOR_SERVICES:
+                    environment_creation_steps.install_cert_manager(cluster.id)
+
+                cluster = Clusters.objects.filter(id=cluster_id)[0]
+                cluster.installstep += 1
+                cluster.save()
+
+            if cluster.installstep == 28:
                 max_retries = 24
                 wait_seconds = 20
                 for i in range(0, max_retries):
@@ -1368,37 +1419,6 @@ def worker_create_dlcm_v2_environment(resources, cluster_id, user_id, tag_values
                             raise e
                         continue
                     break
-
-                cluster = Clusters.objects.filter(id=cluster_id)[0]
-                cluster.installstep += 1
-                cluster.save()
-
-            if cluster.installstep == 25:
-                environment_providers.kubernetes_loadbalancer_integration(resources, user_id, clouds, control_plane_private_ip, gateway_address, cluster_id)
-
-                cluster = Clusters.objects.filter(id=cluster_id)[0]
-                cluster.installstep += 1
-                cluster.save()
-
-            if cluster.installstep == 26:
-                if settings.USE_DNS_FOR_SERVICES:
-                    ingress_ip_list = environment_creation_steps.install_ingress_controller(cluster.id)
-
-                cluster = Clusters.objects.filter(id=cluster_id)[0]
-                cluster.installstep += 1
-                cluster.save()
-
-            if cluster.installstep == 27:
-                if settings.USE_DNS_FOR_SERVICES:
-                    environment_creation_steps.create_daiteap_dns_record(cluster.id, ingress_ip_list)
-
-                cluster = Clusters.objects.filter(id=cluster_id)[0]
-                cluster.installstep += 1
-                cluster.save()
-
-            if cluster.installstep == 28:
-                if settings.USE_DNS_FOR_SERVICES:
-                    environment_creation_steps.install_cert_manager(cluster.id)
 
                 cluster = Clusters.objects.filter(id=cluster_id)[0]
                 cluster.installstep += 1
