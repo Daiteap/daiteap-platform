@@ -10,11 +10,25 @@ metadata:
 spec:
   secretName: "cert-${name}"
   dnsNames:
-  - "${name}.${clusterId}.${domain}"
   issuerRef:
     name: daiteap-clusterissuer
     kind: ClusterIssuer
 ''')
+
+EXTERNAL_NAME_MANIFEST = Template('''
+kind: Service
+apiVersion: v1
+metadata:
+  name: "${name}"
+  namespace: "${namespace}"
+spec:
+  type: ExternalName
+  externalName: "${externalName}"
+  ports:
+  - port: ${port}
+    targetPort: ${port}
+'''
+)
 
 SERVICE_INGRESS_MANIFEST = Template('''
 ---
@@ -29,7 +43,7 @@ spec:
   tls:
   - hosts:
     - "${name}.${clusterId}.${domain}"
-    secretName: "cert-${name}"
+    secretName: "${secretName}"
   rules:
   - host: "${name}.${clusterId}.${domain}"
     http:
@@ -38,7 +52,7 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: "${name}"
+            name: "${serviceName}"
             port:
               number: ${service_port}
 ''')
@@ -59,7 +73,7 @@ spec:
   tls:
   - hosts:
     - "${name}.${clusterId}.${domain}"
-    secretName: "cert-${name}"
+    secretName: "${secretName}"
   rules:
   - host: "${name}.${clusterId}.${domain}"
     http:
@@ -68,7 +82,7 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: "${name}"
+            name: "${serviceName}"
             port:
               number: ${service_port}
 ''')
