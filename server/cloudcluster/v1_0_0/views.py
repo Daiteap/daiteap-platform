@@ -10149,13 +10149,13 @@ def sync_users(task_delay=True):
         daiteap_users = models.DaiteapUser.objects.filter(projects__id=project.id)
 
         # get all clusters in the projects
-        clusters = models.Clusters.objects.filter(project_id=project.id)
+        clusters = models.Clusters.objects.filter(project_id=project.id).filter(installstep=0)
 
         # get all CAPI clusters in the project
-        capiclusters = models.CapiCluster.objects.filter(project_id=project.id)
+        capiclusters = models.CapiCluster.objects.filter(project_id=project.id).filter(installstep=0)
 
         # get all YaookCAPI clusters in the project
-        yaookcapiclusters = models.YaookCapiCluster.objects.filter(project_id=project.id)
+        yaookcapiclusters = models.YaookCapiCluster.objects.filter(project_id=project.id).filter(installstep=0)
 
         for daiteap_user in daiteap_users:
             for cluster in clusters:
