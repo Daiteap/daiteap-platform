@@ -191,3 +191,4 @@ resource "google_compute_instance" "google_nodes" {
   }
   description = var.google_environment_id
 }
+
