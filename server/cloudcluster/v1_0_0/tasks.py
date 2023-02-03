@@ -57,7 +57,7 @@ from .helm.values_templates.templates import (
     mysql_template_with_replicas,
 )
 from .mailgun.mailgun_client import MailgunClient
-from .manifests.templates import SERVICE_CERTIFICATE_MANIFEST, SERVICE_INGRESS_MANIFEST, SERVICE_INGRESS_MANIFEST_WITH_AUTH, SERVICE_SECRET_MANIFEST
+from .manifests.templates import EXTERNAL_NAME_MANIFEST, SERVICE_INGRESS_MANIFEST, SERVICE_INGRESS_MANIFEST_WITH_AUTH, SERVICE_SECRET_MANIFEST
 from .services import constants, environment_creation_steps, run_shell, vpn_client, user_encrypt
 from .services.kubespray_inventory import (
     add_kubernetes_roles_to_nodes,
@@ -75,7 +75,7 @@ FILE_BASE_DIR = str(pathlib.Path(__file__).parent.absolute())
 def create_service_addresses(credentials_path, service_name, service_namespace, clusterId, kubeconfig_path, service_username='', service_password=''):
     if settings.USE_DNS_FOR_SERVICES:
         domain = str(service_name + '.' + str(clusterId).replace('-','')[:10] + '.' + settings.SERVICES_DNS_DOMAIN)
-        cmd = [
+        command = [
             'kubectl',
             '--kubeconfig',
             credentials_path + 'kubectl_config',
@@ -87,27 +87,16 @@ def create_service_addresses(credentials_path, service_name, service_namespace, 
             '-o',
             'jsonpath="{.spec.ports[0].port}"',
         ]
-        service_port = run_shell.run_shell_with_subprocess_popen(cmd, workdir='./', return_stdout=True)
+        service_port = run_shell.run_shell_with_subprocess_popen(command, workdir='./', return_stdout=True)
 
-        certificate_template = SERVICE_CERTIFICATE_MANIFEST
-        certificate_file = certificate_template.substitute(
-            name=service_name,
-            namespace=service_namespace,
-            clusterId=str(clusterId).replace('-','')[:10],
-            domain=settings.SERVICES_DNS_DOMAIN,
-        )
-        with open(credentials_path + 'certificate.yaml', 'a') as text_file:
-            text_file.write(certificate_file)
+        cmd = ['kubectl', '--kubeconfig=' + kubeconfig_path, 'get', 'certificate', '--namespace', 'daiteap-ingress', settings.SAN_CERTIFICATE_NAME, '-o', 'jsonpath="{.spec.dnsNames}"']
+        output = run_shell.run_shell_with_subprocess_popen(cmd, workdir='./', return_stdout=True)
+        if len(output['stdout']) > 0 and len(output['stdout'][0]) < 5:
+            cmd = 'kubectl --kubeconfig=' + kubeconfig_path + ' patch certificate ' + settings.SAN_CERTIFICATE_NAME + ' -n daiteap-ingress --type=merge -p=\'{"spec":{"dnsNames":["' + domain + '"]}}\''
+        else:
+            cmd = 'kubectl --kubeconfig=' + kubeconfig_path + ' patch certificate ' + settings.SAN_CERTIFICATE_NAME + ' -n daiteap-ingress --type=json -p=\'[{"op": "add", "path": "/spec/dnsNames/-", "value":"' + domain + '"}]\''
 
-        command = [
-            'kubectl',
-            '--kubeconfig=' + kubeconfig_path,
-            'apply',
-            '-f',
-            credentials_path + 'certificate.yaml'
-        ]
-        run_shell.run_shell_with_subprocess_call(command, workdir='./')
-
+        run_shell.run_shell_with_subprocess_popen(cmd, workdir='./', shell=True)
 
         max_retries = 30
         wait_seconds = 20
@@ -118,8 +107,8 @@ def create_service_addresses(credentials_path, service_name, service_namespace, 
                 'get',
                 'certificate',
                 '--namespace',
-                service_namespace,
-                service_name,
+                'daiteap-ingress',
+                settings.SAN_CERTIFICATE_NAME,
                 '-o',
                 'jsonpath="{.status.conditions[0].message}"',
             ]
@@ -137,14 +126,41 @@ def create_service_addresses(credentials_path, service_name, service_namespace, 
             secret_template = SERVICE_SECRET_MANIFEST
             secret_file = secret_template.substitute(
                 name=service_name,
-                namespace=service_namespace,
+                namespace='daiteap-ingress',
                 auth=auth,
             )
             with open(credentials_path + 'secret.yaml', 'a') as text_file:
                 text_file.write(secret_file)
 
-            command[4] = credentials_path + 'secret.yaml'
+            command = [
+                'kubectl',
+                '--kubeconfig=' + kubeconfig_path,
+                'apply',
+                '-f',
+                credentials_path + 'secret.yaml'
+            ]
+
             run_shell.run_shell_with_subprocess_call(command, workdir='./')
+
+        external_name_template = EXTERNAL_NAME_MANIFEST
+        external_name_file = external_name_template.substitute(
+            name=service_name + '-external-name',
+            namespace='daiteap-ingress',
+            externalName=service_name + '.' + service_namespace + '.svc.cluster.local',
+            port=service_port['stdout'][0].strip('"'),
+        )
+        with open(credentials_path + 'external_name.yaml', 'a') as text_file:
+            text_file.write(external_name_file)
+
+        command = [
+            'kubectl',
+            '--kubeconfig=' + kubeconfig_path,
+            'apply',
+            '-f',
+            credentials_path + 'external_name.yaml'
+        ]
+
+        run_shell.run_shell_with_subprocess_call(command, workdir='./')
 
         if service_username and service_password:
             ingress_template = SERVICE_INGRESS_MANIFEST_WITH_AUTH
@@ -153,8 +169,10 @@ def create_service_addresses(credentials_path, service_name, service_namespace, 
 
         ingress_file = ingress_template.substitute(
             name=service_name,
-            namespace=service_namespace,
+            namespace='daiteap-ingress',
             clusterId=str(clusterId).replace('-','')[:10],
+            serviceName=service_name + '-external-name',
+            secretName='cert-' + settings.SAN_CERTIFICATE_NAME,
             service_port=service_port['stdout'][0].strip('"'),
             domain=settings.SERVICES_DNS_DOMAIN,
         )
