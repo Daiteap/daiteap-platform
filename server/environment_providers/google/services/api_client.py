@@ -1002,7 +1002,7 @@ def get_compute_available_image_parameters(google_key, project):
 
     return images
 
-def create_daiteap_dns_record_set(cluster_id, ip_list):
+def create_daiteap_dns_record_set(cluster_id, ingress_target_list, is_ip):
     google_key = open(DAITEAP_GOOGLE_KEY).read()
 
     credentials_json = json.loads(google_key)
@@ -1012,13 +1012,18 @@ def create_daiteap_dns_record_set(cluster_id, ip_list):
     credentials = service_account.Credentials.from_service_account_info(credentials_json)
     service = discovery.build('dns', 'v1', credentials=credentials)
 
+    if is_ip:
+        record_type = 'A'
+    else:
+        record_type = 'CNAME'
+        
     entry = {
         'additions': [
             {
             'name': '*.' + str(cluster_id).replace('-','')[:10] + '.' + settings.SERVICES_DNS_DOMAIN + '.',
-            'type': 'A',
+            'type': record_type,
             'ttl': 300,
-            'rrdata': ip_list
+            'rrdata': ingress_target_list
             }
         ]
     }
@@ -1028,7 +1033,7 @@ def create_daiteap_dns_record_set(cluster_id, ip_list):
         project=project,
         managedZone=zone_name,
         name='*.' + str(cluster_id) + '.' + settings.SERVICES_DNS_DOMAIN + '.',
-        type='A'
+        type=record_type
     )
     try:
         response = request.execute()
@@ -1050,7 +1055,7 @@ def create_daiteap_dns_record_set(cluster_id, ip_list):
             project=project,
             managedZone=zone_name,
             name='*.' + str(cluster_id).replace('-','')[:10] + '.' + settings.SERVICES_DNS_DOMAIN + '.',
-            type='A'
+            type=record_type
         )
         try:
             response = request.execute()

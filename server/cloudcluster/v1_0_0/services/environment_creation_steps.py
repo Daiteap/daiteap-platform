@@ -165,8 +165,8 @@ def upgrade_kubespray_cluster(ansible_client: AnsibleClient, user_id, gateway_ad
 
     ansible_client.run_upgrade_kubespray(user_id, str(cluster.id), cluster.title, gateway_address, kubespray_inventory_dir_name)
 
-def create_daiteap_dns_record(cluster_id, ip_list):
-    google_client.create_daiteap_dns_record_set(cluster_id, ip_list)
+def create_daiteap_dns_record(cluster_id, ingress_target_list, is_ip):
+    google_client.create_daiteap_dns_record_set(cluster_id, ingress_target_list, is_ip)
 
     return
 
@@ -292,12 +292,17 @@ def install_ingress_controller(clusterId):
             if i == max_retries - 1:
                 raise Exception('Timeout while waiting daiteap ingress controller to create')
 
-        ip_list = get_loadbalancer_service_addresses(output['stdout'][0].strip('"'))
+        if str(output['stdout'][0].strip('"')) != get_loadbalancer_service_addresses(output['stdout'][0].strip('"'))[0]:
+            is_ip = False
+            ip_list = [str(output['stdout'][0].strip('"')) + '.']
+        else:
+            is_ip = True
+            ip_list = get_loadbalancer_service_addresses(output['stdout'][0].strip('"'))
 
     if is_yaookcapi:
         vpn_client.disconnect(cluster.wireguard_config, cluster.id)
 
-    return ip_list
+    return ip_list, is_ip
 
 def get_loadbalancer_service_addresses(service):
     ip_list = []
