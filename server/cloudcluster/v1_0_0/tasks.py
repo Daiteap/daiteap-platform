@@ -1401,7 +1401,7 @@ def worker_create_dlcm_v2_environment(resources, cluster_id, user_id, tag_values
 
             if cluster.installstep == 25:
                 if settings.USE_DNS_FOR_SERVICES:
-                    ingress_ip_list = environment_creation_steps.install_ingress_controller(cluster.id)
+                    ingress_target_list, is_ip = environment_creation_steps.install_ingress_controller(cluster.id)
 
                 cluster = Clusters.objects.filter(id=cluster_id)[0]
                 cluster.installstep += 1
@@ -1409,7 +1409,7 @@ def worker_create_dlcm_v2_environment(resources, cluster_id, user_id, tag_values
 
             if cluster.installstep == 26:
                 if settings.USE_DNS_FOR_SERVICES:
-                    environment_creation_steps.create_daiteap_dns_record(cluster.id, ingress_ip_list)
+                    environment_creation_steps.create_daiteap_dns_record(cluster.id, ingress_target_list, is_ip)
 
                 cluster = Clusters.objects.filter(id=cluster_id)[0]
                 cluster.installstep += 1
