@@ -77,6 +77,24 @@ def get_created_cluster_resources(aws_access_key_id, aws_secret_access_key, regi
                     logger.debug(e)
                     continue
 
+            # check if resource arn is customer gateway
+            if resource['ResourceARN'].startswith('arn:aws:ec2:') and resource['ResourceARN'].split(':')[-1].split('/')[0] == 'customer-gateway':
+                ec2 = boto3.client(
+                    'ec2',
+                    aws_access_key_id=aws_access_key_id,
+                    aws_secret_access_key=aws_secret_access_key,
+                    region_name=region_name
+                )
+
+                try:
+                    customer_gateway = ec2.describe_customer_gateways(CustomerGatewayIds=[resource['ResourceARN'].split(':')[-1].split('/')[-1]])
+                    if not customer_gateway or customer_gateway['CustomerGateways'][0]['State'] == 'deleted':
+                        continue
+                except botocore.exceptions.ClientError as e:
+                    if e.response['Error']['Code'] == 'InvalidCustomerGatewayID.NotFound':
+                        continue
+                    raise e
+
             resources_list.append(resource)
 
     route53 = boto3.client(
