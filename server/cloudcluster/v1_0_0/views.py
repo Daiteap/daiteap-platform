@@ -2664,7 +2664,8 @@ def get_cluster_list(request, tenant_id):
                                                                                     'error_msg_delete',
                                                                                     'error_msg',
                                                                                     'providers',
-                                                                                    'created_at'
+                                                                                    'created_at',
+                                                                                    'config'
                                                                                     ))
 
         capi_cluster_list_db = list(models.CapiCluster.objects.filter(project__in=user_projects).values('id',
@@ -2676,7 +2677,8 @@ def get_cluster_list(request, tenant_id):
                                                                                     'resizestep',
                                                                                     'providers',
                                                                                     'created_at',
-                                                                                    'type'
+                                                                                    'type',
+                                                                                    'capi_config'
                                                                                     ))
 
 
@@ -2689,7 +2691,8 @@ def get_cluster_list(request, tenant_id):
                                                                                     'resizestep',
                                                                                     'providers',
                                                                                     'created_at',
-                                                                                    'type'
+                                                                                    'type',
+                                                                                    'yaookcapi_config'
                                                                                     ))
 
     except Exception as e:
@@ -2714,6 +2717,8 @@ def get_cluster_list(request, tenant_id):
 
         project_name = models.Project.objects.filter(id=cluster['project'])[0].name
 
+        credentials = environment_providers.get_provider_credentials(json.loads(cluster['config']))
+
         cluster_list.append({'id': cluster['id'],
                              'name': cluster['title'],
                              'project_name': project_name,
@@ -2731,13 +2736,16 @@ def get_cluster_list(request, tenant_id):
                              'created_at': cluster['created_at'],
                              'machines_count': cluster_machines,
                              'users_count': cluster_users,
-                             'services_count': cluster_services
+                             'services_count': cluster_services,
+                             'credentials': credentials
         })
 
     for capi_cluster in capi_cluster_list_db:
         cluster_services = len(models.ClusterService.objects.filter(capi_cluster=capi_cluster['id']))
 
         project_name = models.Project.objects.filter(id=capi_cluster['project'])[0].name
+
+        credentials = environment_providers.get_provider_credentials(json.loads(cluster['capi_config']))
 
         cluster_list.append({'id': capi_cluster['id'],
                              'name': capi_cluster['title'],
@@ -2754,13 +2762,16 @@ def get_cluster_list(request, tenant_id):
                              'created_at': capi_cluster['created_at'],
                              'machines_count': [],
                              'users_count': [],
-                             'services_count': cluster_services
+                             'services_count': cluster_services,
+                             'credentials': credentials
         })
 
     for yaookcapi_cluster in yaookcapi_cluster_list_db:
         cluster_services = len(models.ClusterService.objects.filter(yaookcapi_cluster=yaookcapi_cluster['id']))
 
         project_name = models.Project.objects.filter(id=yaookcapi_cluster['project'])[0].name
+
+        credentials = environment_providers.get_provider_credentials(json.loads(cluster['yaookcapi_config']))
 
         cluster_list.append({'id': yaookcapi_cluster['id'],
                              'name': yaookcapi_cluster['title'],
@@ -2777,7 +2788,8 @@ def get_cluster_list(request, tenant_id):
                              'created_at': yaookcapi_cluster['created_at'],
                              'machines_count': [],
                              'users_count': [],
-                             'services_count': cluster_services
+                             'services_count': cluster_services,
+                             'credentials': credentials
         })
 
     serializer = ClustersSerializer(cluster_list, many=True)

@@ -1524,6 +1524,15 @@ def get_cluster_machines(cluster, request, payload, config):
 
     return providers, cluster_machines
 
+def get_provider_credentials(config):
+    creds = {}
+
+    for provider in supported_providers.keys():
+        if provider in config:
+            creds[provider] = CloudAccount.objects.get(id=config[provider]['account']).label
+
+    return creds
+
 def get_providers_networks(payload):
     """Extracts the network requested by each provider
 

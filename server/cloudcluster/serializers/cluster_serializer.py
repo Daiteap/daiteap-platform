@@ -34,13 +34,14 @@ class ClustersSerializer(serializers.ModelSerializer):
     providers = serializers.JSONField(required=False)
     resources = serializers.JSONField(required=False)
     config = serializers.JSONField(required=False)
+    credentials = serializers.JSONField(required=False)
 
     class Meta:
         model = Clusters
         fields = ("id", "name", "description", "contact", "created_at", "project", "user",
                   "config", "type", "providers", "status", "title", "daiteap_user", "canceled",
                   "installstep", "resizestep", "kubeconfig", "resizeconfig", "resources",
-                  "error_msg", "error_msg_delete", "tfstate", "tfcode",
+                  "error_msg", "error_msg_delete", "tfstate", "tfcode", "credentials",
                   "kube_upgrade_status", "grafana_admin_password", "grafana_address",
                   "kibana_address", "es_admin_password", "krb_admin_password", "kdc_master_password",
                   "ldap_admin_password", "vpn_secrets", "ca_password", "used_resources_graph_path",
