@@ -58,6 +58,9 @@ serverEmailAddress:
 
 useDNSforServices: "True"
 
+servicesDnsZoneName: daiteap
+servicesDnsDomain: app.daiteap.com
+
 vaultToken:
 vaultAddr: http://vault:8200
 
