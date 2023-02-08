@@ -955,10 +955,10 @@ def get_compute_all_available_os_parameters(google_key):
     # centos_images = get_available_image_parameters(google_key, centos_project)
 
     for image in debian_images:
-        if 'debian-9' in image['name']:
+        if 'debian-10' in image['name']:
             os = {
                 'value': debian_project + '/' + image['name'],
-                'os': 'Debian 9'
+                'os': 'Debian 10'
             }
             all_os_parameters.append(os)
     for image in ubuntu_images:
@@ -985,13 +985,28 @@ def get_compute_available_image_parameters(google_key, project):
         credentials_json)
     service = discovery.build('compute', 'v1', credentials=credentials)
 
-    request = service.images().list(project=project)
+    nextPageToken = None
+    request = service.images().list(project=project, pageToken=nextPageToken)
     response = request.execute()
 
     items = []
 
     if 'items' in response:
         items = response['items']
+    
+    if 'nextPageToken' in response and response['nextPageToken']:
+        nextPageToken = response['nextPageToken']
+    
+    while nextPageToken != None:
+        request = service.images().list(project=project, pageToken=nextPageToken)
+        response = request.execute()
+
+        if 'items' in response:
+            items += response['items']
+        if 'nextPageToken' in response and response['nextPageToken']:
+            nextPageToken = response['nextPageToken']
+        else:
+            nextPageToken = None
 
     for item in items:
         if 'deprecated' in item and 'state' in item['deprecated']:
