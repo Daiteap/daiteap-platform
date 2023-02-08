@@ -72,6 +72,8 @@ keycloakClientSecretKey:
 
 useDNSforServices: "True"
 daiteapImageCredentials:
+servicesDnsZoneName: daiteap
+servicesDnsDomain: app.daiteap.com
 
 vaultAddr: http://vault:8200
 vaultToken:
