@@ -30,6 +30,18 @@ def get_created_cluster_resources(google_key, name_prefix):
     for resource in response['assets']:
         if 'name' in resource and resource['assetType'] != 'compute.googleapis.com/Disk':
             if resource['name'].split('/')[-1].startswith(name_prefix):
+                # check if subnetwork exists
+                if resource['assetType'] == 'compute.googleapis.com/Subnetwork':
+                    compute_service = discovery.build('compute', 'v1', credentials=credentials)
+
+                    try:
+                        request = compute_service.subnetworks().get(project=credentials_json['project_id'], region=resource['name'].split('/')[-3], subnetwork=resource['name'].split('/')[-1])
+                        response = request.execute()
+                    except Exception as e:
+                        print(e)
+                        if 'notFound' in str(e):
+                            continue
+                        raise e
                 resources_list.append(resource)
 
     # get dns managed zones
