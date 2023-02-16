@@ -449,6 +449,8 @@ class Bucket(models.Model):
     storage_account = models.CharField(max_length=1000, blank=True, null=True)
     storage_class = models.CharField(blank=True, null=True, max_length=100)
     bucket_location = models.CharField(blank=True, null=True, max_length=100)
+    contact = models.CharField(max_length=1024, blank=True, null=True)
+    description = models.CharField(max_length=1024, blank=True, null=True)
 
     def checkUserAccess(self, *args):
         daiteap_user = args[0]
