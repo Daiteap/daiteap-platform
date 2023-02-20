@@ -735,9 +735,9 @@ def bucket_detail(request, tenant_id, bucket_id):
         storage_bucket_data['bucket_name'] = bucket.name
         storage_bucket_data['storage_account_url'] = bucket.storage_account
 
-        # response = environment_providers.delete_storage_bucket(storage_bucket_data, request)
-        # if 'error' in response.keys():
-        #     return Response(response, status=status.HTTP_400_BAD_REQUEST)
+        response = environment_providers.delete_storage_bucket(storage_bucket_data, request)
+        if 'error' in response.keys():
+            return Response(response, status=status.HTTP_400_BAD_REQUEST)
 
         bucket.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -9794,24 +9794,27 @@ def environment_template_detail(request, tenant_id, environment_template_id):
                     'message': str(e),
                 }
             }, status=400)
+        
+        payload['name'] = payload['name'].strip()
 
-        env_template_with_same_name = models.EnvironmentTemplate.objects.filter(
-            tenant_id=tenant_id, name=payload['name'].strip()).count()
-        if env_template_with_same_name != 0:
-            log_data = {
-                'level': 'ERROR',
-                'user_id': str(request.user.id),
-                'client_request': json.loads(request.body.decode('utf-8')),
-            }
-            logger.error(
-                'Environment template with that name already exists', extra=log_data)
-            return JsonResponse({
-                'error': {
-                    'message': 'Environment template with that name already exists.'
+        if payload['name'] != environment_template.name:
+            env_template_with_same_name = models.EnvironmentTemplate.objects.filter(
+                tenant_id=tenant_id, name=payload['name']).count()
+
+            if env_template_with_same_name != 0:
+                log_data = {
+                    'level': 'ERROR',
+                    'user_id': str(request.user.id),
+                    'client_request': json.loads(request.body.decode('utf-8')),
                 }
-            }, status=400)
-    
-        environment_template.name = payload['name'].strip()
+                return JsonResponse({
+                    'error': {
+                        'message': 'Environment template with that name already exists.'
+                    }
+                }, status=400)
+
+            environment_template.name = payload['name']
+
         environment_template.description = payload['description']
         environment_template.save()
         serializer = EnvironmentTemplateSerializer(environment_template)
