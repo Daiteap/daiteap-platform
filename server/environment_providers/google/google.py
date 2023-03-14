@@ -429,8 +429,12 @@ def get_machine_records(cloud_config, environment_provider, tfstate_resources, c
 
 def get_tf_code(environment_type):
     code = ''
-    with open(os.path.join(settings.BASE_DIR + '/environment_providers/google/terraform/config.tf'), 'r') as tf_file:
-        code += tf_file.read()
+    if environment_type == constants.ClusterType.DLCM_V2.value:
+        with open(os.path.join(settings.BASE_DIR + '/environment_providers/google/terraform/config_k8s.tf'), 'r') as tf_file:
+            code += tf_file.read()
+    else:
+        with open(os.path.join(settings.BASE_DIR + '/environment_providers/google/terraform/config.tf'), 'r') as tf_file:
+            code += tf_file.read()
     return code
 
 def get_valid_operating_systems(payload, environment_type, user_id):
@@ -504,10 +508,14 @@ def validate_account_permissions(credentials, user_id, storage_enabled):
             cloud_account.valid = False
             cloud_account.save()
         else:
+            cloud_account.cloud_account_info = get_cloud_account_info(cloud_account)
             cloud_account.valid = True
             cloud_account.save()
     else:
         api_client.remove_cloud_account_from_daiteap_project(credentials['google_key'])
+
+    if not dlcm_v2_images:
+        return {'error': 'Error in LCM statuses', 'dlcmV2Images': dlcm_v2_images}
 
     return {'dlcmV2Images': dlcm_v2_images}
 
@@ -771,6 +779,7 @@ def create_cloud_credentials(payload, request, all_account_labels):
         logger.error('Invalid account_params parameter.', extra=log_data)
         raise Exception('Invalid account_params parameter.')
 
+    account.cloud_account_info = get_cloud_account_info(account)
     account.regions_update_status = 1  # updating
     account.save()
 
@@ -1047,7 +1056,7 @@ def download_bucket_file(payload, request):
 
     return api_client.download_bucket_file(google_credentials, google_project, payload['bucket_name'], payload['file_name'])
 
-def get_storage_accounts(payload, request):
+def get_storage_accounts(credential_id):
     return {}
 
 def delete_bucket_folder(payload, request):
@@ -1069,3 +1078,7 @@ def get_bucket_details(payload, request):
     google_project = json.loads(vault_service.read_secret(google_account.credentials)['google_key'])['project_id']
 
     return api_client.get_bucket_details(google_credentials, google_project, payload['bucket_name'])
+
+def get_cloud_account_info(cloud_account):
+    google_credentials = json.loads(vault_service.read_secret(cloud_account.credentials)['google_key'])
+    return api_client.get_cloud_account_info(google_credentials)

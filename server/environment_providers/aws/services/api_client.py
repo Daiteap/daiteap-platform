@@ -57,6 +57,44 @@ def get_created_cluster_resources(aws_access_key_id, aws_secret_access_key, regi
                     logger.debug(e)
                     continue
 
+            if resource['ResourceARN'].startswith('arn:aws:ec2:') and resource['ResourceARN'].split(':')[-1].split('/')[0] == 'volume':
+                ec2 = boto3.resource(
+                    'ec2',
+                    aws_access_key_id=aws_access_key_id,
+                    aws_secret_access_key=aws_secret_access_key,
+                    region_name=region_name
+                )
+
+                try:
+                    volume = ec2.Volume(resource['ResourceARN'].split(':')[-1].split('/')[-1])
+                    if not volume or volume.state == 'deleted':
+                        continue
+                except botocore.exceptions.ClientError as e:
+                    if e.response['Error']['Code'] == 'InvalidVolume.NotFound':
+                        continue
+                    raise e
+                except AttributeError as e:
+                    logger.debug(e)
+                    continue
+
+            # check if resource arn is customer gateway
+            if resource['ResourceARN'].startswith('arn:aws:ec2:') and resource['ResourceARN'].split(':')[-1].split('/')[0] == 'customer-gateway':
+                ec2 = boto3.client(
+                    'ec2',
+                    aws_access_key_id=aws_access_key_id,
+                    aws_secret_access_key=aws_secret_access_key,
+                    region_name=region_name
+                )
+
+                try:
+                    customer_gateway = ec2.describe_customer_gateways(CustomerGatewayIds=[resource['ResourceARN'].split(':')[-1].split('/')[-1]])
+                    if not customer_gateway or customer_gateway['CustomerGateways'][0]['State'] == 'deleted':
+                        continue
+                except botocore.exceptions.ClientError as e:
+                    if e.response['Error']['Code'] == 'InvalidCustomerGatewayID.NotFound':
+                        continue
+                    raise e
+
             resources_list.append(resource)
 
     route53 = boto3.client(
@@ -178,6 +216,9 @@ def check_user_permissions(aws_access_key_id, aws_secret_access_key, region, sto
 
     if storage_enabled and 'AmazonS3FullAccess' not in user_policies:
         return 'Missing storage permissions.'
+
+    if 'AWSOrganizationsReadOnlyAccess' not in user_policies:
+        return 'Missing AWSOrganizationsReadOnlyAccess permission'
 
     return ''
 
@@ -404,7 +445,7 @@ def get_available_regions_parameters(aws_access_key_id, aws_secret_access_key):
 
                 if s_cpu_instances:
                     s_ram = min(s_cpu_instances, key = lambda x: abs(int(x['ram'])-8))
-                    s_ram['storage'] = '25'
+                    s_ram['storage'] = '50'
                     s_ram['description'] = f'Small (vCPU {int(s_ram["cpu"])} | Memory {int(s_ram["ram"])} GB | Storage {int(s_ram["storage"])} GB)'
                     zone['instances'].append(s_ram)
                 if m_cpu_instances:
@@ -1001,3 +1042,34 @@ def get_bucket_details(aws_credentials, bucket_name):
             })
 
     return response
+
+def get_cloud_account_info(aws_credentials):
+    iam_client = boto3.client(
+        'iam',
+        aws_access_key_id=aws_credentials['aws_access_key_id'],
+        aws_secret_access_key=aws_credentials['aws_secret_access_key']
+    )
+    sts_client = boto3.client(
+        'sts',
+        aws_access_key_id=aws_credentials['aws_access_key_id'],
+        aws_secret_access_key=aws_credentials['aws_secret_access_key']
+    )
+    org_client = boto3.client(
+        'organizations',
+        aws_access_key_id=aws_credentials['aws_access_key_id'],
+        aws_secret_access_key=aws_credentials['aws_secret_access_key']
+    )
+
+    user = iam_client.get_user()
+    identity = sts_client.get_caller_identity()
+    account = org_client.describe_account(AccountId=identity['Account'])
+    organization = org_client.describe_organization()
+
+    cloud_data = dict()
+    cloud_data['user'] = user['User']['UserName']
+    cloud_data['account'] = account['Account']['Name']
+    cloud_data['account_email'] = account['Account']['Email']
+    cloud_data['organization_id'] = organization['Organization']['Id']
+    cloud_data['organization_master_account_email'] = organization['Organization']['MasterAccountEmail']
+
+    return cloud_data['account_email']

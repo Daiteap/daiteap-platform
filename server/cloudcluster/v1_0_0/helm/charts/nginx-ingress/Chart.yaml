@@ -1,16 +1,25 @@
-name: nginx-ingress
-version: 0.12.0
-appVersion: 2.1.0
-apiVersion: v1
-kubeVersion: ">= 1.19.0-0"
-description: NGINX Ingress Controller
-icon: https://raw.githubusercontent.com/nginxinc/kubernetes-ingress/v2.1.0/deployments/helm-chart/chart-icon.png
-home: https://github.com/nginxinc/kubernetes-ingress
-sources:
-  - https://github.com/nginxinc/kubernetes-ingress/tree/v2.1.0/deployments/helm-chart
+annotations:
+  artifacthub.io/changes: |
+    - Adding support for disabling liveness and readiness probes to the Helm chart
+    - add:(admission-webhooks) ability to set securityContext
+    - Updated Helm chart to use the fullname for the electionID if not specified
+    - Rename controller-wehbooks-networkpolicy.yaml
+  artifacthub.io/prerelease: "false"
+apiVersion: v2
+appVersion: 1.5.1
+description: Ingress controller for Kubernetes using NGINX as a reverse proxy and
+  load balancer
+home: https://github.com/kubernetes/ingress-nginx
+icon: https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Nginx_logo.svg/500px-Nginx_logo.svg.png
 keywords:
-  - ingress
-  - nginx
+- ingress
+- nginx
+kubeVersion: '>=1.20.0-0'
 maintainers:
-  - name: nginxinc
-    email: kubernetes@nginx.com
+- name: rikatz
+- name: strongjz
+- name: tao12345666333
+name: ingress-nginx
+sources:
+- https://github.com/kubernetes/ingress-nginx
+version: 4.4.2

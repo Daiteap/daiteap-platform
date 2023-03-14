@@ -475,6 +475,9 @@ def get_tf_code(environment_type):
     if environment_type in [constants.ClusterType.DLCM.value, constants.ClusterType.VMS.value, constants.ClusterType.COMPUTE_VMS.value]:
         with open(os.path.join(settings.BASE_DIR + '/environment_providers/azure/terraform/config_compute.tf'), 'r') as tf_file:
             code += tf_file.read()
+    elif environment_type == constants.ClusterType.DLCM_V2.value:
+        with open(os.path.join(settings.BASE_DIR + '/environment_providers/azure/terraform/config_k8s.tf'), 'r') as tf_file:
+            code += tf_file.read()
     else:
         with open(os.path.join(settings.BASE_DIR + '/environment_providers/azure/terraform/config.tf'), 'r') as tf_file:
             code += tf_file.read()
@@ -543,6 +546,7 @@ def validate_account_permissions(credentials, user_id, storage_enabled):
         return {'error': 'Missing required permissions: ' + str(azure_missing_permissions)}
     elif 'id' in credentials:
         cloud_account = CloudAccount.objects.get(id=credentials['id'])
+        cloud_account.cloud_account_info = get_cloud_account_info(cloud_account)
         cloud_account.valid = True
         cloud_account.save()
 
@@ -940,6 +944,7 @@ def create_cloud_credentials(payload, request, all_account_labels):
         logger.error('Invalid account_params parameter.', extra=log_data)
         return Exception('Invalid account_params parameter.')
 
+    account.cloud_account_info = get_cloud_account_info(account)
     account.regions_update_status = 1  # updating
     account.save()
 
@@ -1288,11 +1293,11 @@ def download_bucket_file(payload, request):
 
     return api_client.download_bucket_file(azure_credentials, payload['storage_account_url'], payload['bucket_name'], payload['file_name'])
 
-def get_storage_accounts(payload, request):
-    azure_account = CloudAccount.objects.filter(id=payload['credential_id'])[0]
+def get_storage_accounts(credential_id):
+    azure_account = CloudAccount.objects.filter(id=credential_id)[0]
     azure_credentials = vault_service.read_secret(azure_account.credentials)
 
-    return api_client.get_storage_accounts(payload['credential_id'], azure_credentials)
+    return api_client.get_storage_accounts(credential_id, azure_credentials)
 
 def delete_bucket_folder(payload, request):
     azure_account = CloudAccount.objects.filter(id=payload['credential_id'])[0]
@@ -1305,3 +1310,7 @@ def get_bucket_details(payload, request):
     azure_credentials = vault_service.read_secret(azure_account.credentials)
 
     return api_client.get_bucket_details(azure_credentials, payload['storage_account_url'], payload['bucket_name'])
+
+def get_cloud_account_info(cloud_account):
+    azure_credentials = vault_service.read_secret(cloud_account.credentials)
+    return api_client.get_cloud_account_info(azure_credentials)

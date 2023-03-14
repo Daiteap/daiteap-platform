@@ -30,6 +30,18 @@ def get_created_cluster_resources(google_key, name_prefix):
     for resource in response['assets']:
         if 'name' in resource and resource['assetType'] != 'compute.googleapis.com/Disk':
             if resource['name'].split('/')[-1].startswith(name_prefix):
+                # check if subnetwork exists
+                if resource['assetType'] == 'compute.googleapis.com/Subnetwork':
+                    compute_service = discovery.build('compute', 'v1', credentials=credentials)
+
+                    try:
+                        request = compute_service.subnetworks().get(project=credentials_json['project_id'], region=resource['name'].split('/')[-3], subnetwork=resource['name'].split('/')[-1])
+                        response = request.execute()
+                    except Exception as e:
+                        print(e)
+                        if 'notFound' in str(e):
+                            continue
+                        raise e
                 resources_list.append(resource)
 
     # get dns managed zones
@@ -98,27 +110,31 @@ def check_user_permissions(google_key, storage_enabled):
 
     missing_roles = []
 
+    required_roles = [
+        'roles/dns.admin',
+        'roles/compute.admin',
+        'roles/iam.serviceAccountUser',
+        'roles/cloudasset.viewer',
+        'roles/storage.admin'
+    ]
+
+    listed_roles = [ binding['role'] for binding in response['bindings'] ]
+    for role in required_roles:
+        if role not in listed_roles:
+            missing_roles.append(role)
+
     for binding in response['bindings']:
-        if binding['role'] == 'roles/dns.admin':
+        if binding['role'] == 'roles/storage.admin' and storage_enabled:
             if not any(email in member for member in binding['members']):
-                missing_roles.append('Missing role roles/dns.admin')
-        if binding['role'] == 'roles/compute.admin':
+                missing_roles.append(binding['role'])
+        elif binding['role'] in required_roles:
             if not any(email in member for member in binding['members']):
-                missing_roles.append('Missing role roles/compute.admin')
-        if binding['role'] == 'roles/iam.serviceAccountUser':
-            if not any(email in member for member in binding['members']):
-                missing_roles.append('Missing role roles/iam.serviceAccountUser')
-        if binding['role'] == 'roles/cloudasset.viewer':
-            if not any(email in member for member in binding['members']):
-                missing_roles.append('Missing role roles/cloudasset.viewer')
-        if storage_enabled and binding['role'] == 'roles/storage.admin':
-            if not any(email in member for member in binding['members']):
-                missing_roles.append('Missing storage permissions.')
+                missing_roles.append(binding['role'])
 
     if missing_roles:
-        return missing_roles
+        missing_roles = 'Missing roles: ' + ', '.join(missing_roles)
 
-    return ''
+    return missing_roles
 
 def check_compute_api_enabled(google_key):
     if not google_key:
@@ -263,6 +279,149 @@ def restart_instances(google_key, zone, instances):
 
     return
 
+def get_loadbalancer_names(service, credentials_json, vpc_name):
+    # get loadbalancer name
+    load_balancer_names = []
+    health_check_names = []
+    firewall_rules = service.firewalls()
+    firewall_rules_list = firewall_rules.list(project=credentials_json['project_id']).execute()
+
+    if 'items' not in firewall_rules_list:
+        return False
+
+    for firewall_rule in firewall_rules_list['items']:
+        if 'targetTags' not in firewall_rule:
+            continue
+        if vpc_name in firewall_rule['targetTags']:
+            if 'name' in firewall_rule and firewall_rule['name'].startswith('k8s-fw-'):
+                load_balancer_names.append(firewall_rule['name'].split('-')[2])
+            elif 'name' in firewall_rule and firewall_rule['name'].startswith('k8s-'):
+                print("Found k8s- in firewall rule" + str(firewall_rule))
+                health_check_names.append(firewall_rule['name'].split('-')[1])
+
+    return load_balancer_names, health_check_names
+
+def delete_health_checks(project, health_check_name, service):
+    # Delete health checks
+    request = service.httpHealthChecks().list(project=project)
+
+    while request is not None:
+        response = request.execute()
+        if 'items' not in response:
+            print("No health checks found")
+            break
+        for health_check in response['items']:
+            if len(health_check['name'].split('-')) > 1:
+                if health_check['name'].split('-')[1] == health_check_name:
+                    print('Deleting health check: {}'.format(health_check['name']))
+                    request_delete = service.httpHealthChecks().delete(project=project, httpHealthCheck=health_check['name'])
+
+                    response_delete = request_delete.execute()
+                    operation_name = response_delete['name']
+                    wait_for_global_operation(service, project, operation_name)
+
+        request = service.httpHealthChecks().list_next(previous_request=request, previous_response=response)
+
+def delete_loadbalancers(project, region, vpc_name, service, load_balancer_name):
+    # Delete Forwarding rules
+    request = service.forwardingRules().list(project=project, region=region)
+
+    while request is not None:
+        response = request.execute()
+        if 'items' not in response:
+            print("No forwarding rules found")
+            break
+        for forwarding_rule in response['items']:
+            if forwarding_rule['name'] == load_balancer_name:
+                print('Deleting forwarding rule: {}'.format(forwarding_rule['name']))
+                request_delete = service.forwardingRules().delete(project=project, region=region, forwardingRule=forwarding_rule['name'])
+                response_delete = request_delete.execute()
+                operation_name = response_delete['name']
+                print('Waiting for operation {} to complete...'.format(operation_name))
+                wait_for_regional_operation(service, project, region, operation_name)
+
+
+        request = service.forwardingRules().list_next(previous_request=request, previous_response=response)
+
+    # Target pools
+    request = service.targetPools().list(project=project, region=region)
+
+    while request is not None:
+        response = request.execute()
+        if 'items' not in response:
+            print("No target pools found")
+            break
+        for target_pool in response['items']:
+            if target_pool['name'] == load_balancer_name:
+                print('Deleting target pool: {}'.format(target_pool['name']))
+                request_delete = service.targetPools().delete(project=project, region=region, targetPool=target_pool['name'])
+
+                response_delete = request_delete.execute()
+                operation_name = response_delete['name']
+                wait_for_regional_operation(service, project, region, operation_name)
+
+        request = service.targetPools().list_next(previous_request=request, previous_response=response)
+
+def wait_for_regional_operation(service, project, region, operation_name):
+    print('Waiting for regional operation {} to complete...'.format(operation_name))
+
+    retries = 24
+    timeout = 20
+
+    for i in range(retries):
+        request = service.regionOperations().get(project=project, region=region, operation=operation_name)
+        response = request.execute()
+        if 'status' in response and response['status'] == 'DONE':
+            if 'error' in response:
+                raise Exception(response['error'])
+            print('Operation {} completed'.format(operation_name))
+            return
+        print('Operation {} not done. Waiting {} seconds'.format(operation_name, timeout))
+        time.sleep(timeout)
+
+    raise Exception('Operation {} timed out'.format(operation_name))
+
+def wait_for_global_operation(service, project, operation_name):
+    print('Waiting for global operation {} to complete...'.format(operation_name))
+
+    retries = 24
+    timeout = 20
+
+    for i in range(retries):
+        request = service.globalOperations().get(project=project, operation=operation_name)
+        response = request.execute()
+        if 'status' in response and response['status'] == 'DONE':
+            if 'error' in response:
+                raise Exception(response['error'])
+            print('Operation {} completed'.format(operation_name))
+            return
+        print('Operation {} not done. Waiting {} seconds'.format(operation_name, timeout))
+        time.sleep(timeout)
+
+    raise Exception('Operation {} timed out'.format(operation_name))
+
+
+def delete_firewall_rules(project, vpc_name, service):
+    # Delete firewall rules
+    request = service.firewalls().list(project=project)
+
+    while request is not None:
+        response = request.execute()
+        if 'items' not in response:
+            print("No firewall rules found")
+            break
+        for firewall_rule in response['items']:
+            if 'targetTags' not in firewall_rule:
+                continue
+            if vpc_name in firewall_rule['targetTags']:
+                print('Deleting firewall rule: {}'.format(firewall_rule['name']))
+                request_delete = service.firewalls().delete(project=project, firewall=firewall_rule['name'])
+
+                response_delete = request_delete.execute()
+                operation_name = response_delete['name']
+                wait_for_global_operation(service, project, operation_name)
+
+        request = service.firewalls().list_next(previous_request=request, previous_response=response)
 
 def delete_loadbalancer_resources(google_key, region, vpc_name, user_id, cluster_id):
     if not google_key:
@@ -277,27 +436,9 @@ def delete_loadbalancer_resources(google_key, region, vpc_name, user_id, cluster
     service = discovery.build('compute', 'v1', credentials=credentials)
     project = credentials_json['project_id']
 
-    # get loadbalancer name
-    load_balancer_name = ""
-    firewall_rules = service.firewalls()
-    firewall_rules_list = firewall_rules.list(project=credentials_json['project_id']).execute()
-
-    if 'items' not in firewall_rules_list:
-        return False
-
-    for firewall_rule in firewall_rules_list['items']:
-        if 'targetTags' not in firewall_rule:
-            continue
-        if vpc_name in firewall_rule['targetTags']:
-            if 'name' in firewall_rule and firewall_rule['name'].startswith('k8s-fw-'):
-                load_balancer_name = firewall_rule['name'].split('-')[2]
-                break
-            if 'name' in firewall_rule and firewall_rule['name'].startswith('k8s-'):
-                load_balancer_name = firewall_rule['name'].split('-')[1]
-                break
-
-    if load_balancer_name == "":
-        return False
+    load_balancer_names, health_check_names = get_loadbalancer_names(service, credentials_json, vpc_name)
+    print(load_balancer_names)
+    print(health_check_names)
 
     try:
         # stop instances
@@ -306,68 +447,13 @@ def delete_loadbalancer_resources(google_key, region, vpc_name, user_id, cluster
         print(str(e))
         pass
 
-    # delete forwardingRules
-    request = service.forwardingRules().list(project=project, region=region)
-    while request is not None:
-        forwarding_rules_response = request.execute()
+    for load_balancer_name in load_balancer_names:
+        delete_loadbalancers(project, region, vpc_name, service, load_balancer_name)
 
-        if 'items' in forwarding_rules_response:
-            for forwarding_rule in forwarding_rules_response['items']:
-                # check if forwarding rule is for the vpc
-                if forwarding_rule['name'] == load_balancer_name:
-                    # delete forwardingRule
-                    request = service.forwardingRules().delete(project=project, region=region, forwardingRule=forwarding_rule['name'])
-                    print(request.execute())
+    for health_check_name in health_check_names:
+        delete_health_checks(project, health_check_name, service)
 
-        request = service.forwardingRules().list_next(previous_request=request, previous_response=forwarding_rules_response)
-
-    # delete health checks
-    request = service.regionHealthChecks().list(project=project, region=region)
-    while request is not None:
-        health_checks_response = request.execute()
-
-        if 'items' in health_checks_response:
-            for health_check in health_checks_response['items']:
-                # check if health check is for the vpc
-                if health_check['name'] == load_balancer_name:
-                    # delete health check
-                    request = service.regionHealthChecks().delete(project=project, healthCheck=health_check['name'], region=region)
-                    print(request.execute())
-
-        request = service.regionHealthChecks().list_next(previous_request=request, previous_response=health_checks_response)
-
-    # delete static IPs
-    request = service.addresses().list(project=project, region=region)
-    while request is not None:
-        addresses_response = request.execute()
-
-        if 'items' in addresses_response:
-            for address in addresses_response['items']:
-                # check if address is for the vpc
-                if address['name'] == load_balancer_name:
-                    # delete address
-                    request = service.addresses().delete(project=project, address=address['name'], region=region)
-                    print(request.execute())
-
-        request = service.addresses().list_next(previous_request=request, previous_response=addresses_response)
-
-    # delete firewall rules
-    firewall_rules = service.firewalls()
-    firewall_rules_list = firewall_rules.list(project=credentials_json['project_id']).execute()
-
-    if 'items' not in firewall_rules_list:
-        return False
-
-    for firewall_rule in firewall_rules_list['items']:
-        if 'targetTags' not in firewall_rule:
-            continue
-        if vpc_name in firewall_rule['targetTags']:
-            if 'name' in firewall_rule and firewall_rule['name'].startswith('k8s-'):
-                # delete firewall rule
-                request = service.firewalls().delete(project=project, firewall=firewall_rule['name'])
-                request.execute()
-
-    return True
+    delete_firewall_rules(project, vpc_name, service)
 
 
 def add_cloud_account_to_daiteap_project(google_key):
@@ -432,7 +518,9 @@ def remove_cloud_account_from_daiteap_project(google_key):
 
     for binding in old_policy['bindings']:
         if binding['role'] == 'roles/compute.imageUser':
-            binding['members'].remove('serviceAccount:' + credentials_json['client_email'])
+            # remove only bindings which exists, otherwise remove() will throw ValueError
+            if 'serviceAccount:' + credentials_json['client_email'] in binding['members']:
+                binding['members'].remove('serviceAccount:' + credentials_json['client_email'])
 
     policy = (
         service.projects()
@@ -533,7 +621,7 @@ def get_available_regions_parameters(google_key):
 
             if s_cpu_instances:
                 s_ram = min(s_cpu_instances, key = lambda x: abs(int(x['ram'])-8))
-                s_ram['storage'] = '25'
+                s_ram['storage'] = '50'
                 s_ram['description'] = f'Small (vCPU {int(s_ram["cpu"])} | Memory {int(s_ram["ram"])} GB | Storage {int(s_ram["storage"])} GB)'
                 zone['instances'].append(s_ram)
             if m_cpu_instances:
@@ -879,10 +967,10 @@ def get_compute_all_available_os_parameters(google_key):
     # centos_images = get_available_image_parameters(google_key, centos_project)
 
     for image in debian_images:
-        if 'debian-9' in image['name']:
+        if 'debian-10' in image['name']:
             os = {
                 'value': debian_project + '/' + image['name'],
-                'os': 'Debian 9'
+                'os': 'Debian 10'
             }
             all_os_parameters.append(os)
     for image in ubuntu_images:
@@ -909,13 +997,28 @@ def get_compute_available_image_parameters(google_key, project):
         credentials_json)
     service = discovery.build('compute', 'v1', credentials=credentials)
 
-    request = service.images().list(project=project)
+    nextPageToken = None
+    request = service.images().list(project=project, pageToken=nextPageToken)
     response = request.execute()
 
     items = []
 
     if 'items' in response:
         items = response['items']
+    
+    if 'nextPageToken' in response and response['nextPageToken']:
+        nextPageToken = response['nextPageToken']
+    
+    while nextPageToken != None:
+        request = service.images().list(project=project, pageToken=nextPageToken)
+        response = request.execute()
+
+        if 'items' in response:
+            items += response['items']
+        if 'nextPageToken' in response and response['nextPageToken']:
+            nextPageToken = response['nextPageToken']
+        else:
+            nextPageToken = None
 
     for item in items:
         if 'deprecated' in item and 'state' in item['deprecated']:
@@ -926,7 +1029,7 @@ def get_compute_available_image_parameters(google_key, project):
 
     return images
 
-def create_daiteap_dns_record_set(cluster_id, ip_list):
+def create_daiteap_dns_record_set(cluster_id, ingress_target_list, is_ip):
     google_key = open(DAITEAP_GOOGLE_KEY).read()
 
     credentials_json = json.loads(google_key)
@@ -936,13 +1039,18 @@ def create_daiteap_dns_record_set(cluster_id, ip_list):
     credentials = service_account.Credentials.from_service_account_info(credentials_json)
     service = discovery.build('dns', 'v1', credentials=credentials)
 
+    if is_ip:
+        record_type = 'A'
+    else:
+        record_type = 'CNAME'
+        
     entry = {
         'additions': [
             {
             'name': '*.' + str(cluster_id).replace('-','')[:10] + '.' + settings.SERVICES_DNS_DOMAIN + '.',
-            'type': 'A',
+            'type': record_type,
             'ttl': 300,
-            'rrdata': ip_list
+            'rrdata': ingress_target_list
             }
         ]
     }
@@ -952,7 +1060,7 @@ def create_daiteap_dns_record_set(cluster_id, ip_list):
         project=project,
         managedZone=zone_name,
         name='*.' + str(cluster_id) + '.' + settings.SERVICES_DNS_DOMAIN + '.',
-        type='A'
+        type=record_type
     )
     try:
         response = request.execute()
@@ -974,7 +1082,7 @@ def create_daiteap_dns_record_set(cluster_id, ip_list):
             project=project,
             managedZone=zone_name,
             name='*.' + str(cluster_id).replace('-','')[:10] + '.' + settings.SERVICES_DNS_DOMAIN + '.',
-            type='A'
+            type=record_type
         )
         try:
             response = request.execute()
@@ -1020,3 +1128,11 @@ def delete_daiteap_dns_record_set(cluster_id):
         raise Exception('Error while deleting daiteap dns record')
 
     return
+
+def get_cloud_account_info(google_credentials):
+    cloud_data = dict()
+
+    cloud_data['project_id'] = google_credentials['project_id']
+    cloud_data['email'] = google_credentials['client_email']
+
+    return cloud_data['email']

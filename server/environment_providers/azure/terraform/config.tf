@@ -301,3 +301,4 @@ resource "null_resource" "azure_instances_exec" {
     ]
   }
 }
+

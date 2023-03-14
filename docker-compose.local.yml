@@ -1,0 +1,220 @@
+version: "3"
+
+networks:
+  daiteapnet:
+
+
+services:
+
+  daiteap-platform:
+    links:
+      - "mysql"
+      - "celery-worker"
+      - "rabbitmqbroker"
+      - "vault"
+    image: daiteap-platform:local
+    build:
+      context: server
+      dockerfile: Dockerfile
+    container_name: daiteap-platform
+    environment:
+      MYSQL_DATABASE: daiteapapi
+      MYSQL_USER: root
+      MYSQL_PASS: password
+      MYSQL_URL: mysql
+      MYSQL_PORT: 3306
+      DJANGO_SECRET_KEY: secret
+      DJANGO_DEBUG: 'True'
+      APP_NAME: Daiteap
+      BROKER_USER: guest
+      BROKER_PASSWORD: guest
+      BROKER_HOST: rabbitmqbroker
+      BROKER_PORT: 5672
+      BROKER_VHOST:
+      BROKER_CONNECTION_TIMEOUT:
+      AZURE_AUTH_SCOPES:
+      AZURE_CLIENT_SECRET:
+      AZURE_CLIENT_ID:
+      # GOOGLE_SERVICE_OAUTH_ACCOUNTS_PREFIX: daiteaplocal
+      # AZURE_SERVICE_OAUTH_ACCOUNTS_PREFIX:
+      # ANSIBLE_HOST_KEY_CHECKING:
+      # DAITEAP_ENVIRONMENT_URL:
+      # USER_GUIDE_URL:
+      # DAITEAP_LOGO_URL:
+      # ANSIBLE_DEPRECATION_WARNINGS:
+      # ANSIBLE_COMMAND_WARNINGS:
+      # ANSIBLE_ACTION_WARNINGS:
+      # ANSIBLE_LOCALHOST_WARNING:
+      # ANSIBLE_SYSTEM_WARNINGS:
+      # ANSIBLE_TRANSFORM_INVALID_GROUP_CHARS:
+      # ANSIBLE_HOST_PATTERN_MISMATCH:
+      # ANSIBLE_DISPLAY_FAILED_STDERR:
+      # ANSIBLE_SSH_RETRIES:
+      # EMAIL_HOST_PASSWORD:
+      # EMAIL_HOST_USER:
+      # DEFAULT_FROM_EMAIL:
+      # DAITEAP_MAIL_URL:
+      # DAITEAP_UNSUBSCRIBE_URL:
+      DJANGO_ALLOWED_HOSTS: '*'
+      # EMAIL_API_URL:
+      # EMAIL_API_KEY:
+      # SERVER_EMAIL_ADDRESS:
+      AWS_DAITEAP_IMAGE_OWNER: 373554760905
+      AWS_DAITEAP_IMAGE_NAME: dlcmv2-ubuntu-1804-01
+      GCP_DAITEAP_IMAGE_PROJECT: daiteapdevplayground
+      AZURE_DAITEAP_IMAGE_PARAMETERS: Daiteap/Ubuntu/18.04
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN}
+      # SERVICE_CATALOG_COMMAND: "fix_service_catalog"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/isAlive" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    sysctls:
+      net.core.somaxconn: 1024
+    volumes:
+      - ./docker-compose:/docker-compose
+    networks:
+      - daiteapnet
+
+  mysql:
+    image: mysql:8.0
+    container_name: daiteap-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: daiteapapi
+    volumes:
+      - ./docker-compose/mysql:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - daiteapnet
+    healthcheck:
+      test: "/usr/bin/mysql --user=root --password=password --execute \"SHOW DATABASES;\""
+      interval: 2s
+      timeout: 20s
+      retries: 10
+
+  vault:
+    image: vault:1.12.0
+    # links:
+    #   - "mysql"
+    cap_add:
+      - IPC_LOCK
+    container_name: daiteap-vault
+    environment:
+      - VAULT_ADDR=http://0.0.0.0:8200
+      - VAULT_API_ADDR=http://0.0.0.0:8200
+      - VAULT_ADDRESS=http://0.0.0.0:8200
+    ports:
+      - "8200:8200"
+    networks:
+      - daiteapnet
+    volumes:
+      - ./docker-compose/vault/data:/vault/file
+      - ./docker-compose/vault/config/vault.json:/vault/config/vault.json
+    entrypoint: vault server -config=/vault/config/vault.json
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8200/v1/sys/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  rabbitmqbroker:
+    image: rabbitmq:3-management
+    container_name: daiteap-rabbitmq-broker
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - daiteapnet
+
+  celery-worker:
+    image: celery-worker:local
+    deploy:
+      mode: replicated
+      replicas: 3
+    build:
+      context: server
+      dockerfile: Dockerfile_Celery_Worker
+    links:
+      - "mysql"
+      - "rabbitmqbroker"
+      - "vault"
+    # container_name: daiteap-celery-worker
+    environment:
+      USE_DNS_FOR_SERVICES: ${USE_DNS_FOR_SERVICES}
+      SERVICES_DNS_DOMAIN: ${SERVICES_DNS_DOMAIN}
+      SERVICES_DNS_ZONE_NAME: ${SERVICES_DNS_ZONE_NAME}
+      MYSQL_DATABASE: daiteapapi
+      MYSQL_USER: root
+      MYSQL_PASS: password
+      MYSQL_URL: mysql
+      MYSQL_PORT: 3306
+      DJANGO_SECRET_KEY: secret
+      DJANGO_DEBUG: 'True'
+      APP_NAME: Daiteap
+      BROKER_USER: guest
+      BROKER_PASSWORD: guest
+      BROKER_HOST: rabbitmqbroker
+      BROKER_PORT: 5672
+      BROKER_VHOST:
+      BROKER_CONNECTION_TIMEOUT:
+      AZURE_AUTH_SCOPES:
+      AZURE_CLIENT_SECRET:
+      AZURE_CLIENT_ID:
+      # GOOGLE_SERVICE_OAUTH_ACCOUNTS_PREFIX: daiteaplocal
+      # AZURE_SERVICE_OAUTH_ACCOUNTS_PREFIX:
+      # ANSIBLE_HOST_KEY_CHECKING:
+      # DAITEAP_ENVIRONMENT_URL:
+      # USER_GUIDE_URL:
+      # DAITEAP_LOGO_URL:
+      # ANSIBLE_DEPRECATION_WARNINGS:
+      # ANSIBLE_COMMAND_WARNINGS:
+      # ANSIBLE_ACTION_WARNINGS:
+      # ANSIBLE_LOCALHOST_WARNING:
+      # ANSIBLE_SYSTEM_WARNINGS:
+      # ANSIBLE_TRANSFORM_INVALID_GROUP_CHARS:
+      # ANSIBLE_HOST_PATTERN_MISMATCH:
+      # ANSIBLE_DISPLAY_FAILED_STDERR:
+      # ANSIBLE_SSH_RETRIES:
+      EMAIL_HOST_PASSWORD: none
+      EMAIL_HOST_USER: none
+      DEFAULT_FROM_EMAIL: none@server.com
+      # DAITEAP_MAIL_URL:
+      # DAITEAP_UNSUBSCRIBE_URL:
+      DJANGO_ALLOWED_HOSTS: '*'
+      # EMAIL_API_URL:
+      # EMAIL_API_KEY:
+      # SERVER_EMAIL_ADDRESS:
+      AWS_DAITEAP_IMAGE_OWNER: 373554760905
+      GCP_DAITEAP_IMAGE_PROJECT: daiteapdevplayground
+      AZURE_DAITEAP_IMAGE_PARAMETERS: Daiteap/Ubuntu/18.04
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN}
+    networks:
+      - daiteapnet
+    volumes:
+      - ./docker-compose/.ssh:/var/.ssh
+      - ./docker-compose/daiteap_dns_credentials.json:/var/dns_credentials/daiteap_dns_credentials.json
+
+  daiteap-ui:
+    image: daiteap-ui:local
+    build:
+      context: ../daiteap-ui/app/
+      dockerfile: Dockerfile
+      args:
+        - VUE_APP_SINGLE_USER_MODE=True
+    container_name: daiteap-ui
+    ports:
+      - "1899:8080"
+    links:
+      - "daiteap-platform"
+    networks:
+      - daiteapnet
+    volumes:
+      -  ./docker-compose/nginx.conf:/etc/nginx/conf.d/nginx.conf
+      -  ./docker-compose/service_logo:/app/cloudcluster_media/service_logo

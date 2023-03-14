@@ -164,6 +164,15 @@ metadata:
   name: cloud-controller-manager
   namespace: kube-system
 ---
+apiVersion: v1
+data:
+  cloud: W0dsb2JhbF0KTXVsdGl6b25lID0gdHJ1ZQo=
+kind: Secret
+metadata:
+  name: cloudconfig
+  namespace: kube-system
+type: Opaque
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -186,11 +195,14 @@ spec:
         image: k8s.gcr.io/cloud-controller-manager:v1.15.11
         command:
         - /usr/local/bin/cloud-controller-manager
+        - --cloud-config=/etc/cloud/cloud
         - --cloud-provider=gce
         - --leader-elect=true
         volumeMounts:
           - name: etc-ssl
             mountPath: /etc/ssl
+          - mountPath: /etc/cloud
+            name: cloudconfig
       tolerations:
       - key: node.cloudprovider.kubernetes.io/uninitialized
         value: "true"
@@ -205,3 +217,9 @@ spec:
         - name: etc-ssl
           hostPath:
             path: /etc/ssl
+        - name: cloudconfig
+          secret:
+            secretName: cloudconfig
+            items:
+            - key: cloud
+              path: cloud

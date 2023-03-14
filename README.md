@@ -13,6 +13,7 @@ Requirements:
 - docker/docker-compose (Docker Daemon must be running. Windows/Mac start Docker Desktop)
 - GIT
 - DNS zone in GCP (optional)
+- jq (cmd JSON parser tool)
 
 ```shell
 # clone and cd into this repository
@@ -33,9 +34,6 @@ brew install jq
 
 # Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
 sh docker-compose/init.sh
-
-# set VAULT_TOKEN variable
-export VAULT_TOKEN=$(jq -r .root_token docker-compose/vault/vault-init.json)
 ```
 ___
 ### Start daiteap with DNS for Service Applications

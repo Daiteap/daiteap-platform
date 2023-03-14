@@ -34,4 +34,4 @@ ENV GIT_SHA=$GIT_COMMIT_SHA
 COPY . .
 
 ENTRYPOINT ["tini", "--"]
-CMD ["bash", "-c", "./test.sh && /usr/local/bin/celery -A cloudcluster worker -l info -O fair -c 1"]
+CMD ["bash", "-c", "./test.sh && /usr/local/bin/celery -A cloudcluster worker -l info -O fair -c 3"]

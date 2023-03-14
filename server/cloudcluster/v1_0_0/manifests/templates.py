@@ -10,11 +10,25 @@ metadata:
 spec:
   secretName: "cert-${name}"
   dnsNames:
-  - "${name}.${clusterId}.${domain}"
   issuerRef:
     name: daiteap-clusterissuer
     kind: ClusterIssuer
 ''')
+
+EXTERNAL_NAME_MANIFEST = Template('''
+kind: Service
+apiVersion: v1
+metadata:
+  name: "${name}"
+  namespace: "${namespace}"
+spec:
+  type: ExternalName
+  externalName: "${externalName}"
+  ports:
+  - port: ${port}
+    targetPort: ${port}
+'''
+)
 
 SERVICE_INGRESS_MANIFEST = Template('''
 ---
@@ -29,7 +43,7 @@ spec:
   tls:
   - hosts:
     - "${name}.${clusterId}.${domain}"
-    secretName: "cert-${name}"
+    secretName: "${secretName}"
   rules:
   - host: "${name}.${clusterId}.${domain}"
     http:
@@ -38,9 +52,50 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: "${name}"
+            name: "${serviceName}"
             port:
               number: ${service_port}
+''')
+
+SERVICE_INGRESS_MANIFEST_WITH_AUTH = Template('''
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: basic-auth-${name}
+  namespace: "${namespace}"
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: basic-auth-${name}
+    nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required '
+spec:
+  tls:
+  - hosts:
+    - "${name}.${clusterId}.${domain}"
+    secretName: "${secretName}"
+  rules:
+  - host: "${name}.${clusterId}.${domain}"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: "${serviceName}"
+            port:
+              number: ${service_port}
+''')
+
+SERVICE_SECRET_MANIFEST = Template('''
+apiVersion: v1
+kind: Secret
+metadata:
+  name: basic-auth-${name}
+  namespace: "${namespace}"
+type: Opaque
+data:
+  auth: "${auth}"
 ''')
 
 CALICO_MANIFEST = '''

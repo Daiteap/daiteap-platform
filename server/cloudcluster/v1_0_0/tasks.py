@@ -57,8 +57,8 @@ from .helm.values_templates.templates import (
     mysql_template_with_replicas,
 )
 from .mailgun.mailgun_client import MailgunClient
-from .manifests.templates import SERVICE_CERTIFICATE_MANIFEST, SERVICE_INGRESS_MANIFEST
-from .services import constants, environment_creation_steps, run_shell, vpn_client
+from .manifests.templates import EXTERNAL_NAME_MANIFEST, SERVICE_INGRESS_MANIFEST, SERVICE_INGRESS_MANIFEST_WITH_AUTH, SERVICE_SECRET_MANIFEST
+from .services import constants, environment_creation_steps, run_shell, vpn_client, user_encrypt
 from .services.kubespray_inventory import (
     add_kubernetes_roles_to_nodes,
     add_kubernetes_roles_to_tfstate_resources,
@@ -72,10 +72,10 @@ GRAFANA_PORT = 31000
 
 FILE_BASE_DIR = str(pathlib.Path(__file__).parent.absolute())
 
-def create_service_addresses(credentials_path, service_name, service_namespace, clusterId, kubeconfig_path):
+def create_service_addresses(credentials_path, service_name, service_namespace, clusterId, kubeconfig_path, service_username='', service_password=''):
     if settings.USE_DNS_FOR_SERVICES:
         domain = str(service_name + '.' + str(clusterId).replace('-','')[:10] + '.' + settings.SERVICES_DNS_DOMAIN)
-        cmd = [
+        command = [
             'kubectl',
             '--kubeconfig',
             credentials_path + 'kubectl_config',
@@ -87,27 +87,16 @@ def create_service_addresses(credentials_path, service_name, service_namespace, 
             '-o',
             'jsonpath="{.spec.ports[0].port}"',
         ]
-        service_port = run_shell.run_shell_with_subprocess_popen(cmd, workdir='./', return_stdout=True)
+        service_port = run_shell.run_shell_with_subprocess_popen(command, workdir='./', return_stdout=True)
 
-        certificate_template = SERVICE_CERTIFICATE_MANIFEST
-        certificate_file = certificate_template.substitute(
-            name=service_name,
-            namespace=service_namespace,
-            clusterId=str(clusterId).replace('-','')[:10],
-            domain=settings.SERVICES_DNS_DOMAIN,
-        )
-        with open(credentials_path + 'certificate.yaml', 'a') as text_file:
-            text_file.write(certificate_file)
+        cmd = ['kubectl', '--kubeconfig=' + kubeconfig_path, 'get', 'certificate', '--namespace', 'daiteap-ingress', settings.SAN_CERTIFICATE_NAME, '-o', 'jsonpath="{.spec.dnsNames}"']
+        output = run_shell.run_shell_with_subprocess_popen(cmd, workdir='./', return_stdout=True)
+        if len(output['stdout']) > 0 and len(output['stdout'][0]) < 5:
+            cmd = 'kubectl --kubeconfig=' + kubeconfig_path + ' patch certificate ' + settings.SAN_CERTIFICATE_NAME + ' -n daiteap-ingress --type=merge -p=\'{"spec":{"dnsNames":["' + domain + '"]}}\''
+        else:
+            cmd = 'kubectl --kubeconfig=' + kubeconfig_path + ' patch certificate ' + settings.SAN_CERTIFICATE_NAME + ' -n daiteap-ingress --type=json -p=\'[{"op": "add", "path": "/spec/dnsNames/-", "value":"' + domain + '"}]\''
 
-        command = [
-            'kubectl',
-            '--kubeconfig=' + kubeconfig_path,
-            'apply',
-            '-f',
-            credentials_path + 'certificate.yaml'
-        ]
-        run_shell.run_shell_with_subprocess_call(command, workdir='./')
-
+        run_shell.run_shell_with_subprocess_popen(cmd, workdir='./', shell=True)
 
         max_retries = 30
         wait_seconds = 20
@@ -118,8 +107,8 @@ def create_service_addresses(credentials_path, service_name, service_namespace, 
                 'get',
                 'certificate',
                 '--namespace',
-                service_namespace,
-                service_name,
+                'daiteap-ingress',
+                settings.SAN_CERTIFICATE_NAME,
                 '-o',
                 'jsonpath="{.status.conditions[0].message}"',
             ]
@@ -131,14 +120,63 @@ def create_service_addresses(credentials_path, service_name, service_namespace, 
             if i == max_retries - 1:
                 raise Exception('Timeout while waiting service certificate to create')
 
-        ingress_template = SERVICE_INGRESS_MANIFEST
+        if service_username and service_password:
+            auth = user_encrypt.encrypt(service_username, service_password)
+
+            secret_template = SERVICE_SECRET_MANIFEST
+            secret_file = secret_template.substitute(
+                name=service_name,
+                namespace='daiteap-ingress',
+                auth=auth,
+            )
+            with open(credentials_path + 'secret.yaml', 'a') as text_file:
+                text_file.write(secret_file)
+
+            command = [
+                'kubectl',
+                '--kubeconfig=' + kubeconfig_path,
+                'apply',
+                '-f',
+                credentials_path + 'secret.yaml'
+            ]
+
+            run_shell.run_shell_with_subprocess_call(command, workdir='./')
+
+        external_name_template = EXTERNAL_NAME_MANIFEST
+        external_name_file = external_name_template.substitute(
+            name=service_name + '-external-name',
+            namespace='daiteap-ingress',
+            externalName=service_name + '.' + service_namespace + '.svc.cluster.local',
+            port=service_port['stdout'][0].strip('"'),
+        )
+        with open(credentials_path + 'external_name.yaml', 'a') as text_file:
+            text_file.write(external_name_file)
+
+        command = [
+            'kubectl',
+            '--kubeconfig=' + kubeconfig_path,
+            'apply',
+            '-f',
+            credentials_path + 'external_name.yaml'
+        ]
+
+        run_shell.run_shell_with_subprocess_call(command, workdir='./')
+
+        if service_username and service_password:
+            ingress_template = SERVICE_INGRESS_MANIFEST_WITH_AUTH
+        else:
+            ingress_template = SERVICE_INGRESS_MANIFEST
+
         ingress_file = ingress_template.substitute(
             name=service_name,
-            namespace=service_namespace,
+            namespace='daiteap-ingress',
             clusterId=str(clusterId).replace('-','')[:10],
+            serviceName=service_name + '-external-name',
+            secretName='cert-' + settings.SAN_CERTIFICATE_NAME,
             service_port=service_port['stdout'][0].strip('"'),
             domain=settings.SERVICES_DNS_DOMAIN,
         )
+
         with open(credentials_path + 'ingress.yaml', 'a') as text_file:
             text_file.write(ingress_file)
 
@@ -259,7 +297,7 @@ def get_nodes_private_ips(resources, clouds, cluster_id, user_id):
 
     return nodes_private_ips
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=5400)
 def worker_upgrade_kubernetes_cluster(resources, cluster_id, user_id, kubernetes_version):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -324,7 +362,7 @@ def worker_upgrade_kubernetes_cluster(resources, cluster_id, user_id, kubernetes
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=5400)
 def worker_upgrade_k3s_cluster(resources, cluster_id, user_id, kubernetes_version):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -388,7 +426,7 @@ def worker_upgrade_k3s_cluster(resources, cluster_id, user_id, kubernetes_versio
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=5400)
 def worker_create_dlcm_environment(resources, cluster_id, user_id, tag_values):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -757,6 +795,14 @@ def worker_create_dlcm_environment(resources, cluster_id, user_id, tag_values):
 
         return
 
+@shared_task(ignore_result=False, time_limit=600)
+def worker_get_tf_plan(resize_config, cluster_id, user_id, tag_values):
+    cluster = Clusters.objects.filter(id=cluster_id)[0]
+    resize_config = add_node_names_to_config(cluster, copy.deepcopy(resize_config))
+
+    tf_plan = environment_providers.get_terraform(resize_config, user_id, cluster_id, tag_values)
+    return {'tf_plan': tf_plan}
+
 def worker_resize_dlcm_v2_environment_remove_nodes(resize_config_input, cluster_id, user_id, tag_values):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
     current_config = json.loads(cluster.config)
@@ -792,7 +838,7 @@ def worker_resize_dlcm_v2_environment_remove_nodes(resize_config_input, cluster_
     # Delete nodes records from db
     delete_cluster_machine_records(cluster_id, kubernetes_node_names_for_deletion)
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=5400)
 def worker_resize_dlcm_v2_environment_create_nodes(resize_config_input, cluster_id, user_id, tag_values):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
     current_config = json.loads(cluster.config)
@@ -889,7 +935,7 @@ def worker_resize_dlcm_v2_environment_create_nodes(resize_config_input, cluster_
         Machine.objects.filter(cluster_id=cluster_id, kube_name__in=nodes_for_creation_names).delete()
         raise e
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=5400)
 def worker_resize_dlcm_v2_environment(resize_config, cluster_id, user_id, tag_values):
     try:
         worker_resize_dlcm_v2_environment_create_nodes(resize_config, cluster_id, user_id, tag_values)
@@ -926,7 +972,7 @@ def worker_resize_dlcm_v2_environment(resize_config, cluster_id, user_id, tag_va
 
         raise Exception(e)
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_remove_compute_node(node_id, cluster_id, user_id, tag_values):
     node = Machine.objects.filter(id=node_id)[0]
 
@@ -1139,7 +1185,7 @@ def resize_get_nodes_names(cluster_config):
 
     return nodes_names
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=5400)
 def worker_create_dlcm_v2_environment(resources, cluster_id, user_id, tag_values):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -1347,6 +1393,37 @@ def worker_create_dlcm_v2_environment(resources, cluster_id, user_id, tag_values
                 cluster.save()
 
             if cluster.installstep == 24:
+                environment_providers.kubernetes_loadbalancer_integration(resources, user_id, clouds, control_plane_private_ip, gateway_address, cluster_id)
+
+                cluster = Clusters.objects.filter(id=cluster_id)[0]
+                cluster.installstep += 1
+                cluster.save()
+
+            if cluster.installstep == 25:
+                if settings.USE_DNS_FOR_SERVICES:
+                    ingress_target_list, is_ip = environment_creation_steps.install_ingress_controller(cluster.id)
+
+                cluster = Clusters.objects.filter(id=cluster_id)[0]
+                cluster.installstep += 1
+                cluster.save()
+
+            if cluster.installstep == 26:
+                if settings.USE_DNS_FOR_SERVICES:
+                    environment_creation_steps.create_daiteap_dns_record(cluster.id, ingress_target_list, is_ip)
+
+                cluster = Clusters.objects.filter(id=cluster_id)[0]
+                cluster.installstep += 1
+                cluster.save()
+
+            if cluster.installstep == 27:
+                if settings.USE_DNS_FOR_SERVICES:
+                    environment_creation_steps.install_cert_manager(cluster.id)
+
+                cluster = Clusters.objects.filter(id=cluster_id)[0]
+                cluster.installstep += 1
+                cluster.save()
+
+            if cluster.installstep == 28:
                 max_retries = 24
                 wait_seconds = 20
                 for i in range(0, max_retries):
@@ -1360,37 +1437,6 @@ def worker_create_dlcm_v2_environment(resources, cluster_id, user_id, tag_values
                             raise e
                         continue
                     break
-
-                cluster = Clusters.objects.filter(id=cluster_id)[0]
-                cluster.installstep += 1
-                cluster.save()
-
-            if cluster.installstep == 25:
-                environment_providers.kubernetes_loadbalancer_integration(resources, user_id, clouds, control_plane_private_ip, gateway_address, cluster_id)
-
-                cluster = Clusters.objects.filter(id=cluster_id)[0]
-                cluster.installstep += 1
-                cluster.save()
-
-            if cluster.installstep == 26:
-                if settings.USE_DNS_FOR_SERVICES:
-                    ingress_ip_list = environment_creation_steps.install_ingress_controller(cluster.id)
-
-                cluster = Clusters.objects.filter(id=cluster_id)[0]
-                cluster.installstep += 1
-                cluster.save()
-
-            if cluster.installstep == 27:
-                if settings.USE_DNS_FOR_SERVICES:
-                    environment_creation_steps.create_daiteap_dns_record(cluster.id, ingress_ip_list)
-
-                cluster = Clusters.objects.filter(id=cluster_id)[0]
-                cluster.installstep += 1
-                cluster.save()
-
-            if cluster.installstep == 28:
-                if settings.USE_DNS_FOR_SERVICES:
-                    environment_creation_steps.install_cert_manager(cluster.id)
 
                 cluster = Clusters.objects.filter(id=cluster_id)[0]
                 cluster.installstep += 1
@@ -1567,7 +1613,7 @@ def worker_create_dlcm_v2_environment(resources, cluster_id, user_id, tag_values
         return
 
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=2700)
 def worker_create_capi_cluster(resources, cluster_id, user_id):
     cluster = CapiCluster.objects.filter(id=cluster_id)[0]
 
@@ -1828,7 +1874,7 @@ def worker_create_capi_cluster(resources, cluster_id, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=2700)
 def worker_resize_capi_cluster(nodes, cluster_id, user_id):
     cluster = CapiCluster.objects.filter(id=cluster_id)[0]
 
@@ -1960,7 +2006,7 @@ def worker_resize_capi_cluster(nodes, cluster_id, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=2700)
 def worker_delete_capi_cluster(cluster_id, user_id):
     cluster = CapiCluster.objects.filter(id=cluster_id)[0]
 
@@ -2005,7 +2051,7 @@ def worker_delete_capi_cluster(cluster_id, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=2700)
 def worker_create_yaookcapi_cluster(cluster_id, user_id):
     cluster = YaookCapiCluster.objects.filter(id=cluster_id)[0]
     resources = json.loads(cluster.yaookcapi_config)
@@ -2206,7 +2252,7 @@ def worker_create_yaookcapi_cluster(cluster_id, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_update_yaookcapi_cluster_wireguard_peers(cluster_id, user_id):
     cluster = YaookCapiCluster.objects.filter(id=cluster_id)[0]
 
@@ -2322,7 +2368,7 @@ def worker_update_yaookcapi_cluster_wireguard_peers(cluster_id, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=2700)
 def worker_resize_yaookcapi_cluster(nodes, cluster_id, user_id):
     cluster = YaookCapiCluster.objects.filter(id=cluster_id)[0]
 
@@ -2488,7 +2534,7 @@ def worker_resize_yaookcapi_cluster(nodes, cluster_id, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_delete_yaookcapi_cluster(cluster_id, user_id):
     cluster = YaookCapiCluster.objects.filter(id=cluster_id)[0]
 
@@ -2529,7 +2575,7 @@ def worker_delete_yaookcapi_cluster(cluster_id, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=5400)
 def worker_create_k3s_cluster(resources, cluster_id, user_id, tag_values):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -2825,7 +2871,7 @@ def worker_create_k3s_cluster(resources, cluster_id, user_id, tag_values):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1200)
 def worker_add_service_kubernetes_cluster(serviceName, configurationType, configuration, clusterId):
     if serviceName == 'istio':
         worker_add_istio_service(serviceName, configuration, clusterId)
@@ -3131,7 +3177,7 @@ def check_if_service_online(address, cluster_id, accessible_from_browser):
     
     return
 
-@shared_task(ignore_result=True)
+@shared_task(ignore_result=True, time_limit=1800)
 def worker_add_istio_service(serviceName, configuration, clusterId):
     chart = HelmClient()
     cluster = Clusters.objects.filter(id=clusterId)[0]
@@ -3252,7 +3298,7 @@ def worker_add_istio_service(serviceName, configuration, clusterId):
     return
 
 
-@shared_task(ignore_result=True)
+@shared_task(ignore_result=True, time_limit=1800)
 def worker_add_kubeflow_service(serviceName, configuration, clusterId):
     cluster = Clusters.objects.filter(id=clusterId)[0]
     service = Service.objects.filter(name=serviceName)[0]
@@ -3314,7 +3360,7 @@ def worker_add_kubeflow_service(serviceName, configuration, clusterId):
 
 
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_stop_cluster(cluster_id, user_id):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -3345,7 +3391,7 @@ def worker_stop_cluster(cluster_id, user_id):
     cluster.status = 10
     cluster.save()
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_start_cluster(cluster_id, user_id):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -3379,7 +3425,7 @@ def worker_start_cluster(cluster_id, user_id):
     views.sync_users()
 
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=5400)
 def worker_restart_cluster(cluster_id, user_id):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -3412,7 +3458,7 @@ def worker_restart_cluster(cluster_id, user_id):
 
     views.sync_users()
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_stop_machine(cluster_id, machine_name, machine_provider, user_id):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -3435,7 +3481,7 @@ def worker_stop_machine(cluster_id, machine_name, machine_provider, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_start_machine(cluster_id, machine_name, machine_provider, user_id):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
     
@@ -3455,7 +3501,7 @@ def worker_start_machine(cluster_id, machine_name, machine_provider, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_restart_machine(cluster_id, machine_name, machine_provider, user_id):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
     config = json.loads(cluster.config)
@@ -3469,7 +3515,7 @@ def worker_restart_machine(cluster_id, machine_name, machine_provider, user_id):
 
     views.sync_users()
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1200)
 def worker_delete_service_kubernetes_cluster(name, namespace, clusterId):
     chart = HelmClient()
     chart.name = name
@@ -3559,7 +3605,7 @@ def worker_delete_service_kubernetes_cluster(name, namespace, clusterId):
     return
 
 
-@shared_task(ignore_result=True)
+@shared_task(ignore_result=True, time_limit=1200)
 def worker_delete_istio_service(name, namespace, clusterId):
     chart = HelmClient()
     cluster = Clusters.objects.filter(id=clusterId)
@@ -3658,7 +3704,7 @@ def worker_delete_istio_service(name, namespace, clusterId):
     return
 
 
-@shared_task(ignore_result=True)
+@shared_task(ignore_result=True, time_limit=1200)
 def worker_delete_kubeflow_service(name, clusterId):
     cluster = Clusters.objects.filter(id=clusterId)
     if len(cluster) == 0:
@@ -3732,7 +3778,7 @@ def worker_delete_kubeflow_service(name, clusterId):
 
     cluster_service.delete()
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1200)
 def worker_validate_credentials(credentials, user_id, storage_enabled):
     try:
         result = environment_providers.validate_account_permissions(credentials, user_id, storage_enabled)
@@ -3756,13 +3802,13 @@ def worker_validate_credentials(credentials, user_id, storage_enabled):
 
     return result
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_update_provider_regions(provider, user_id, account_id):
 
     environment_providers.update_provider_regions(provider, user_id, account_id)
 
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=300)
 def worker_set_template_user_friendly_params(template_id):
     template = EnvironmentTemplate.objects.filter(id=template_id)[0]
 
@@ -3775,7 +3821,7 @@ def worker_set_template_user_friendly_params(template_id):
     template.config = json.dumps(resources)
     template.save()
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=5400)
 def worker_create_vms(resources, cluster_id, user_id, tag_values):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -3975,7 +4021,7 @@ def worker_create_vms(resources, cluster_id, user_id, tag_values):
 
             return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=5400)
 def worker_create_compute_vms(resources, cluster_id, user_id, tag_values):
     cluster = Clusters.objects.filter(id=cluster_id)[0]
 
@@ -4110,7 +4156,7 @@ def worker_create_compute_vms(resources, cluster_id, user_id, tag_values):
 
             return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_add_machines_to_vms(machines, user_id):
     cluster = Clusters.objects.filter(id=machines['clusterID'])[0]
 
@@ -4336,7 +4382,7 @@ def worker_add_machines_to_vms(machines, user_id):
     return
 
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_add_machines_to_k3s(machines, user_id):
     cluster = Clusters.objects.filter(id=machines['clusterID'])[0]
 
@@ -4626,7 +4672,7 @@ def worker_add_machines_to_k3s(machines, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_add_machines_to_dlcm(machines, user_id):
     cluster = Clusters.objects.filter(id=machines['clusterID'])[0]
 
@@ -4885,7 +4931,7 @@ def worker_add_machines_to_dlcm(machines, user_id):
     return
 
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_add_machines_to_dlcm_v2(machines, user_id):
     cluster = Clusters.objects.filter(id=machines['clusterID'])[0]
 
@@ -5142,13 +5188,13 @@ def worker_add_machines_to_dlcm_v2(machines, user_id):
     return
 
 
-@shared_task(ignore_result=True)
+@shared_task(ignore_result=True, time_limit=1800)
 def worker_delete_machine_from_vms(machine, cluster_user):
     print('Implement me!!!')
     return
 
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_create_cluster_user(cluster_user, clusterId, user_id):
     cluster = Clusters.objects.filter(id=clusterId)[0]
 
@@ -5216,7 +5262,7 @@ def worker_create_cluster_user(cluster_user, clusterId, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=300)
 def get_longhorn_storage_info(cluster_id):
     cluster = Clusters.objects.filter(id=cluster_id)
     if len(cluster) == 0:
@@ -5263,7 +5309,7 @@ def get_longhorn_storage_info(cluster_id):
 
     return output
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=2700)
 def worker_delete_cluster_user(cluster_user_username, clusterId, user_id, payload):
     cluster = Clusters.objects.filter(id=clusterId)[0]
 
@@ -5300,7 +5346,7 @@ def worker_delete_cluster_user(cluster_user_username, clusterId, user_id, payloa
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def worker_delete_cluster(cluster_id, user_id):
     try:
         cluster = Clusters.objects.filter(id=cluster_id)[0]
@@ -5347,7 +5393,7 @@ def worker_delete_cluster(cluster_id, user_id):
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def create_vm_user(daiteap_user_id, cluster_id, machine_id, public_key, username, gw_address):
     cluster = Clusters.objects.get(id=cluster_id)
     daiteap_user = DaiteapUser.objects.get(id=daiteap_user_id)
@@ -5412,7 +5458,7 @@ def create_vm_user(daiteap_user_id, cluster_id, machine_id, public_key, username
 
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def delete_vm_user(daiteap_user_id, cluster_id, machine_id, username, gw_address):
     cluster = Clusters.objects.get(id=cluster_id)
     daiteap_user = DaiteapUser.objects.get(id=daiteap_user_id)
@@ -5474,7 +5520,7 @@ def delete_vm_user(daiteap_user_id, cluster_id, machine_id, username, gw_address
         logger.error(str(traceback.format_exc()) + '\n' + str(e), extra=log_data)
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=5400)
 def create_kubernetes_user(user_id, cluster_id, username, kubeconfig_value, cluster_type):
 
     if cluster_type == constants.ClusterType.CAPI.value:
@@ -5502,7 +5548,7 @@ def create_kubernetes_user(user_id, cluster_id, username, kubeconfig_value, clus
 
     return lines
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=1800)
 def delete_kubernetes_user(user_id, cluster_id, username, kubeconfig_value, cluster_type):
 
     if cluster_type == constants.ClusterType.CAPI.value:
@@ -5522,7 +5568,7 @@ def delete_kubernetes_user(user_id, cluster_id, username, kubeconfig_value, clus
                                               )
     return
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=5400)
 def worker_cancel_cluster_creation(cluster_id, user_id):
     max_retries = 240
     wait_seconds = 20
@@ -5547,7 +5593,7 @@ def worker_cancel_cluster_creation(cluster_id, user_id):
     worker_delete_cluster(cluster_id, user_id)
 
 
-@shared_task(ignore_result=False)
+@shared_task(ignore_result=False, time_limit=300)
 def worker_create_azure_oauth_credentials(payload, user_id, daiteap_user_id):
     user = User.objects.filter(id=user_id)[0]
     daiteap_user = DaiteapUser.objects.filter(id=daiteap_user_id)[0]

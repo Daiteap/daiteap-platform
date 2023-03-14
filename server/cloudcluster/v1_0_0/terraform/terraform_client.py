@@ -86,6 +86,35 @@ class TerraformClient:
 
             return json.loads(output['stdout'][0])
 
+    def get_plan(self, user_id):
+        '''Plan cluster, before using set needed providers and vars'''
+        if not isinstance(self.tfstate, dict):
+            raise AttributeError('tfstate is not a dictionary')
+
+        with tempfile.TemporaryDirectory(dir=TF_DIR) as workdir:
+            self.__write_code_to_temp_dir(workdir)
+
+            self.__init(workdir, user_id=user_id)
+
+            if self.tfstate != {}:
+                self.__write_tfstate_to_temp_dir(workdir)
+
+            cmd = ['terraform', 'plan', '-out=plan.out', '-no-color', '-state=./terraform.tfstate']
+
+            for var in self.tfvars:
+                cmd.append('-var')
+                cmd.append(var + '=' + str(self.tfvars[var]))
+
+            log_data = {'user_id': user_id}
+            output = run_shell.run_shell_with_subprocess_popen(cmd, log_output=False, workdir=workdir, return_stdout=True, log_data=log_data)
+
+            cmd = ['terraform', 'show', '-json', 'plan.out', '-no-color']
+
+            log_data = {'user_id': user_id}
+            output = run_shell.run_shell_with_subprocess_popen(cmd, log_output=False, workdir=workdir, return_stdout=True, log_data=log_data)
+
+            return json.loads(output['stdout'][0])
+
     def destroy(self, user_id, environment_id, environment_name):
         '''Destroys cluster, tfstate needs to be set'''
 

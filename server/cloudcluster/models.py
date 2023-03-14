@@ -152,6 +152,9 @@ class Clusters(models.Model):
     status = models.IntegerField(default=0, blank=True, null=True)
     grafana_admin_password = models.TextField(blank=False, null=False)
     grafana_address = models.CharField(max_length=1024, blank=True, null=True)
+    longhorn_address = models.CharField(max_length=1024, blank=True, null=True)
+    longhorn_password = models.TextField(blank=False, null=False)
+    longhorn_username = models.CharField(max_length=1024, blank=True, null=True)
     kibana_address = models.CharField(max_length=1024, blank=True, null=True)
     es_admin_password = models.TextField(blank=False, null=False)
     krb_admin_password = models.TextField(blank=False, null=False)
@@ -172,10 +175,8 @@ class Clusters(models.Model):
     def checkUserAccess(self, *args):
         daiteap_user = args[0]
 
-        if self.project.checkUserAccess(daiteap_user):
-            return True
+        return self.project.checkUserAccess(daiteap_user)
 
-        return False
 # class UserKubeconfig(models.Model):
 #     kubeconfig = models.TextField(blank=True, null=True)
 #     cluster = models.ForeignKey(Clusters, on_delete=models.CASCADE)
@@ -209,7 +210,7 @@ class EnvironmentTemplate(models.Model):
 
         daiteapuser = args[0]
 
-        if self.daiteap_user.user == daiteapuser.user:
+        if self.daiteap_user == daiteapuser:
             # print("account belongs to user")
             return True
 
@@ -338,6 +339,7 @@ class Service(models.Model):
     accessible_from_browser = models.BooleanField(blank=True, null=True, default=True)
     implemented = models.BooleanField(blank=True, null=True, default=False)
     visible = models.BooleanField(blank=True, null=True, default=True)
+    supports_multiple_installs = models.BooleanField(blank=True, null=True, default=True)
 
     def __str__(self):
         return self.name
@@ -408,6 +410,7 @@ class CloudAccount(models.Model):
     user = models.ForeignKey(User, on_delete=models.PROTECT, null=True, default=None)
     valid = models.BooleanField(default=True, null=True)
     shared = models.BooleanField(default=False, null=True)
+    cloud_account_info = models.TextField(blank=True, null=True)
 
     # Checks if user should have access to this CloudAccount
     # Access rules:
@@ -446,14 +449,13 @@ class Bucket(models.Model):
     storage_account = models.CharField(max_length=1000, blank=True, null=True)
     storage_class = models.CharField(blank=True, null=True, max_length=100)
     bucket_location = models.CharField(blank=True, null=True, max_length=100)
+    contact = models.CharField(max_length=1024, blank=True, null=True)
+    description = models.CharField(max_length=1024, blank=True, null=True)
 
     def checkUserAccess(self, *args):
         daiteap_user = args[0]
 
-        if self.project.checkUserAccess(daiteap_user):
-            return True
-
-        return False
+        return self.project.checkUserAccess(daiteap_user)
 
 @receiver(post_save, sender=DaiteapUser)
 def create_user_profile(sender, instance, created, **kwargs):

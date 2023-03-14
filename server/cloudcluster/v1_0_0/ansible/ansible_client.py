@@ -4,36 +4,50 @@ import os
 
 from cloudcluster.settings import YAOOKCAPI_MANAGEMENT_CLUSTER_KUBECONFIG_PATH
 
-from ..services import run_shell
 import json
 import pathlib
+import ansible_runner
+
+import logging
+logger = logging.getLogger(__name__)
 
 FILE_BASE_DIR = str(pathlib.Path(__file__).parent.absolute())
 
 class AnsibleClient:
     def run_playbook(self, user_id, environment_id, environment_name, inventory_path, playbook_path, extra_vars='', user='clouduser', become=False, extra_cmd=[]):
-        cmd = [
-            'ansible-playbook',
-            '-i', inventory_path,
-            '-e', extra_vars,
-            '-u', user,
-            '--timeout', '300'
-        ]
-
-        cmd += extra_cmd
-
+        cmd_args = [playbook_path, '-i', inventory_path, '-e', extra_vars, '-u', user]
+        for extra in extra_cmd:
+            cmd_args.append(extra)
         if become:
-            cmd.append('-b')
-            cmd.append('--become-user=root')
-            cmd.append('--become-method=sudo',)
+            cmd_args.append('-b')
+            cmd_args.append('--become-user=root')
+            cmd_args.append('--become-method=sudo')
 
-        cmd.append(playbook_path)
+        log_data = {
+            'level': 'INFO',
+            'environment_name': environment_name,
+            'environment_id': environment_id,
+            'user_id': user_id
+        }
 
-        log_data = {'user_id': user_id, 'environment_id': environment_id, 'environment_name': environment_name}
+        def ansible_event_handler(data):
+            logger.info(data['stdout'], extra=log_data)
+            return True
 
         print('Running playbook: ' + playbook_path)
 
-        run_shell.run_shell_with_subprocess_popen(cmd, return_stdout=True, raise_on_error=True, log_data=log_data)
+        out, err, rc = ansible_runner.run_command(
+            executable_cmd = 'ansible-playbook',
+            cmdline_args = cmd_args,
+            runner_mode = 'subprocess',
+            envvars = { 'ANSIBLE_DISPLAY_FAILED_STDERR': True },
+            timeout = 300,
+            quiet = True,
+            event_handler = ansible_event_handler,
+        )
+
+        if rc != 0:
+            raise Exception(err)
 
     def run_prepare_kubespray(self, user_id, environment_id, environment_name, kubespray_inventory_dir_name, kubernetes_configuration):
         if 'version' not in kubernetes_configuration:

@@ -478,8 +478,12 @@ def get_machine_records(cloud_config, environment_provider, tfstate_resources, c
 
 def get_tf_code(environment_type):
     code = ''
-    with open(os.path.join(settings.BASE_DIR + '/environment_providers/aws/terraform/config.tf'), 'r') as tf_file:
-        code += tf_file.read()
+    if environment_type == constants.ClusterType.DLCM_V2.value:
+        with open(os.path.join(settings.BASE_DIR + '/environment_providers/aws/terraform/config_k8s.tf'), 'r') as tf_file:
+            code += tf_file.read()
+    else:
+        with open(os.path.join(settings.BASE_DIR + '/environment_providers/aws/terraform/config.tf'), 'r') as tf_file:
+            code += tf_file.read()
     return code
 
 def get_valid_operating_systems(payload, environment_type, user_id):
@@ -547,8 +551,12 @@ def validate_account_permissions(credentials, user_id, storage_enabled):
         return {'error': aws_permissions_check, 'dlcmV2Images': valid}
     elif 'id' in credentials:
         cloud_account = CloudAccount.objects.get(id=credentials['id'])
+        cloud_account.cloud_account_info = get_cloud_account_info(cloud_account)
         cloud_account.valid = valid
         cloud_account.save()
+
+    if not valid:
+        return {'error': 'Error in LCM statuses', 'dlcmV2Images': valid}
 
     return {'dlcmV2Images': valid}
 
@@ -841,6 +849,7 @@ def create_cloud_credentials(payload, request, all_account_labels):
         logger.error('Invalid account_params parameter.', extra=log_data)
         raise Exception('Invalid account_params parameter.')
 
+    account.cloud_account_info = get_cloud_account_info(account)
     account.regions_update_status = 1  # updating
     account.save()
 
@@ -1206,7 +1215,7 @@ def download_bucket_file(payload, request):
 
     return api_client.download_bucket_file(aws_credentials, payload['bucket_name'], payload['file_name'])
 
-def get_storage_accounts(payload, request):
+def get_storage_accounts(credential_id):
     return {}
 
 def delete_bucket_folder(payload, request):
@@ -1220,3 +1229,7 @@ def get_bucket_details(payload, request):
     aws_credentials = vault_service.read_secret(aws_account.credentials)
 
     return api_client.get_bucket_details(aws_credentials, payload['bucket_name'])
+
+def get_cloud_account_info(cloud_account):
+    aws_credentials = vault_service.read_secret(cloud_account.credentials)
+    return api_client.get_cloud_account_info(aws_credentials)

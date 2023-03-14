@@ -531,6 +531,9 @@ def validate_account_permissions(credentials, user_id, storage_enabled):
             cloud_account.valid = True
             cloud_account.save()
 
+    if not capi_images or not yaookcapi_images or not dlcm_v2_images or not external_network:
+        return {'error': 'Error in LCM statuses', 'capiImages': capi_images, 'yaookCapiImages': yaookcapi_images, 'dlcmV2Images': dlcm_v2_images, 'externalNetwork': external_network}
+
     return {'capiImages': capi_images, 'yaookCapiImages': yaookcapi_images, 'dlcmV2Images': dlcm_v2_images, 'externalNetwork': external_network}
 
 def update_provider_regions(account_id, user_id):
@@ -1124,11 +1127,14 @@ def delete_bucket_file(payload, request):
 def download_bucket_file(payload, request):
     return {}
 
-def get_storage_accounts(payload, request):
+def get_storage_accounts(credential_id):
     return {}
 
 def delete_bucket_folder(payload, request):
     return {}
 
 def get_bucket_details(payload, request):
+    return {}
+
+def get_cloud_account_info(cloud_account):
     return {}

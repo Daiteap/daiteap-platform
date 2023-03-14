@@ -214,18 +214,21 @@ CELERY_BROKER_URL = f"amqp://{BROKER_USER}:{BROKER_PASSWORD}@{BROKER_HOST}:{BROK
 CELERY_WORKER_SEND_TASK_EVENTS = True
 CELERY_TASK_SEND_SENT_EVENT = True
 
+SAN_CERTIFICATE_NAME = os.getenv('SAN_CERTIFICATE_NAME', 'daiteap-service-certificate')
+
 # Kerberos/LDAP variables
 
 
 LDAP_KUBERNETES_USERS_GROUP_NAME = "kubernetes_users"
 
-AZURE_CLIENT_ID = os.getenv('AZURE_CLIENT_ID')
-AZURE_CLIENT_SECRET = os.getenv('AZURE_CLIENT_SECRET')
-AZURE_AUTH_SCOPES = os.getenv('AZURE_AUTH_SCOPES')
+AZURE_CLIENT_ID = os.getenv('AZURE_CLIENT_ID', '9b88a2d2-6020-4b29-a20d-27bbadc51e37')
+AZURE_CLIENT_SECRET = os.getenv('AZURE_CLIENT_SECRET', 'oyD8Q~KWyhMaTtYQOni9Ms8kmgFdLrF~xbdl6cYe')
+AZURE_AUTH_SCOPES = os.getenv('AZURE_AUTH_SCOPES', 'https://management.azure.com/user_impersonation')
 
 AZURE_CLIENT_CREATE_APP_URI = '/#/app/platform/cloudprofile/oauth/azure/createapp'
 AZURE_CLIENT_AUTHORIZE_URI = '/#/app/platform/cloudprofile/oauth/azure/authorize'
 AZURE_CLIENT_ADMINCONSENT_URI = '/#/app/platform/cloudprofile/oauth/azure/adminconsent'
+AZURE_CLIENT_GRANTADMINCONSENT_URI = '/#/app/platform/cloudprofile/oauth/azure/grantadminconsent'
 
 GOOGLE_SERVICE_OAUTH_ACCOUNTS_PREFIX = os.getenv('GOOGLE_SERVICE_OAUTH_ACCOUNTS_PREFIX', 'datera')
 AZURE_SERVICE_OAUTH_ACCOUNTS_PREFIX = os.getenv('AZURE_SERVICE_OAUTH_ACCOUNTS_PREFIX', 'datera')
@@ -335,7 +338,7 @@ SUPPORTED_K3S_NETWORK_PLUGINS = [
 ]
 
 # Keycloak config
-KEYCLOAK_EXEMPT_URIS = ['admin', 'spec', 'isAlive', 'googleoauth', 'azureadminconsent', 'azureauthorize', 'azurecreateapp']
+KEYCLOAK_EXEMPT_URIS = ['admin', 'spec', 'isAlive', 'googleoauth', 'azureadminconsent', 'azureauthorize', 'azurecreateapp', 'azuregrantadminconsent']
 KEYCLOAK_CONFIG = {
     'KEYCLOAK_SERVER_URL': os.getenv('KEYCLOAK_SERVER_URL', ''),
     'KEYCLOAK_REALM': os.getenv('KEYCLOAK_REALM', ''),

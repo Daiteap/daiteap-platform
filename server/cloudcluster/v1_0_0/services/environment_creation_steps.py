@@ -24,7 +24,7 @@ from cloudcluster.settings import (
     SUPPORTED_K3S_VERSIONS, YAOOKCAPI_MANAGEMENT_CLUSTER_KUBECONFIG_PATH,
     YAOOKCAPI_MANAGEMENT_CLUSTER_NAMESPACE)
 from cloudcluster.v1_0_0.manifests.templates import (CALICO_MANIFEST,
-                                                     FLANNEL_MANIFEST)
+                                                     FLANNEL_MANIFEST, SERVICE_CERTIFICATE_MANIFEST)
 from cloudcluster.v1_0_0.services.constants import OPENSTACK_CLOUDS_CONF
 
 from ..ansible.ansible_client import AnsibleClient
@@ -37,6 +37,7 @@ from ..mailgun.mailgun_client import MailgunClient
 from ..services import random_string, run_shell, ssh_client, vault_service, vpn_client
 from ..services.kubespray_inventory import build_inventory
 
+LONGHORN_PASSWORD_LENGTH = 16
 GRAFANA_PASSWORD_LENGTH = 16
 GRAFANA_PORT = 31000
 KIBANA_PORT = 31001
@@ -164,8 +165,8 @@ def upgrade_kubespray_cluster(ansible_client: AnsibleClient, user_id, gateway_ad
 
     ansible_client.run_upgrade_kubespray(user_id, str(cluster.id), cluster.title, gateway_address, kubespray_inventory_dir_name)
 
-def create_daiteap_dns_record(cluster_id, ip_list):
-    google_client.create_daiteap_dns_record_set(cluster_id, ip_list)
+def create_daiteap_dns_record(cluster_id, ingress_target_list, is_ip):
+    google_client.create_daiteap_dns_record_set(cluster_id, ingress_target_list, is_ip)
 
     return
 
@@ -248,7 +249,7 @@ def install_ingress_controller(clusterId):
                 'service',
                 '--namespace',
                 'daiteap-ingress',
-                'daiteap-nginx-ingress',
+                'daiteap-ingress-nginx-controller',
                 '--ignore-not-found'
             ]
             max_retries = 30
@@ -274,7 +275,7 @@ def install_ingress_controller(clusterId):
             'service',
             '--namespace',
             'daiteap-ingress',
-            'daiteap-nginx-ingress',
+            'daiteap-ingress-nginx-controller',
             '-o',
             'jsonpath="{.status.loadBalancer.ingress[0].*}"'
         ]
@@ -291,12 +292,17 @@ def install_ingress_controller(clusterId):
             if i == max_retries - 1:
                 raise Exception('Timeout while waiting daiteap ingress controller to create')
 
-        ip_list = get_loadbalancer_service_addresses(output['stdout'][0].strip('"'))
+        if str(output['stdout'][0].strip('"')) != get_loadbalancer_service_addresses(output['stdout'][0].strip('"'))[0]:
+            is_ip = False
+            ip_list = [str(output['stdout'][0].strip('"')) + '.']
+        else:
+            is_ip = True
+            ip_list = get_loadbalancer_service_addresses(output['stdout'][0].strip('"'))
 
     if is_yaookcapi:
         vpn_client.disconnect(cluster.wireguard_config, cluster.id)
 
-    return ip_list
+    return ip_list, is_ip
 
 def get_loadbalancer_service_addresses(service):
     ip_list = []
@@ -404,6 +410,24 @@ def install_cert_manager(clusterId):
         command = ['kubectl', '--kubeconfig=' + credentials_path + 'kubectl_config', 'apply', '-f']
         command.append(credentials_path + 'cert-issuer.yaml')
 
+        run_shell.run_shell_with_subprocess_call(command, workdir='./')
+
+        certificate_template = SERVICE_CERTIFICATE_MANIFEST
+        certificate_file = certificate_template.substitute(
+            name=settings.SAN_CERTIFICATE_NAME,
+            namespace='daiteap-ingress',
+        )
+
+        with open(credentials_path + 'certificate.yaml', 'a') as text_file:
+            text_file.write(certificate_file)
+
+        command = [
+            'kubectl',
+            '--kubeconfig=' + chart.kubeconfig_path,
+            'apply',
+            '-f',
+            credentials_path + 'certificate.yaml'
+        ]
         run_shell.run_shell_with_subprocess_call(command, workdir='./')
 
     if is_yaookcapi:
@@ -1169,7 +1193,10 @@ def install_longhorn_storage(cluster_id):
 
         for file_to_apply in files_to_apply:
             command = ['kubectl', '-n', 'kube-system', '--kubeconfig=' + kubeconfig_path, 'apply', '-f', file_to_apply]
-            run_shell.run_shell_with_subprocess_call(command, workdir='./')
+            try:
+                run_shell.run_shell_with_subprocess_call(command, workdir='./')
+            except Exception as e:
+                print(str(e))
 
         command = ['kubectl', '--kubeconfig=' + kubeconfig_path, 'apply', '-f', os.path.join(settings.BASE_DIR + '/cloudcluster/v1_0_0/manifests/longhorn.yaml')]
 
@@ -1178,6 +1205,16 @@ def install_longhorn_storage(cluster_id):
         # make longhorn default storage class
         command = ['kubectl', '--kubeconfig=' + kubeconfig_path, 'patch', 'storageclass', 'longhorn', '-p', '{"metadata": {"annotations": {"storageclass.kubernetes.io/is-default-class": "true"}}}']
         run_shell.run_shell_with_subprocess_call(command, workdir='./')
+
+        if settings.USE_DNS_FOR_SERVICES:
+            cluster.longhorn_username = 'admin'
+            cluster.longhorn_password = random_string.get_random_alphanumeric_string(LONGHORN_PASSWORD_LENGTH)
+        else:
+            cluster.longhorn_username = ''
+            cluster.longhorn_password = ''
+
+        cluster.longhorn_address = tasks.create_service_addresses(credentials_path, "longhorn-frontend", "longhorn-system", cluster.id, kubeconfig_path, cluster.longhorn_username, cluster.longhorn_password)[0]
+        cluster.save()
 
     return
 

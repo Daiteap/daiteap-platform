@@ -52,6 +52,8 @@ spec:
             successThreshold: 1
             timeoutSeconds: 1
           env:
+            - name: USE_DNS_FOR_SERVICES
+              value: "{{ .Values.useDNSforServices }}"
             - name: VAULT_ADDR
               value: "{{ .Values.vaultAddr }}"
             - name: VAULT_TOKEN
@@ -211,6 +213,10 @@ spec:
               value: "{{ .Values.serviceCatalogCommand }}"
             - name: SINGLE_USER_MODE
               value: "{{ .Values.singleUserMode }}"
+            - name: SERVICES_DNS_ZONE_NAME
+              value: "{{ .Values.servicesDnsZoneName }}"
+            - name: SERVICES_DNS_DOMAIN
+              value: "{{ .Values.servicesDnsDomain }}"
           ports:
             - name: http
               containerPort: 8080

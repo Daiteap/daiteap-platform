@@ -6,7 +6,7 @@ def power_log(x):
 
 def split_cidr(original_cidr, count):
     pair = ipaddress.ip_network(original_cidr, strict=False)
-    subnet_diff = int(math.sqrt(power_log(float(count))))
+    subnet_diff = int(math.sqrt(power_log(float(count)))) + 1
     subnets = list(pair.subnets(prefixlen_diff=subnet_diff))
 
     return [str(subnet) for subnet in subnets]

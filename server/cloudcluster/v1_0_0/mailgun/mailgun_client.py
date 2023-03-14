@@ -8,6 +8,7 @@ from django.conf import settings
 
 from ...models import CapiCluster, Clusters, Machine, User, YaookCapiCluster
 from ..mailgun import templates
+from ..services import constants
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +116,7 @@ class MailgunClient:
                 daiteap_environment_url=daiteap_environment_url,
                 daiteap_unsubscribe_url=settings.DAITEAP_UNSUBSCRIBE_URL,
                 daiteap_mail_url=daiteap_mail_url,
-                user_guide_url=settings.USER_GUIDE_URL,
+                user_guide_url=settings.USER_GUIDE_URL + 'kubernetes_clusters/',
                 user_names=user.first_name + ' ' + user.last_name
             )
         elif is_yaookcapi:
@@ -125,7 +126,18 @@ class MailgunClient:
                 daiteap_environment_url=daiteap_environment_url,
                 daiteap_unsubscribe_url=settings.DAITEAP_UNSUBSCRIBE_URL,
                 daiteap_mail_url=daiteap_mail_url,
-                user_guide_url=settings.USER_GUIDE_URL,
+                user_guide_url=settings.USER_GUIDE_URL + 'kubernetes_clusters/',
+                user_names=user.first_name + ' ' + user.last_name
+            )
+        elif cluster.type in [constants.ClusterType.COMPUTE_VMS.value, constants.ClusterType.VMS.value]:
+            html_template = Template(templates.dlcm_environment_created_template['html'])
+            template['html'] = html_template.substitute(
+                environment_title=cluster.title,
+                daiteap_environment_url=daiteap_environment_url.replace('clusterdetails', 'computedetails'),
+                daiteap_unsubscribe_url=settings.DAITEAP_UNSUBSCRIBE_URL,
+                daiteap_mail_url=daiteap_mail_url,
+                user_guide_url=settings.USER_GUIDE_URL + 'compute/',
+                machines=machines_template,
                 user_names=user.first_name + ' ' + user.last_name
             )
         else:
@@ -135,7 +147,7 @@ class MailgunClient:
                 daiteap_environment_url=daiteap_environment_url,
                 daiteap_unsubscribe_url=settings.DAITEAP_UNSUBSCRIBE_URL,
                 daiteap_mail_url=daiteap_mail_url,
-                user_guide_url=settings.USER_GUIDE_URL,
+                user_guide_url=settings.USER_GUIDE_URL + 'kubernetes_clusters/',
                 machines=machines_template,
                 user_names=user.first_name + ' ' + user.last_name
             )

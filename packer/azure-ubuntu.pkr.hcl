@@ -83,7 +83,7 @@ source "azure-arm" "basic-example" {
     resource_group = "Packer"
     gallery_name = "Packer_image_gallery"
     image_name = "dlcm-ubuntu-1804"
-    image_version = "1.0.1"
+    image_version = "1.0.2"
     replication_regions = [
       "eastasia",
       "eastus",
