@@ -1,4 +1,4 @@
-image: eu.gcr.io/cloudcluster-261712/cloudcluster-celeryworker:e406f7732162d9b7b4aa0b912c32c23db94527ae
+image: ghcr.io/daiteap/daiteap-celery-worker:latest
 env: develop
 
 imagePullSecrets:

@@ -1,0 +1,86 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: daiteap-platform
+  namespace: argocd
+spec:
+  destination:
+    namespace: daiteap
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    helm:
+      parameters:
+      - name: azureClientId
+        value: 
+      - name: azureClientSecret
+        value: 
+      - name: daiteapImageCredentials
+        value: 
+      - name: daiteapLogoUrl
+        value: app.daiteap.com/img/logo.ce08e0fb.png
+      - name: daiteapMailUrl
+        value: https://app.daiteap.com/#/app/platform/email/cluster-status/
+      - name: daiteapUnsubscribeUrl
+        value: daiteap@system.daiteap.com
+      - name: defaultFromEmail
+        value: daiteap@system.daiteap.com
+      - name: djangoSecretKey
+        value: 
+      - name: emailApiKey
+        value: 
+      - name: emailApiUrl
+        value: 
+      - name: emailHostPassword
+        value: 
+      - name: emailHostUser
+        value: 
+      - name: serverEmailAddress
+        value: 
+      - name: googleServiceOauthAccountsPrefix
+        value: daiteap
+      - name: env
+        value: production
+      - name: keycloakClientSecretKey
+        value: aaaaaaaaaaaaa
+      - name: keycloakServerUrl
+        value: http://keycloak:80/auth
+      - name: sshIdRsa
+        value: 
+      - name: sshIdRsaPub
+        value: 
+      - name: vaultAddr
+        value: http://vault:8200
+      - name: vaultToken
+        value: hvs.ngQBFCwm2WCluS0Za8sWrMEu
+      - name: rabbitmqBrokerHost
+        value: rabbitmq
+      - name: redisSecretName
+        value: redis
+      - name: redisSlaveAddress
+        value: redis-slave
+      - name: redisMasterAddress
+        value: redis-master
+      - name: daiteapEnvironmentUrl
+        value:
+      - name: userGuideUrl
+        value: app.daiteap.com/documentation/
+      - name: azureServiceOauthAccountsPrefix
+        value: daiteap
+      - name: awsDaiteapImageName
+        value: dlcmv2-ubuntu-1804-01
+      - name: awsDaiteapImageOwner
+        value: "373554760905"
+      - name: appName
+        value: DaiteapProduction
+      - name: replicas
+        value: "2"
+      - name: image
+        value: ghcr.io/daiteap/daiteap-platform:latest
+      valueFiles:
+      - values.yaml
+    path: helm/platform-api
+    repoURL: https://github.com/Daiteap/daiteap-platform.git
+    targetRevision: master
+  syncPolicy:
+    automated: {}
