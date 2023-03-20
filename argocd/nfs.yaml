@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nfs
+  namespace: argocd
+spec:
+  destination:
+    namespace: daiteap
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    helm:
+      parameters:
+      - name: clusterIp
+        value: 10.96.0.61
+      - name: storage
+        value: 4Gi
+      valueFiles:
+      - values.yaml
+    path: nfs_server
+    repoURL: git@gitlab.cst-bg.net:daiteap/helm-charts.git
+    targetRevision: HEAD
+  syncPolicy:
+    automated: {}
