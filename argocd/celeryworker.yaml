@@ -18,17 +18,17 @@ spec:
       - name: azureServiceOauthAccountsPrefix
         value: daiteap
       - name: daiteapEnvironmentUrl
-        value: app.daiteap.com/#/app/platform/clusterdetails/
+        value: 
       - name: userGuideUrl
-        value: app.daiteap.com/documentation/
+        value: 
       - name: daiteapLogoUrl
-        value: app.daiteap.com/img/logo.ce08e0fb.png
+        value: 
       - name: daiteapMailUrl
         value: 
       - name: daiteapUnsubscribeUrl
         value: 
       - name: defaultFromEmail
-        value: daiteap@system.daiteap.com
+        value: email@example.com
       - name: emailApiKey
         value: 
       - name: emailApiUrl
@@ -44,7 +44,7 @@ spec:
       - name: image
         value: ghcr.io/daiteap/daiteap-celery-worker:latest
       - name: serverEmailAddress
-        value: daiteap@system.daiteap.com
+        value: email@example.com
       - name: vaultToken
         value: hvs.ngQBFCwm2WCluS0Za8sWrMEu
       - name: rabbitmqbrokerVhost
@@ -55,7 +55,7 @@ spec:
       - name: replicas
         value: "3"
       - name: awsDaiteapImageOwner
-        value: "373554760905"
+        value: ""
       - name: appName
         value: DaiteapProduction
       valueFiles:

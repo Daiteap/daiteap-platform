@@ -37,7 +37,7 @@ EOF
 # kubectl create namespace daiteap
 
 # # create pull secret
-# kubectl create secret docker-registry regcred -n daiteap --docker-server "https://eu.gcr.io" --docker-username _json_key --docker-email desislav.arashev@daiteap.com --docker-password="$(cat ./creds.json)"
+# kubectl create secret docker-registry regcred -n daiteap --docker-server "https://eu.gcr.io" --docker-username _json_key --docker-email email@example.com --docker-password="$(cat ./creds.json)"
 
 # # add daiteap-ui repo
 # argocd repo add git@gitlab.cst-bg.net:daiteap/daiteap-ui.git --insecure-ignore-host-key --ssh-private-key-path ./id_ed25519
