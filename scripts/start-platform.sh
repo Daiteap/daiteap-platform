@@ -37,11 +37,10 @@ argocd login localhost:8080 --username admin --password $(kubectl -n argocd get 
 kubectl create namespace daiteap
 
 # create pull secret
-kubectl create secret docker-registry regcred -n daiteap --docker-server "https://eu.gcr.io" --docker-username _json_key --docker-email ignatov@cst-bg.net --docker-password="$(cat ./creds.json)"
+kubectl create secret docker-registry regcred -n daiteap --docker-server "https://eu.gcr.io" --docker-username _json_key --docker-email email@example.com --docker-password="$(cat ./creds.json)"
 
 # add daiteap-ui, daiteap-platform and helm-charts repoes
 argocd repo add https://github.com/Daiteap/daiteap-ui.git
-argocd repo add git@gitlab.cst-bg.net:daiteap/helm-charts.git --insecure-ignore-host-key --ssh-private-key-path ./.cred/id_ed25519
 argocd repo add git@github.com:Daiteap/daiteap-platform.git
 argocd repo add https://charts.bitnami.com/bitnami --type helm --name bitnami
 argocd repo add https://helm.releases.hashicorp.com --type helm --name vault
