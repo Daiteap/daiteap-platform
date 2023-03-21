@@ -69,7 +69,7 @@ Put the "root_token" value from docker-compose/vault/vault-init.json into var va
 ### Enter Daiteap UI
 - open in Chrome: http://localhost:8083
 
-- register a user with username: user@cst-bg.net
+- register a user with username: user@example.com
 
 - enable it in keycloak
 From "Users" switch "Email Verified" field to ON.

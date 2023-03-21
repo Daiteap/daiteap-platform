@@ -18,13 +18,13 @@ spec:
       - name: daiteapImageCredentials
         value: 
       - name: daiteapLogoUrl
-        value: app.daiteap.com/img/logo.ce08e0fb.png
+        value: 
       - name: daiteapMailUrl
-        value: https://app.daiteap.com/#/app/platform/email/cluster-status/
+        value: 
       - name: daiteapUnsubscribeUrl
-        value: daiteap@system.daiteap.com
+        value: email@example.com
       - name: defaultFromEmail
-        value: daiteap@system.daiteap.com
+        value: email@example.com
       - name: djangoSecretKey
         value: 
       - name: emailApiKey
@@ -64,13 +64,13 @@ spec:
       - name: daiteapEnvironmentUrl
         value:
       - name: userGuideUrl
-        value: app.daiteap.com/documentation/
+        value: 
       - name: azureServiceOauthAccountsPrefix
         value: daiteap
       - name: awsDaiteapImageName
         value: dlcmv2-ubuntu-1804-01
       - name: awsDaiteapImageOwner
-        value: "373554760905"
+        value: ""
       - name: appName
         value: DaiteapProduction
       - name: replicas
