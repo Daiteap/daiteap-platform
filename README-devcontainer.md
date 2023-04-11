@@ -46,7 +46,8 @@ kubectl create namespace daiteap
 
 # add daiteap-ui, daiteap-platform and helm-charts repoes
 argocd repo add https://github.com/Daiteap/daiteap-ui.git
-argocd repo add git@github.com:Daiteap/daiteap-platform.git
+argocd repo add https://github.com/Daiteap/daiteap-platform.git
+argocd repo add https://github.com/Daiteap/Helms.git
 argocd repo add https://charts.bitnami.com/bitnami --type helm --name bitnami
 argocd repo add https://helm.releases.hashicorp.com --type helm --name vault
 
@@ -66,7 +67,7 @@ kubectl port-forward svc/keycloak -n daiteap 8082:80 &
 
 # Import REALM and create secret for daiteap-platform and configure Redirect URIs for Daiteap-ui in keycloak
 - Login into keycloak at http://localhost:8082 with user "user" and password from decoded field "admin-password:" from command:
-kubectl get secret keycloak -n daiteap -o yaml
+kubectl get secret keycloak -n daiteap -o jsonpath='{.data.admin-password}'|base64 --decode
 - import REALM in "add realm" using file docker-compose/DaiteapRealm.json
 - create secret in Configure->Clients->Django-backend / Credentials / Regenerate Secret , then copy it and enter it in File:Var :
 argocd/daiteap-platform.yaml:keycloakClientSecretKey

@@ -41,7 +41,8 @@ kubectl create secret docker-registry regcred -n daiteap --docker-server "https:
 
 # add daiteap-ui, daiteap-platform and helm-charts repoes
 argocd repo add https://github.com/Daiteap/daiteap-ui.git
-argocd repo add git@github.com:Daiteap/daiteap-platform.git
+argocd repo add https://github.com/Daiteap/daiteap-platform.git
+argocd repo add https://github.com/Daiteap/Helms.git
 argocd repo add https://charts.bitnami.com/bitnami --type helm --name bitnami
 argocd repo add https://helm.releases.hashicorp.com --type helm --name vault
 
