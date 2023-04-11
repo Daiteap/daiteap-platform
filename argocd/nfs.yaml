@@ -18,7 +18,7 @@ spec:
       valueFiles:
       - values.yaml
     path: nfs_server
-    repoURL: git@gitlab.cst-bg.net:daiteap/helm-charts.git
-    targetRevision: HEAD
+    repoURL: https://github.com/Daiteap/Helms.git
+    targetRevision: new-dev-branch
   syncPolicy:
     automated: {}
