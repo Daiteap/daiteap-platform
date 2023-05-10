@@ -26,7 +26,7 @@ spec:
       - name: defaultFromEmail
         value: email@example.com
       - name: djangoSecretKey
-        value: 
+        value: example
       - name: emailApiKey
         value: 
       - name: emailApiUrl
@@ -42,9 +42,9 @@ spec:
       - name: env
         value: production
       - name: keycloakClientSecretKey
-        value: aaaaaaaaaaaaa
+        value: key
       - name: keycloakServerUrl
-        value: http://keycloak:80/auth
+        value: http://localhost:8082/auth
       - name: sshIdRsa
         value: 
       - name: sshIdRsaPub
@@ -52,7 +52,7 @@ spec:
       - name: vaultAddr
         value: http://vault:8200
       - name: vaultToken
-        value: hvs.ngQBFCwm2WCluS0Za8sWrMEu
+        value: token
       - name: rabbitmqBrokerHost
         value: rabbitmq
       - name: redisSecretName
@@ -81,6 +81,6 @@ spec:
       - values.yaml
     path: helm/platform-api
     repoURL: https://github.com/Daiteap/daiteap-platform.git
-    targetRevision: master
+    targetRevision: new-dev-branch
   syncPolicy:
     automated: {}
