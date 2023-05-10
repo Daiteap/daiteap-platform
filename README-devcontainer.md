@@ -55,8 +55,7 @@ argocd repo add https://helm.releases.hashicorp.com --type helm --name vault
 # argocd app list | awk '{print $1}' | tail -n +2 | xargs -I {} argocd app delete {} -y
 
 # create all apps
-cd argocd
-for f in $(ls *.yaml); do argocd app create -f $f; done
+for f in $(ls argocd/*.yaml); do argocd app create -f $f; done
 
 # sync all apps
 argocd app list | awk '{print $1}' | tail -n +2 | xargs -I {} argocd app sync {}
@@ -74,8 +73,11 @@ argocd/daiteap-platform.yaml:keycloakClientSecretKey
 - Configure Valid Redirect URIs for UI in keycloak
 - Enter Configure->Clients->app-vue and in field "Valid Redirect URIs" add *
 
-
-# Init vault
+# Configure Vault
+kubectl -n daiteap exec -it $(kubectl -n daiteap get pods --no-headers -o custom-columns=":metadata.name" | grep database) /bin/sh
+mysql -uroot -ppass
+grant all privileges on *.* to 'daiteap'@'%';
+# Wait for vault pod status to be "Running"
 kubectl -n daiteap exec -it vault-0 -- /bin/sh -c "vault operator init -key-shares=1 -key-threshold=1 -format=json" > docker-compose/vault/vault-init.json
 kubectl -n daiteap exec -it vault-0 -- /bin/sh -c "vault operator unseal $(jq -r .unseal_keys_b64[0] docker-compose/vault/vault-init.json)"
 
@@ -85,7 +87,7 @@ Put the "root_token" value from docker-compose/vault/vault-init.json into var va
 Recreate and sync apps daiteap-platform and celeryworker from argocd:
 argocd app delete argocd/daiteap-platform
 argocd app create -f argocd/daiteap-platform.yaml
-argocd app sync daiteap-platform
+argocd app sync argocd/daiteap-platform
 argocd app delete argocd/celeryworker
 argocd app create -f argocd/celeryworker.yaml
 argocd app sync argocd/celeryworker

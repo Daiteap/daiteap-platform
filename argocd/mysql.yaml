@@ -14,9 +14,9 @@ spec:
       - name: env
         value: production
       - name: password
-        value: 
+        value: pass
       - name: rootPassword
-        value: 
+        value: pass
       valueFiles:
       - values.yaml
     path: mysql_server

@@ -35,7 +35,7 @@ spec:
       - name: server.standalone.config
         value: ui = true listener "tcp" {  tls_disable = 1  address = "[::]:8200"  cluster_address
           = "[::]:8201"}storage "mysql" {  address = "database:3306"  username =
-          "daiteap"  password = "o4IgTPif2WR6dCXIhuNC"  database = "vault"  plaintext_connection_allowed
+          "daiteap"  password = "pass"  database = "vault"  plaintext_connection_allowed
           = "true"}# Example configuration for using auto-unseal, using Google Cloud
           KMS. The# GKMS keys must already exist, and the cluster must have a service
           account# that is authorized to access GCP KMS.#seal "gcpckms" {#   project     =
@@ -45,5 +45,5 @@ spec:
       - values.yaml
     chart: vault
     repoURL: https://helm.releases.hashicorp.com
-    targetRevision: 0.23.0
+    targetRevision: 0.20.1
   syncPolicy: {}

@@ -11,16 +11,18 @@ spec:
   source:
     helm:
       parameters:
+      - name: djangoSecretKey
+        value: example
       - name: azureClientId
-        value: 
+        value: example
       - name: azureClientSecret
-        value: 
+        value: example
       - name: azureServiceOauthAccountsPrefix
         value: daiteap
       - name: daiteapEnvironmentUrl
         value: 
       - name: userGuideUrl
-        value: 
+        value: example
       - name: daiteapLogoUrl
         value: 
       - name: daiteapMailUrl
@@ -30,23 +32,21 @@ spec:
       - name: defaultFromEmail
         value: email@example.com
       - name: emailApiKey
-        value: 
+        value: example
       - name: emailApiUrl
-        value: 
+        value: example
       - name: emailHostPassword
-        value: 
+        value: example
       - name: emailHostUser
-        value: 
+        value: example
       - name: env
         value: production
       - name: googleServiceOauthAccountsPrefix
         value: daiteap
-      - name: image
-        value: ghcr.io/daiteap/daiteap-celery-worker:latest
       - name: serverEmailAddress
         value: email@example.com
       - name: vaultToken
-        value: hvs.ngQBFCwm2WCluS0Za8sWrMEu
+        value: token
       - name: rabbitmqbrokerVhost
       - name: rabbitmqBrokerHost
         value: rabbitmq
@@ -58,11 +58,13 @@ spec:
         value: ""
       - name: appName
         value: DaiteapProduction
+      - name: image
+        value: ghcr.io/daiteap/daiteap-celery-worker:latest
       valueFiles:
       - values.yaml
       values:
     path: helm/celeryworker
     repoURL: https://github.com/Daiteap/daiteap-platform.git
-    targetRevision: master
+    targetRevision: new-dev-branch
   syncPolicy:
     automated: {}

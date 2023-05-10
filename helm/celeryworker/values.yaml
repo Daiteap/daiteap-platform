@@ -45,23 +45,24 @@ mysqlPort: 3306
 
 djangoDebug: False
 djangoAllowedHosts: "*"
+djangoSecretKey: example
 
-azureClientId:
-azureClientSecret:
+azureClientId: example
+azureClientSecret: example
 
-defaultFromEmail:
-emailApiKey:
-emailApiUrl:
-emailHostPassword:
-emailHostUser:
-serverEmailAddress:
+defaultFromEmail: example
+emailApiKey: example
+emailApiUrl: example
+emailHostPassword: example
+emailHostUser: example
+serverEmailAddress: example
 
 useDNSforServices: "True"
 
 servicesDnsZoneName: daiteap
 servicesDnsDomain: app.daiteap.com
 
-vaultToken:
+vaultToken: example
 vaultAddr: http://vault:8200
 
 awsDaiteapImageOwner: "905898490707"
