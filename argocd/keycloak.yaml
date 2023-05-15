@@ -30,6 +30,6 @@ spec:
       valueFiles:
       - values.yaml
     chart: keycloak
-    repoURL: https://charts.bitnami.com/bitnami
-    targetRevision: 13.3.0
+    repoURL: https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami
+    targetRevision: 7.1.18
   syncPolicy: {}
