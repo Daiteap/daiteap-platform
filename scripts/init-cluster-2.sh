@@ -6,6 +6,12 @@ argocd app set argocd/daiteap-platform --helm-set keycloakClientSecretKey=$KEYCL
 kubectl -n daiteap rollout restart deploy platform-api
 sleep 60
 
+echo --- Copy Static Files ---
+
+export NFS_POD=$(kubectl -n daiteap get pods --no-headers -o custom-columns=":metadata.name" | grep nfs-server)
+kubectl -n daiteap cp docker-compose/service_logo $NFS_POD:/exports/service_logo
+kubectl -n daiteap cp docker-compose/drf-yasg $NFS_POD:/exports/drf-yasg
+
 echo --- Execute Database Migrations ---
 
 kubectl -n daiteap wait --timeout=10m --for=condition=ready pod --all
