@@ -3,13 +3,19 @@
 echo --- Set Keycloak Environment Variable ---
 
 argocd app set argocd/daiteap-platform --helm-set keycloakClientSecretKey=$KEYCLOAK_SECRET
+kubectl -n daiteap rollout restart deploy platform-api
+sleep 60
 
 echo --- Execute Database Migrations ---
 
-export BACKEND_POD=$(kubectl -n daiteap get pods --no-headers -o custom-columns=":metadata.name" | grep platform -m 1)
+kubectl -n daiteap wait --timeout=10m --for=condition=ready pod --all
+sleep 20
+kubectl -n daiteap wait --timeout=10m --for=condition=ready pod --all
+sleep 20
+
+export BACKEND_POD=$(kubectl -n daiteap get pods --no-headers -o custom-columns=":metadata.name" | grep platform-api -m 1)
 kubectl -n daiteap exec -it $BACKEND_POD -- /bin/sh -c "python3 ./manage.py migrate"
-kubectl cp docker-compose/platform-api-init-user.sh $BACKEND_POD:./ -n daiteap
-kubectl -n daiteap exec -it $BACKEND_POD -- /bin/sh -c "sh platform-api-init-user.sh"
+kubectl -n daiteap exec -it $BACKEND_POD -- /bin/sh -c "python3 ./manage.py fix_service_catalog_prod"
 
 echo --- Port-Forward UI ---
 
