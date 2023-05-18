@@ -44,7 +44,7 @@ spec:
       - name: keycloakClientSecretKey
         value: key
       - name: keycloakServerUrl
-        value: http://localhost:8082/auth
+        value: http://keycloak:80/auth
       - name: sshIdRsa
         value: 
       - name: sshIdRsaPub
