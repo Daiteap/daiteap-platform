@@ -64,3 +64,9 @@ path_to_env_file -> file, to which the environment variables from the cluster se
 ```
 telepresence leave intercept_name
 ```
+
+## Start Local Front-End
+```
+./scripts/start-local-vuejs-client.sh
+```
+edit /workspaces/daiteap-ui/app/public/keycloak.json and KC URLs
