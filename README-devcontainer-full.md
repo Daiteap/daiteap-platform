@@ -36,3 +36,31 @@ If you change the ports of Keycloak or the UI, make sure you also edit:
 ```
 ./scripts/delete-cluster.sh
 ```
+
+# Telepresence
+
+## Add Telepresence
+```
+./scripts/init-telepresence.sh
+```
+
+## Check Available Services And Interception Info
+```
+telepresence -n daiteap list
+```
+
+## Get Service Port
+```
+kubectl -n daiteap get svc service_of_your_choice -o yaml
+```
+
+## Intercept Service
+```
+telepresence -n daiteap intercept service_of_your_choice --port local_port:remote_port --env-file path_to_env_file
+```
+path_to_env_file -> file, to which the environment variables from the cluster service will be written, so you can use them when you start the local environment
+
+## Stop Intercept
+```
+telepresence leave intercept_name
+```
