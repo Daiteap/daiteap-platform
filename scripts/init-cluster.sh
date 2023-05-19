@@ -21,7 +21,7 @@ rm argocd-linux-amd64
 
 echo --- Port-Forward ArgoCD + Login ---
 
-kubectl -n argocd wait --for=condition=ready pod --all
+kubectl -n argocd wait --timeout=10m --for=condition=ready pod --all
 kubectl -n argocd port-forward svc/argocd-server 8000:443 &
 argocd login localhost:8000 --username admin --password $(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d) --insecure
 
