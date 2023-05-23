@@ -26,6 +26,16 @@ export KEYCLOAK_SECRET=secret
 - Register a user
 - Enable it in Keycloak from "Users" switch "Email Verified" field to `ON`
 
+## Credentials
+- For credential creation to be successful, you may need to change some environment variables in `daiteap-platform` and `celeryworker` apps, in the `values.yaml` files in `helm` directory you can see the names of the vars for a specific provider and change them with:
+```
+argocd app set argocd/daiteap-platform --helm-set key=value
+```
+just restart the deployment afterwards:
+```
+kubectl -n daiteap rollout restart deploy platform-api
+```
+
 ## Changing Ports
 If you change the ports of Keycloak or the UI, make sure you also edit:
 - the value of `keycloakConfig` in `argocd/daiteap-ui.yaml`
