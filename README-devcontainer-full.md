@@ -6,7 +6,7 @@
 ```
 
 ## Set-Up Keycloak
-- Login into keycloak at http://localhost:8082 with:
+- Login into keycloak at http://127.0.0.1:8082 with:
     - user -> user
     - password -> kubectl -n daiteap get secret keycloak -o jsonpath='{.data.admin-password}' | base64 --decode
 - Create realm using the file `docker-compose/DaiteapRealm.json`
@@ -22,12 +22,11 @@ export KEYCLOAK_SECRET=secret
 ```
 
 ## Create User
-- Go to http://localhost:8083
+- Go to http://127.0.0.1:8083
 - Register a user
 - Enable it in Keycloak from "Users" switch "Email Verified" field to `ON`
 
 ## Changing Ports
-
 If you change the ports of Keycloak or the UI, make sure you also edit:
 - the value of `keycloakConfig` in `argocd/daiteap-ui.yaml`
 - in Keycloak, the frontend url of the realm and the URL settings of `app-vue` and `django-backend` clients
@@ -38,6 +37,14 @@ If you change the ports of Keycloak or the UI, make sure you also edit:
 ```
 
 # Telepresence
+If you're running the platform in a devcontainer run this command inside:
+```
+cat ~/.kube/config > ./config
+```
+and use the config to connect to the cluster outside the container with:
+```
+export KUBECONFIG=path_to_conf_file
+```
 
 ## Add Telepresence
 ```
@@ -65,8 +72,9 @@ path_to_env_file -> file, to which the environment variables from the cluster se
 telepresence leave intercept_name
 ```
 
-## Start Local Front-End
-```
-./scripts/start-local-vuejs-client.sh
-```
-edit /workspaces/daiteap-ui/app/public/keycloak.json and KC URLs
+# Start Local Front-End
+- Run the commands from this script `scripts/start-local-vuejs-client.sh` in the folder where you have the `daiteap-ui` repo
+- Change `auth-server-url` in `daiteap-ui/app/public/keycloak.json`
+- in Keycloak, change the URL settings of `app-vue` and `django-backend` clients
+- Edit and copy `./docker-compose/cloudcluster.conf` to `/etc/nginx/sites-enabled/cloudcluster.conf` and restart Nginx with `sudo service nginx restart`
+- Access the UI on http://127.0.0.1:8090
