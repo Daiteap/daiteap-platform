@@ -4,8 +4,10 @@
 There are 2 ways to start the devcontainer:
 1. From VS Code:
 - Install Dev Containers extension in VS Code
-- From Remote Explorer tab -> Dev Containers -> + New Dev Container -> Open Current Folder in Container
+- From Remote Explorer tab -> Dev Containers -> + New Dev Container -> Open Current Folder in Container (If you don't see it restart VS Code window)
 2. From Terminal:
+- Install `devcontainers`
+- Execute
 ```sh
 # start devcontainer
 devcontainer up --workspace-folder .
