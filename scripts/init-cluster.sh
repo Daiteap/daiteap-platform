@@ -21,6 +21,7 @@ rm argocd-linux-amd64
 
 echo --- Port-Forward ArgoCD + Login ---
 
+echo ---- Waiting For ArgoCD Pods ----
 kubectl -n argocd wait --timeout=10m --for=condition=ready pod --all
 kubectl -n argocd port-forward svc/argocd-server 8000:443 &
 argocd login localhost:8000 --username admin --password $(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d) --insecure
@@ -41,12 +42,14 @@ argocd app list | awk '{print $1}' | tail -n +2 | xargs -I {} argocd app sync {}
 
 echo --- Configure Vault ---
 
+echo ---- Waiting For DB Pod ----
 sleep 60
 export DB_POD=$(kubectl -n daiteap get pods --no-headers -o custom-columns=":metadata.name" | grep database)
 kubectl -n daiteap wait --timeout=10m --for=jsonpath='{.status.phase}'=Running pod/$DB_POD
 sleep 30
 kubectl -n daiteap exec -it $DB_POD -- mysql -u'root' -p'pass' -e "grant all privileges on *.* to 'daiteap'@'%';"
 
+echo ---- Waiting For Vault Pod ----
 kubectl -n daiteap wait --timeout=10m --for=jsonpath='{.status.phase}'=Running pod/vault-0
 sleep 30
 kubectl -n daiteap exec -it vault-0 -- /bin/sh -c "vault operator init -key-shares=1 -key-threshold=1 -format=json" > docker-compose/vault/vault-init.json
@@ -57,6 +60,7 @@ argocd app set argocd/celeryworker --helm-set vaultToken=$(jq -r '.root_token' d
 
 echo --- Copy Themes + Port-Forward Keycloak ---
 
+echo ---- Waiting For Keycloak Pod ----
 sleep 45
 kubectl -n daiteap wait --timeout=10m --for=jsonpath='{.status.phase}'=Running pod/keycloak-0
 kubectl -n daiteap cp docker-compose/themes keycloak-0:/opt/bitnami/keycloak/
