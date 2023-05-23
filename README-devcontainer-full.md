@@ -1,5 +1,19 @@
 # Daiteap Platform Development Environment
 
+# Start Devcontainer
+There are 2 ways to start the devcontainer:
+1. From VS Code:
+- Install Dev Containers extension in VS Code
+- From Remote Explorer tab -> Dev Containers -> + New Dev Container -> Open Current Folder in Container
+2. From Terminal:
+```sh
+# start devcontainer
+devcontainer up --workspace-folder .
+# start vscode
+code .
+# attach vscode to the running devcontainer
+```
+
 ## Start Platform
 ```
 ./scripts/init-cluster.sh
