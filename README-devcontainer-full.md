@@ -1,5 +1,11 @@
 # Daiteap Platform Development Environment
 
+# Requirements:
+- kubectl
+- curl
+- argocd
+- kind
+
 # Start Devcontainer
 There are 2 ways to start the devcontainer:
 1. From VS Code:
