@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Error Interrupt
+set -e
+
 echo --- Set Keycloak Environment Variable ---
 
 argocd app set argocd/daiteap-platform --helm-set keycloakClientSecretKey=$KEYCLOAK_SECRET

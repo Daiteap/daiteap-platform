@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Error Interrupt
+set -e
+
 echo --- Create KIND Cluster ---
 
 kind create cluster
@@ -32,7 +35,6 @@ argocd repo add https://github.com/Daiteap/daiteap-ui.git
 argocd repo add https://github.com/Daiteap/daiteap-platform.git
 argocd repo add https://github.com/Daiteap/Helms.git
 argocd repo add https://helm.releases.hashicorp.com --type helm --name vault
-argocd repo add https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami
 
 echo --- Create Apps + Sync Apps ---
 
