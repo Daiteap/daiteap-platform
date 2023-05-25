@@ -22,6 +22,19 @@ code .
 # attach vscode to the running devcontainer
 ```
 
+## Changing Ports
+
+By default these ports are used to forward services:
+- ArgoCD -> 8000
+- Keycloak -> 8082
+- UI -> 8083
+
+If any of these ports are already in use on your machine, go through the scripts mentioned below and change the ports to the ones you want to use.
+
+If you change the ports of Keycloak or the UI, make sure you also edit:
+- the value of `keycloakConfig` in `argocd/daiteap-ui.yaml`
+- in Keycloak, the frontend URL of the realm and the URL settings of `app-vue` and `django-backend` clients
+
 ## Start Platform
 ```
 ./scripts/init-cluster.sh
@@ -48,20 +61,19 @@ export KEYCLOAK_SECRET=secret
 - Register a user
 - Enable it in Keycloak from "Users" switch "Email Verified" field to `ON`
 
-## Credentials
-- For credential creation to be successful, you may need to change some environment variables in `daiteap-platform` and `celeryworker` apps, in the `values.yaml` files in `helm` directory you can see the names of the vars for a specific provider and change them with:
-```
-argocd app set argocd/daiteap-platform --helm-set key=value
-```
-just restart the deployment afterwards:
-```
-kubectl -n daiteap rollout restart deploy platform-api
-```
+## Cloud Credentials
 
-## Changing Ports
-If you change the ports of Keycloak or the UI, make sure you also edit:
-- the value of `keycloakConfig` in `argocd/daiteap-ui.yaml`
-- in Keycloak, the frontend url of the realm and the URL settings of `app-vue` and `django-backend` clients
+For cloud credential creation to be successful, you may need to change some environment variables:
+- AWS:
+```
+argocd app set argocd/daiteap-platform --helm-set awsDaiteapImageOwner=your_value
+argocd app set argocd/daiteap-platform --helm-set awsDaiteapImageName=your_value
+argocd app set argocd/celeryworker --helm-set awsDaiteapImageOwner=your_value
+argocd app set argocd/celeryworker --helm-set awsDaiteapImageName=your_value
+kubectl -n daiteap rollout restart deploy platform-api
+kubectl -n daiteap rollout restart deploy celeryworker
+```
+- GCP
 
 # Delete Cluster
 ```
