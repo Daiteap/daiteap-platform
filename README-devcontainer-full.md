@@ -63,7 +63,8 @@ export KEYCLOAK_SECRET=secret
 
 ## Cloud Credentials
 
-For cloud credential creation to be successful, you may need to change some environment variables:
+For cloud credential creation to be successful, you may need to change some environment variables. These keys are used to give access to images. Replace the values in the commands and execute them.
+
 - AWS:
 ```
 argocd app set argocd/daiteap-platform --helm-set awsDaiteapImageOwner=your_value
@@ -73,7 +74,12 @@ argocd app set argocd/celeryworker --helm-set awsDaiteapImageName=your_value
 kubectl -n daiteap rollout restart deploy platform-api
 kubectl -n daiteap rollout restart deploy celeryworker
 ```
-- GCP
+
+- GCP:
+```
+argocd app set argocd/daiteap-platform --helm-set daiteapImageCredentials=your_gcp_json_key_base64_encoded
+kubectl -n daiteap rollout restart deploy platform-api
+```
 
 # Delete Cluster
 ```
