@@ -18,9 +18,9 @@ kubectl -n daiteap cp docker-compose/drf-yasg $NFS_POD:/exports/drf-yasg
 echo --- Execute Database Migrations ---
 
 echo ---- Waiting For Platform Pods ----
-kubectl -n daiteap wait --timeout=10m --for=condition=ready pod --all
+kubectl -n daiteap wait --timeout=15m --for=condition=ready pod --all
 sleep 20
-kubectl -n daiteap wait --timeout=10m --for=condition=ready pod --all
+kubectl -n daiteap wait --timeout=15m --for=condition=ready pod --all
 sleep 20
 
 export BACKEND_POD=$(kubectl -n daiteap get pods --no-headers -o custom-columns=":metadata.name" | grep platform-api -m 1)
