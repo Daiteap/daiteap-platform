@@ -3,6 +3,8 @@
 # Error Interrupt
 set -e
 
+LOGFILE="init-cluster.log"
+
 echo --- Create KIND Cluster ---
 
 kind create cluster
@@ -26,7 +28,7 @@ echo --- Port-Forward ArgoCD + Login ---
 
 echo ---- Waiting For ArgoCD Pods ----
 kubectl -n argocd wait --timeout=15m --for=condition=ready pod --all
-kubectl -n argocd port-forward svc/argocd-server 8000:443 &
+kubectl -n argocd port-forward svc/argocd-server 8000:443 >$LOGFILE 2>&1 & echo "Port forwarding started. Logs are being saved to $LOGFILE."
 argocd login localhost:8000 --username admin --password $(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d) --insecure
 
 echo --- Add ArgoCD Repos ---
@@ -68,4 +70,4 @@ echo ---- Waiting For Keycloak Pod ----
 sleep 45
 kubectl -n daiteap wait --timeout=15m --for=jsonpath='{.status.phase}'=Running pod/keycloak-0
 kubectl -n daiteap cp docker-compose/themes keycloak-0:/opt/bitnami/keycloak/
-kubectl -n daiteap port-forward svc/keycloak 8082:80 &
+kubectl -n daiteap port-forward svc/keycloak 8082:80 >>$LOGFILE 2>&1 & echo "Port forwarding started. Logs are being saved to $LOGFILE."

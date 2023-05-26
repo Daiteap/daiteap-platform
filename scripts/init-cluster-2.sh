@@ -3,6 +3,8 @@
 # Error Interrupt
 set -e
 
+LOGFILE="init-cluster-2.log"
+
 echo --- Set Keycloak Environment Variable ---
 
 argocd app set argocd/daiteap-platform --helm-set keycloakClientSecretKey=$KEYCLOAK_SECRET
@@ -29,4 +31,4 @@ kubectl -n daiteap exec -it $BACKEND_POD -- /bin/sh -c "python3 ./manage.py fix_
 
 echo --- Port-Forward UI ---
 
-kubectl port-forward svc/vuejs-client -n daiteap 8083:8080 &
+kubectl port-forward svc/vuejs-client -n daiteap 8083:8080 >$LOGFILE 2>&1 & echo "Port forwarding started. Logs are being saved to $LOGFILE."
