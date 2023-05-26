@@ -27,6 +27,7 @@ rm argocd-linux-amd64
 echo --- Port-Forward ArgoCD + Login ---
 
 echo ---- Waiting For ArgoCD Pods ----
+sleep 30
 kubectl -n argocd wait --timeout=15m --for=condition=ready pod --all
 kubectl -n argocd port-forward svc/argocd-server 8000:443 >$LOGFILE 2>&1 & echo "Port forwarding started. Logs are being saved to $LOGFILE."
 argocd login localhost:8000 --username admin --password $(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d) --insecure
@@ -50,7 +51,7 @@ echo ---- Waiting For DB Pod ----
 sleep 60
 export DB_POD=$(kubectl -n daiteap get pods --no-headers -o custom-columns=":metadata.name" | grep database)
 kubectl -n daiteap wait --timeout=15m --for=jsonpath='{.status.phase}'=Running pod/$DB_POD
-sleep 30
+sleep 60
 kubectl -n daiteap exec -it $DB_POD -- mysql -u'root' -p'pass' -e "grant all privileges on *.* to 'daiteap'@'%';"
 
 echo ---- Waiting For Vault Pod ----
