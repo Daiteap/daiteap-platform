@@ -63,21 +63,27 @@ export KEYCLOAK_SECRET=secret
 
 ## Cloud Credentials
 
-For cloud credential creation to be successful, you may need to change some environment variables. These keys are used to give access to images. Replace the values in the commands and execute them.
+For cloud credential creation to be successful, you may need to change some environment variables.
 
 - AWS:
+
+Execute the commands below, but replace `image_owner` with the ID of the AWS account, which owns the compute images you want to use and `image_name` with name of the image. These values are used to retrieve compute images from AWS, so they can be used for cluster creation.
+
 ```
-argocd app set argocd/daiteap-platform --helm-set awsDaiteapImageOwner=your_value
-argocd app set argocd/daiteap-platform --helm-set awsDaiteapImageName=your_value
-argocd app set argocd/celeryworker --helm-set awsDaiteapImageOwner=your_value
-argocd app set argocd/celeryworker --helm-set awsDaiteapImageName=your_value
+argocd app set argocd/daiteap-platform --helm-set awsDaiteapImageOwner=image_owner
+argocd app set argocd/daiteap-platform --helm-set awsDaiteapImageName=image_name
+argocd app set argocd/celeryworker --helm-set awsDaiteapImageOwner=image_owner
+argocd app set argocd/celeryworker --helm-set awsDaiteapImageName=image_name
 kubectl -n daiteap rollout restart deploy platform-api
 kubectl -n daiteap rollout restart deploy celeryworker
 ```
 
 - GCP:
+
+Execute the commands below, but replace `key_base64_encoded` with a GCP service account json key encoded in base64. This key is used to give access to the compute images of a GCP project, so they can be used for cluster creation.
+
 ```
-argocd app set argocd/daiteap-platform --helm-set daiteapImageCredentials=your_gcp_json_key_base64_encoded
+argocd app set argocd/daiteap-platform --helm-set daiteapImageCredentials=key_base64_encoded
 kubectl -n daiteap rollout restart deploy platform-api
 ```
 
