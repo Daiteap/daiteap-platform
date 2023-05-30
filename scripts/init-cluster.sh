@@ -9,6 +9,17 @@ echo --- Create KIND Cluster ---
 
 kind create cluster
 
+echo --- Change Kubelet Config ---
+
+docker exec -it kind-control-plane /bin/bash -c 'echo allowedUnsafeSysctls: >> /var/lib/kubelet/config.yaml'
+docker exec -it kind-control-plane /bin/bash -c 'echo - "net.core.somaxconn" >> /var/lib/kubelet/config.yaml'
+docker exec -it kind-control-plane /bin/bash -c 'systemctl restart kubelet'
+
+echo ---- Waiting For Node ----
+
+kubectl wait --timeout=15m --for=condition=Ready nodes --all
+sleep 30
+
 echo --- Create Namespaces ---
 
 kubectl create namespace daiteap
