@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: redis
+  namespace: argocd
+spec:
+  destination:
+    namespace: daiteap
+    server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - jqPathExpressions:
+    - .data
+    kind: Secret
+  - group: '*'
+    jqPathExpressions:
+    - .spec.template.metadata.annotations."checksum/secret"
+    kind: '*'
+  project: default
+  source:
+    helm:
+      parameters:
+      - name: master.persistence.size
+        value: 2Gi
+      - name: slave.persistence.size
+        value: 2Gi
+      - name: replica.replicaCount
+        value: "1"
+      valueFiles:
+      - values.yaml
+    chart: redis
+#    path: redis
+    repoURL: https://charts.bitnami.com/bitnami # git@gitlab.cst-bg.net:daiteap/helm-charts.git
+    targetRevision: 17.8.5
+#    targetRevision: daiteap/develop
+  syncPolicy: {}

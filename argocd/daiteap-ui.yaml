@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: daiteap-ui
+  namespace: argocd
+spec:
+  destination:
+    namespace: daiteap
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    helm:
+      parameters:
+      - name: daiteapManagedCertificates
+        value: "true"
+      - name: gkeManagedCertificates
+        value: "false"
+      - name: env
+        value: production
+      - name: host
+        value: example.com
+      - name: image
+        value: ghcr.io/daiteap/daiteap-ui:latest
+      - name: keycloakConfig
+        value: ewogICAgInJlYWxtIjogIkRhaXRlYXAiLAogICAgImF1dGgtc2VydmVyLXVybCI6ICJodHRwOi8vMTI3LjAuMC4xOjgwODIvYXV0aC8iLAogICAgInNzbC1yZXF1aXJlZCI6ICJub25lIiwKICAgICJyZXNvdXJjZSI6ICJhcHAtdnVlIiwKICAgICJwdWJsaWMtY2xpZW50IjogdHJ1ZSwKICAgICJ2ZXJpZnktdG9rZW4tYXVkaWVuY2UiOiB0cnVlLAogICAgInVzZS1yZXNvdXJjZS1yb2xlLW1hcHBpbmdzIjogdHJ1ZSwKICAgICJjb25maWRlbnRpYWwtcG9ydCI6IDAKfQo=
+      - name: keycloakServiceName
+        value: keycloak
+      valueFiles:
+      - values.yaml
+    path: helm
+    repoURL: https://github.com/Daiteap/daiteap-ui.git
+    targetRevision: HEAD
+  syncPolicy:
+    automated: {}

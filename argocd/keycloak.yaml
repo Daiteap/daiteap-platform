@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keycloak
+  namespace: argocd
+spec:
+  destination:
+    namespace: daiteap
+    server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - jqPathExpressions:
+    - .data
+    kind: Secret
+  - group: '*'
+    jqPathExpressions:
+    - .spec.template.metadata.annotations."checksum/secrets"
+    kind: '*'
+  project: default
+  source:
+    helm:
+      parameters:
+      - name: containerSecurityContext.runAsNonRoot
+        value: "false"
+      - name: containerSecurityContext.runAsUser
+        value: "0"
+      - name: keycloakConfigCli.containerSecurityContext.runAsNonRoot
+        value: "false"
+      - name: keycloakConfigCli.containerSecurityContext.runAsUser
+        value: "0"
+      valueFiles:
+      - values.yaml
+    chart: keycloak
+    repoURL: https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami
+    targetRevision: 7.1.18
+  syncPolicy: {}

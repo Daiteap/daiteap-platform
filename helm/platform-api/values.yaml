@@ -1,4 +1,4 @@
-image: eu.gcr.io/cloudcluster-261712/cloudcluster-server:3c61723b06a4de843947d2b6d5585f6fc601c06f
+image: ghcr.io/daiteap/daiteap-platform:latest
 env: develop
 
 # imagePullSecrets:

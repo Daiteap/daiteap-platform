@@ -13,7 +13,9 @@ class BucketSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Bucket
-        fields = ("id", "name", "provider", "created_at", "project", "credential", "storage_account", "storage_class", "bucket_location")
+        fields = ("id", "name", "provider", "created_at", "project", "credential",
+                  "storage_account", "storage_class", "bucket_location",
+                  "contact", "description")
         read_only_fields = ("id", "created_at")
 
     def create(self, validated_data):
@@ -47,6 +49,7 @@ class BucketSerializer(serializers.ModelSerializer):
             **validated_data
         )
 
+        bucket.contact = request.user.username
         bucket.save()
 
         return bucket

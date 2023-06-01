@@ -10,18 +10,27 @@ This repository contains the backend and API for daiteap.
 Follow the steps below to run Daiteap locally (Linux, Windows WSL2). 
 
 Requirements:
-- docker/docker-compose
+- docker/docker-compose (Docker Daemon must be running. Windows/Mac start Docker Desktop)
 - GIT
 - DNS zone in GCP (optional)
 - jq (cmd JSON parser tool)
 
 ```shell
-# clone daiteap-ui
-git clone git@github.com:Daiteap/daiteap-ui.git
-
 # clone and cd into this repository
 git clone git@github.com:Daiteap/daiteap-platform.git
 cd daiteap-platform
+
+# generate ssh keys
+mkdir -p docker-compose/.ssh
+ssh-keygen -o -a 100 -t rsa -f docker-compose/.ssh/id_rsa -C "user@server.com" -N "" -m PEM
+```
+
+```shell
+# Install jq
+sudo apt-get install jq
+
+Mac User can use alternatively
+brew install jq
 
 # Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
 sh docker-compose/init.sh

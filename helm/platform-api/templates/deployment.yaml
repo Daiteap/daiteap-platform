@@ -249,3 +249,7 @@ spec:
           secret:
             defaultMode: 420
             secretName: daiteap-image-credentials
+      securityContext:
+        sysctls:
+        - name: net.core.somaxconn
+          value: "1024"

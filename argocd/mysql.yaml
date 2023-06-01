@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mysql
+  namespace: argocd
+spec:
+  destination:
+    namespace: daiteap
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    helm:
+      parameters:
+      - name: env
+        value: production
+      - name: password
+        value: pass
+      - name: rootPassword
+        value: pass
+      valueFiles:
+      - values.yaml
+    path: mysql_server
+    repoURL: https://github.com/Daiteap/Helms.git
+    targetRevision: new-dev-branch
+  syncPolicy:
+    automated: {}

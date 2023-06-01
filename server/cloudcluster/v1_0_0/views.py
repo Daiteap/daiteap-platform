@@ -693,11 +693,40 @@ def bucket_detail(request, tenant_id, bucket_id):
             return JsonResponse(response, status=200)
         
     if request.method == 'PUT':
-        serializer = BucketSerializer(bucket, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+        payload, error = get_request_body(request)
+        if error is not None:
+            return error
+
+        schema = {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "maxLength": 1024
+                },
+            },
+            "required": ["description"]
+        }
+
+        try:
+            validate(instance=payload, schema=schema)
+        except ValidationError as e:
+            log_data = {
+                'level': 'ERROR',
+                'user_id': str(request.user.id),
+            }
+            logger.error(str(e), extra=log_data)
+            return JsonResponse({
+                'error': {
+                    'message': str(e),
+                }
+            }, status=400)
+    
+        bucket.description = payload['description']
+        bucket.save()
+        serializer = BucketSerializer(bucket)
+        return Response(serializer.data)
+
     if request.method == 'DELETE':
         storage_bucket_data = {}
 
@@ -9685,7 +9714,12 @@ def environment_templates_list(request, tenant_id):
     ))},
     operation_description="Delete environment template.",
     operation_summary="Delete environment template.")
-@api_view(['GET', 'DELETE'])
+@swagger_auto_schema(method='put',
+    request_body=EnvironmentTemplateSerializer,
+    responses={200: openapi.Response('', EnvironmentTemplateSerializer)},
+    operation_description="Update environment template.",
+    operation_summary="Update environment template.")
+@api_view(['GET', 'DELETE', 'PUT'])
 @permission_classes([IsAuthenticated, custom_permissions.EnvironmentTemplateAccessPermission])
 def environment_template_detail(request, tenant_id, environment_template_id):
     environment_template = models.EnvironmentTemplate.objects.get(id=environment_template_id, tenant_id=tenant_id)
@@ -9725,6 +9759,66 @@ def environment_template_detail(request, tenant_id, environment_template_id):
         return JsonResponse({
             'submitted': True
         })
+
+    if request.method == 'PUT':
+        payload, error = get_request_body(request)
+        if error is not None:
+            return error
+
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 1024
+                },
+            },
+            "required": ["name", "description"]
+        }
+
+        try:
+            validate(instance=payload, schema=schema)
+        except ValidationError as e:
+            log_data = {
+                'level': 'ERROR',
+                'user_id': str(request.user.id),
+            }
+            logger.error(str(e), extra=log_data)
+            return JsonResponse({
+                'error': {
+                    'message': str(e),
+                }
+            }, status=400)
+        
+        payload['name'] = payload['name'].strip()
+
+        if payload['name'] != environment_template.name:
+            env_template_with_same_name = models.EnvironmentTemplate.objects.filter(
+                tenant_id=tenant_id, name=payload['name']).count()
+
+            if env_template_with_same_name != 0:
+                log_data = {
+                    'level': 'ERROR',
+                    'user_id': str(request.user.id),
+                    'client_request': json.loads(request.body.decode('utf-8')),
+                }
+                return JsonResponse({
+                    'error': {
+                        'message': 'Environment template with that name already exists.'
+                    }
+                }, status=400)
+
+            environment_template.name = payload['name']
+
+        environment_template.description = payload['description']
+        environment_template.save()
+        serializer = EnvironmentTemplateSerializer(environment_template)
+        return Response(serializer.data)
 
 @swagger_auto_schema(method='get',
     responses={200: openapi.Response('', openapi.Schema(

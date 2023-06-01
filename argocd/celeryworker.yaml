@@ -1,0 +1,70 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: celeryworker
+  namespace: argocd
+spec:
+  destination:
+    namespace: daiteap
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    helm:
+      parameters:
+      - name: djangoSecretKey
+        value: example
+      - name: azureClientId
+        value: example
+      - name: azureClientSecret
+        value: example
+      - name: azureServiceOauthAccountsPrefix
+        value: daiteap
+      - name: daiteapEnvironmentUrl
+        value: 
+      - name: userGuideUrl
+        value: example
+      - name: daiteapLogoUrl
+        value: 
+      - name: daiteapMailUrl
+        value: 
+      - name: daiteapUnsubscribeUrl
+        value: 
+      - name: defaultFromEmail
+        value: email@example.com
+      - name: emailApiKey
+        value: example
+      - name: emailApiUrl
+        value: example
+      - name: emailHostPassword
+        value: example
+      - name: emailHostUser
+        value: example
+      - name: env
+        value: production
+      - name: googleServiceOauthAccountsPrefix
+        value: daiteap
+      - name: serverEmailAddress
+        value: email@example.com
+      - name: vaultToken
+        value: token
+      - name: rabbitmqbrokerVhost
+      - name: rabbitmqBrokerHost
+        value: rabbitmq
+      - name: vaultAddr
+        value: http://vault:8200
+      - name: replicas
+        value: "3"
+      - name: awsDaiteapImageOwner
+        value: ""
+      - name: appName
+        value: DaiteapProduction
+      - name: image
+        value: ghcr.io/daiteap/daiteap-celery-worker:latest
+      valueFiles:
+      - values.yaml
+      values:
+    path: helm/celeryworker
+    repoURL: https://github.com/Daiteap/daiteap-platform.git
+    targetRevision: new-dev-branch
+  syncPolicy:
+    automated: {}
