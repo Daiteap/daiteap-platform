@@ -29,6 +29,16 @@ export BACKEND_POD=$(kubectl -n daiteap get pods --no-headers -o custom-columns=
 kubectl -n daiteap exec -it $BACKEND_POD -- /bin/sh -c "python3 ./manage.py migrate"
 kubectl -n daiteap exec -it $BACKEND_POD -- /bin/sh -c "python3 ./manage.py fix_service_catalog_prod"
 
+echo --- Restart Back-End Pods ---
+
+kubectl -n daiteap rollout restart deploy platform-api
+sleep 40
+echo ---- Waiting For Platform Pods ----
+kubectl -n daiteap wait --timeout=15m --for=condition=ready pod --all
+sleep 40
+kubectl -n daiteap wait --timeout=15m --for=condition=ready pod --all
+sleep 20
+
 echo --- Port-Forward UI ---
 
 kubectl port-forward svc/vuejs-client -n daiteap 8083:8080 >$LOGFILE 2>&1 & echo "Port forwarding started. Logs are being saved to $LOGFILE."
