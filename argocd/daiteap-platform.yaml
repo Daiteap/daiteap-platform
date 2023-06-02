@@ -81,6 +81,6 @@ spec:
       - values.yaml
     path: helm/platform-api
     repoURL: https://github.com/Daiteap/daiteap-platform.git
-    targetRevision: new-dev-branch
+    targetRevision: master
   syncPolicy:
     automated: {}
