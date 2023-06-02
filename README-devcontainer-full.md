@@ -42,35 +42,34 @@ If you change the ports of Keycloak or the UI, make sure you also edit:
 
 ## Set-Up Keycloak
 
--   Login into keycloak at http://127.0.0.1:8082 with:
+- Login into keycloak at <http://127.0.0.1:8082> with:
 
     user -> user  
-    password ->  `kubectl -n daiteap get secret
-    keycloak -o jsonpath='{.data.admin-password}' | base64 --decode`
+    password ->  `kubectl -n daiteap get secret keycloak -o jsonpath='{.data.admin-password}' | base64 --decode`
 
--   Create realm using the file `docker-compose/DaiteapRealm.json`
+- Create realm using the file `docker-compose/DaiteapRealm.json`
 
--   Create secret
+- Create secret
 
--   Start by selecting `Create secret in Configure`
+- Start by selecting `Create secret in Configure`
 
--   Then, follow the steps below:
+- Then, follow the steps below:
 
-    - Click on `Clients`
-    - Select `django-backend`
-    - Navigate to `Credentials`
-    - Click on `Regenerate Secret`
-    - Store the secret
+  - Click on `Clients`
+  - Select `django-backend`
+  - Navigate to `Credentials`
+  - Click on `Regenerate Secret`
+  - Store the secret
 
--   Add service account role:
+- Add service account role:
 
-    - Click on `Clients`
-    - Select `django-backend`
-    - Go to `Service Account Roles` tab
-    - Then, select `Client Roles`
-    - Look for `realm-management`
-    - Click on `manage-users`
-    - Finally, click `Add selected`
+  - Click on `Clients`
+  - Select `django-backend`
+  - Go to `Service Account Roles` tab
+  - Then, select `Client Roles`
+  - Look for `realm-management`
+  - Click on `manage-users`
+  - Finally, click `Add selected`
 
 
 ```
