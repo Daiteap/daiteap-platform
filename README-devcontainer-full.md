@@ -46,7 +46,8 @@ If you change the ports of Keycloak or the UI, make sure you also edit:
     - password -> kubectl -n daiteap get secret keycloak -o jsonpath='{.data.admin-password}' | base64 --decode
 - Create realm using the file `docker-compose/DaiteapRealm.json`
 - Create secret in Configure -> Clients -> django-backend -> Credentials -> Regenerate Secret; then copy it and create variable:
-- Add service account role -> Clients -> django-backend -> Service Account Roles -> Client Roles -> realm-management -> manage-users -> Add selected
+- Add service account role -> Clients -> \
+  django-backend -> Service Account Roles -> Client Roles -> realm-management -> manage-users -> Add selected
 
 ```
 export KEYCLOAK_SECRET=secret
