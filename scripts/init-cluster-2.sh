@@ -9,35 +9,30 @@ echo --- Set Keycloak Environment Variable ---
 
 argocd app set argocd/daiteap-platform --helm-set keycloakClientSecretKey=$KEYCLOAK_SECRET
 kubectl -n daiteap rollout restart deploy platform-api
-sleep 60
+kubectl -n daiteap rollout status deploy platform-api --timeout=15m
 
 echo --- Copy Static Files ---
 
 export NFS_POD=$(kubectl -n daiteap get pods --no-headers -o custom-columns=":metadata.name" | grep nfs-server)
+kubectl -n daiteap wait --timeout=15m --for=condition=ready pod "$NFS_POD"
+
 kubectl -n daiteap cp docker-compose/service_logo $NFS_POD:/exports/service_logo
 kubectl -n daiteap cp docker-compose/drf-yasg $NFS_POD:/exports/drf-yasg
 
 echo --- Execute Database Migrations ---
 
 echo ---- Waiting For Platform Pods ----
-kubectl -n daiteap wait --timeout=15m --for=condition=ready pod --all
-sleep 20
-kubectl -n daiteap wait --timeout=15m --for=condition=ready pod --all
-sleep 20
+export BACKEND_POD=$(kubectl get pods -n daiteap -l app=platform-api -o json | jq -r '.items[] | select(.status.phase!="Succeeded" and .status.phase!="Failed") | .metadata.name' | head -n 1)
+kubectl -n daiteap wait --timeout=15m --for=condition=ready pod "$BACKEND_POD"
 
-export BACKEND_POD=$(kubectl -n daiteap get pods --no-headers -o custom-columns=":metadata.name" | grep platform-api -m 1)
 kubectl -n daiteap exec -it $BACKEND_POD -- /bin/sh -c "python3 ./manage.py migrate"
 kubectl -n daiteap exec -it $BACKEND_POD -- /bin/sh -c "python3 ./manage.py fix_service_catalog_prod"
 
 echo --- Restart Back-End Pods ---
 
 kubectl -n daiteap rollout restart deploy platform-api
-sleep 40
+kubectl -n daiteap rollout status deploy platform-api --timeout=15m
 echo ---- Waiting For Platform Pods ----
-kubectl -n daiteap wait --timeout=15m --for=condition=ready pod --all
-sleep 40
-kubectl -n daiteap wait --timeout=15m --for=condition=ready pod --all
-sleep 20
 
 echo --- Port-Forward UI ---
 

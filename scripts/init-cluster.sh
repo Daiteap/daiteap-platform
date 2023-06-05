@@ -74,6 +74,7 @@ kubectl -n daiteap exec -it vault-0 -- /bin/sh -c "vault login $(jq -r '.root_to
 kubectl -n daiteap exec -it vault-0 -- /bin/sh -c "vault secrets enable -version=1 -path secret kv"
 
 argocd app set argocd/daiteap-platform --helm-set vaultToken=$(jq -r '.root_token' docker-compose/vault/vault-init.json)
+argocd app set argocd/daiteap-platform --helm-set-string djangoDebug=True
 argocd app set argocd/celeryworker --helm-set vaultToken=$(jq -r '.root_token' docker-compose/vault/vault-init.json)
 
 echo --- Copy Themes + Port-Forward Keycloak ---
