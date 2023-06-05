@@ -102,3 +102,99 @@ cp ./public/favicon-daiteap.ico ./docs/docs/img/favicon.ico
 mkdocs build -f ./docs/mkdocs.yaml --site-dir ../public/documentation
 mkdocs serve --config-file ./docs/mkdocs.yaml -a localhost:8085
 ```
+
+## Start Local Back-End
+
+- Install Python 3.7
+```
+sudo apt update
+sudo apt install libffi-dev -y
+sudo apt-get install libmysqlclient-dev -y
+wget https://www.python.org/ftp/python/3.7.16/Python-3.7.16.tgz
+tar zxf Python-3.7.16.tgz
+cd Python-3.7.16
+./configure
+sudo make
+sudo make install
+```
+
+- Clone the back-end repo:
+```
+git clone https://github.com/Daiteap/daiteap-platform.git
+```
+
+- All the future commands should be executed in `server` directory:
+```
+cd ./daiteap-platform/server
+```
+
+- Create virtual environment:
+```
+python3.7 -m venv daiteap-env
+```
+
+- Activate environment:
+```
+source daiteap-env/bin/activate
+```
+
+- Install requirements:
+```
+pip install --upgrade pip
+pip install -r cloudcluster/requirements.txt
+python3.7 manage.py collectstatic --noinput
+```
+
+- Install Helm and Terraform:
+```
+wget https://releases.hashicorp.com/terraform/1.1.0/terraform_1.1.0_linux_$(dpkg --print-architecture).zip -O terraform.zip
+wget https://get.helm.sh/helm-v3.3.4-linux-$(dpkg --print-architecture).tar.gz
+tar zxf helm-v3.3.4-linux-$(dpkg --print-architecture).tar.gz
+unzip terraform.zip
+sudo mv ./linux-$(dpkg --print-architecture)/helm /usr/bin/
+sudo mv terraform /usr/bin/
+sudo mkdir -p /root/.terraform.d/plugin-cache
+```
+
+- Use these params in `server/cloudcluster/settings.py`, before copying the values, replace:
+  - `database_service_cluster_ip` with the cluster IP of the database service in the cluster, you can get that with `kubectl -n daiteap get svc database -o yaml`
+  - `secret` with the Keycloak client secret
+  - `rabbitmq_service_cluster_ip` with the cluster IP of the rabbitmq service in the cluster, you can get that with `kubectl -n daiteap get svc rabbitmq -o yaml`
+  - `vault_service_cluster_ip` with the cluster IP of the vault service in the cluster, you can get that with `kubectl -n daiteap get svc vault -o yaml`
+  - `token` with the value of `root_token` from `docker-compose/vault/vault-init.json`
+
+```py
+DEBUG = (os.getenv("DJANGO_DEBUG"), True)
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', ['*'])
+SINGLE_USER_MODE = os.getenv('SINGLE_USER_MODE', 'False')
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        # 'ENGINE': 'mysql.connector.django',
+        'NAME': "daiteap",
+        'USER': "daiteap",
+        'PASSWORD': "pass",
+        'HOST': "database_service_cluster_ip",
+        'PORT': 3306,
+        'CONN_MAX_AGE': 0
+    },
+}
+
+CELERY_BROKER_URL = f"amqp://guest:guest@rabbitmq_service_cluster_ip:5672/"
+
+KEYCLOAK_CONFIG = {
+    'KEYCLOAK_SERVER_URL': os.getenv('KEYCLOAK_SERVER_URL', 'http://localhost:8082/auth'),
+    'KEYCLOAK_REALM': os.getenv('KEYCLOAK_REALM', 'Daiteap'),
+    'KEYCLOAK_CLIENT_ID': os.getenv('KEYCLOAK_CLIENT_ID', 'django-backend'),
+    'KEYCLOAK_CLIENT_SECRET_KEY': os.getenv('KEYCLOAK_CLIENT_SECRET_KEY', 'secret')
+}
+
+VAULT_ADDR = os.getenv('VAULT_ADDR', 'http://vault_service_cluster_ip:8200')
+VAULT_TOKEN = os.getenv('VAULT_TOKEN', 'token')
+```
+
+- Run back-end:
+```
+python3.7 manage.py runserver 8070
+```
