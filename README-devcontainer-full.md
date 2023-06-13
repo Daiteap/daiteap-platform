@@ -47,8 +47,6 @@ If you change the ports of Keycloak or the UI, make sure you also edit:
     user -> user  
     password ->  `kubectl -n daiteap get secret keycloak -o jsonpath='{.data.admin-password}' | base64 --decode`
 
-- Create realm using the file `docker-compose/DaiteapRealm.json`
-
 - Create secret
 
 - Start by selecting `Create secret in Configure`
@@ -60,17 +58,6 @@ If you change the ports of Keycloak or the UI, make sure you also edit:
   - Navigate to `Credentials`
   - Click on `Regenerate Secret`
   - Store the secret
-
-- Add service account role:
-
-  - Click on `Clients`
-  - Select `django-backend`
-  - Go to `Service Account Roles` tab
-  - Then, select `Client Roles`
-  - Look for `realm-management`
-  - Click on `manage-users`
-  - Finally, click `Add selected`
-
 
 ```
 export KEYCLOAK_SECRET=secret

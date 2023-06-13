@@ -77,10 +77,17 @@ argocd app set argocd/daiteap-platform --helm-set vaultToken=$(jq -r '.root_toke
 argocd app set argocd/daiteap-platform --helm-set-string djangoDebug=True
 argocd app set argocd/celeryworker --helm-set vaultToken=$(jq -r '.root_token' docker-compose/vault/vault-init.json)
 
-echo --- Copy Themes + Port-Forward Keycloak ---
+echo --- Configure + Port-Forward Keycloak ---
 
 echo ---- Waiting For Keycloak Pod ----
 sleep 45
 kubectl -n daiteap wait --timeout=15m --for=jsonpath='{.status.phase}'=Running pod/keycloak-0
+
 kubectl -n daiteap cp docker-compose/themes keycloak-0:/opt/bitnami/keycloak/
+kubectl -n daiteap cp docker-compose/DaiteapRealm.json keycloak-0:/realm.json
+
+export KC_PASS=$(kubectl -n daiteap get secret keycloak -o jsonpath='{.data.admin-password}' | base64 --decode)
+kubectl -n daiteap exec -it keycloak-0 -- /bin/sh -c "/opt/bitnami/keycloak/bin/kcadm.sh config credentials --server http://keycloak:80/auth --realm master --user user --password $KC_PASS"
+kubectl -n daiteap exec -it keycloak-0 -- /bin/sh -c "/opt/bitnami/keycloak/bin/kcadm.sh create realms -f /realm.json -s realm=Daiteap -s enabled=true"
+
 kubectl -n daiteap port-forward svc/keycloak 8082:80 >>$LOGFILE 2>&1 & echo "Port forwarding started. Logs are being saved to $LOGFILE."

@@ -111,6 +111,11 @@
 		"serviceAccountClientId": "django-backend",
 		"disableableCredentialTypes": [],
 		"requiredActions": [],
+		"clientRoles": {
+		  "realm-management": [
+			"manage-users"
+		  ]
+		},
 		"notBefore": 0
 	  },
 	  {
