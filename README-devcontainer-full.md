@@ -40,34 +40,6 @@ If you change the ports of Keycloak or the UI, make sure you also edit:
 ./scripts/init-cluster.sh
 ```
 
-## Set-Up Keycloak
-
-- Login into keycloak at <http://127.0.0.1:8082> with:
-
-    user -> user  
-    password ->  `kubectl -n daiteap get secret keycloak -o jsonpath='{.data.admin-password}' | base64 --decode`
-
-- Create secret
-
-- Start by selecting `Create secret in Configure`
-
-- Then, follow the steps below:
-
-  - Click on `Clients`
-  - Select `django-backend`
-  - Navigate to `Credentials`
-  - Click on `Regenerate Secret`
-  - Store the secret
-
-```
-export KEYCLOAK_SECRET=secret
-```
-
-## Finish Platform Creation
-```
-./scripts/init-cluster-2.sh
-```
-
 ## Create User
 - Go to http://127.0.0.1:8083
 - Register a user
