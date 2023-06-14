@@ -1,9 +1,8 @@
 #!/bin/bash
 
-echo --- Delete ArgoCD Apps ---
+echo --- Delete Namespace Daiteap ---
 
-argocd app list | awk '{print $1}' | tail -n +2 | xargs -I {} argocd app delete {} -y
-sleep 60
+kubectl delete namespace daiteap --timeout=5m
 
 echo --- Delete Cluster ---
 
