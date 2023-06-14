@@ -56,7 +56,7 @@ If you change the ports of Keycloak or the UI, make sure you also edit:
 
 ## Create User
 
-- Go to <http://127.0.0.1:8083>
+- Go to <http://localhost:8083>
 - Register a user
 - Enable it in Keycloak from "Users" switch "Email Verified" field to `ON`
 

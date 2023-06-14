@@ -306,17 +306,17 @@
 	  {
 		"id": "0293d2a1-b6bb-43b1-9bf1-828ca84961b4",
 		"clientId": "app-vue",
-		"rootUrl": "http://127.0.0.1:8083/",
-		"adminUrl": "http://127.0.0.1:8083/",
+		"rootUrl": "http://localhost:8083/",
+		"adminUrl": "http://localhost:8083/",
 		"surrogateAuthRequired": false,
 		"enabled": true,
 		"alwaysDisplayInConsole": false,
 		"clientAuthenticatorType": "client-secret",
 		"redirectUris": [
-		  "http://127.0.0.1:8083/*"
+		  "http://localhost:8083/*"
 		],
 		"webOrigins": [
-		  "http://127.0.0.1:8083/",
+		  "http://localhost:8083/",
 		  "*"
 		],
 		"notBefore": 0,
@@ -541,19 +541,19 @@
 	  {
 		"id": "a4f8c343-9ade-4451-8ef0-22eec38920cb",
 		"clientId": "django-backend",
-		"rootUrl": "http://127.0.0.1:8083/",
-		"adminUrl": "http://127.0.0.1:8083/",
+		"rootUrl": "http://localhost:8083/",
+		"adminUrl": "http://localhost:8083/",
 		"surrogateAuthRequired": false,
 		"enabled": true,
 		"alwaysDisplayInConsole": false,
 		"clientAuthenticatorType": "client-secret",
 		"secret": "**********",
 		"redirectUris": [
-		  "http://127.0.0.1:8083/*"
+		  "http://localhost:8083/*"
 		],
 		"webOrigins": [
 		  "https://app.daiteap.com",
-		  "http://127.0.0.1:8083/"
+		  "http://localhost:8083/"
 		],
 		"notBefore": 0,
 		"bearerOnly": false,
