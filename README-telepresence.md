@@ -10,6 +10,18 @@
 export KUBECONFIG=path_to_kubeconfig_file
 ```
 
+- For the Dev environment - try accessing the cluster,
+if you can't and get this error - `The connection to the server was refused`,
+run this command inside the devcontainer:
+
+```bash
+docker inspect kind-control-plane | jq '.[0] | .NetworkSettings.Ports' \
+  | grep HostPort | tr -d '[:punct:] [:alpha:]'
+```
+
+In VS Code, at the bottom of the window, next to "Dev Container: Ubuntu",
+click on the "Forwarded Ports" symbol -> Add Port -> type the value from the command
+
 - Run this script to install Telepresence on your machine and on the cluster
   and connect the two of them:
 
