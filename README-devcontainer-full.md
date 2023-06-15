@@ -93,6 +93,12 @@ argocd app set argocd/daiteap-platform --helm-set daiteapImageCredentials=key_ba
 kubectl -n daiteap rollout restart deploy platform-api
 ```
 
+- If you encounter this error - `Vault is sealed`; run this command:
+
+```bash
+kubectl -n daiteap exec -it vault-0 -- /bin/sh -c "vault operator unseal $(jq -r .unseal_keys_b64[0] docker-compose/vault/vault-init.json)"
+```
+
 ## Delete Cluster
 
 ```bash
