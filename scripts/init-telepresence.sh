@@ -20,4 +20,3 @@ kubectl -n ambassador wait --for=condition=ready pod --all
 echo --- Connect To Cluster ---
 
 telepresence connect
-curl -ik https://kubernetes.default
