@@ -58,7 +58,18 @@ If you change the ports of Keycloak or the UI, make sure you also edit:
 
 - Go to <http://localhost:8083>
 - Register a user
-- Enable it in Keycloak from "Users" switch "Email Verified" field to `ON`
+- Login into Keycloak at <http://127.0.0.1:8082> with:
+
+  username -> user
+
+  password:
+
+```bash
+kubectl -n daiteap get secret keycloak \
+  -o jsonpath='{.data.admin-password}' | base64 --decode`
+```
+
+- Enable the user in Keycloak from "Users" switch "Email Verified" field to `ON`
 
 ### Cloud Credentials
 
