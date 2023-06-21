@@ -68,7 +68,7 @@ If you change the ports of Keycloak or the UI, make sure you also edit:
 
 ```bash
 kubectl -n daiteap get secret keycloak \
-  -o jsonpath='{.data.admin-password}' | base64 --decode`
+  -o jsonpath='{.data.admin-password}' | base64 --decode
 ```
 
 - Enable the user in Keycloak from "Users" switch "Email Verified" field to `ON`
