@@ -50,6 +50,8 @@ If you change the ports of Keycloak or the UI, make sure you also edit:
 
 ## Start Platform
 
+(execute this command inside the devcontainer)
+
 ```bash
 ./scripts/init-cluster.sh
 ```
