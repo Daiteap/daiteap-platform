@@ -64,11 +64,11 @@ export DB_POD
 DB_POD=$(kubectl -n daiteap get pods --no-headers -o custom-columns=":metadata.name" | grep database)
 kubectl -n daiteap wait --timeout=15m --for=jsonpath='{.status.phase}'=Running pod/"$DB_POD"
 sleep 60
-kubectl -n daiteap exec -it "$DB_POD" -- mysql -u'root' -p'pass' -e "grant all privileges on *.* to 'daiteap'@'%';"
+kubectl -n daiteap exec -it "$DB_POD" -- mysql -h 127.0.0.1 -u'root' -p'pass' -e "grant all privileges on *.* to 'daiteap'@'%';"
 
 echo ---- Waiting For Vault Pod ----
 kubectl -n daiteap wait --timeout=15m --for=jsonpath='{.status.phase}'=Running pod/vault-0
-sleep 30
+sleep 60
 kubectl -n daiteap exec -it vault-0 -- /bin/sh -c "vault operator init -key-shares=1 -key-threshold=1 -format=json" > docker-compose/vault/vault-init.json
 kubectl -n daiteap exec -it vault-0 -- /bin/sh -c "vault operator unseal $(jq -r .unseal_keys_b64[0] docker-compose/vault/vault-init.json)"
 kubectl -n daiteap exec -it vault-0 -- /bin/sh -c "vault login $(jq -r '.root_token' docker-compose/vault/vault-init.json)"
