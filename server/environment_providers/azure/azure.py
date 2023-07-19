@@ -5,6 +5,8 @@ import json
 import logging
 import os
 import pathlib
+import random
+import string
 import time
 import traceback
 
@@ -780,7 +782,6 @@ def update_cloud_credentials(payload, request):
             account.user = request.user
             account.save()
 
-            storage_name = settings.AZURE_STORAGE_ACCOUNT_NAME_PREFIX + str(account.id)
             resource_group_name = settings.AZURE_STORAGE_RESOURCE_GROUP_NAME
             storage_location = settings.AZURE_STORAGE_LOCATION
 
@@ -790,7 +791,7 @@ def update_cloud_credentials(payload, request):
             for i in range(max_retries):
                 try:
                     api_client.create_resource_group(credentials, resource_group_name, storage_location)
-                    api_client.create_storage_account(credentials, storage_name, 'Standard_LRS', storage_location, resource_group_name)
+                    api_client.create_storage_account(credentials, account.storage_name, 'Standard_LRS', storage_location, resource_group_name)
                     break
                 except Exception as e:
                     if i == max_retries - 1:
@@ -916,14 +917,42 @@ def create_cloud_credentials(payload, request, all_account_labels):
 
             account.credentials = "none"
             account.user = request.user
+            account.storage_name = (settings.AZURE_STORAGE_ACCOUNT_NAME_PREFIX + ''.join(random.choice(string.digits) for _ in range(15)))[:24]
             account.save()
 
-            storage_name = settings.AZURE_STORAGE_ACCOUNT_NAME_PREFIX + str(account.id)
             resource_group_name = settings.AZURE_STORAGE_RESOURCE_GROUP_NAME
             storage_location = settings.AZURE_STORAGE_LOCATION
 
             api_client.create_resource_group(credentials, resource_group_name, storage_location)
-            api_client.create_storage_account(credentials, storage_name, 'Standard_LRS', storage_location, resource_group_name)
+
+            max_retries = 10
+            timeout = 10
+
+            for i in range(max_retries):
+                try:
+                    api_client.create_storage_account(credentials, account.storage_name, 'Standard_LRS', storage_location, resource_group_name)
+                    break
+                except Exception as e:
+                    if 'is already taken' in str(e):
+                        storage_name = settings.AZURE_STORAGE_ACCOUNT_NAME_PREFIX + ''.join(random.choice(string.digits) for _ in range(15))[:24]
+                        account.storage_name = storage_name
+                        account.save()
+
+                    if i == max_retries - 1:
+                        log_data = {
+                            'level': 'ERROR',
+                            'user_id': str(request.user.id),
+                        }
+                        logger.error('Error creating storage account.', extra=log_data)
+                        account.delete()
+                        raise Exception('Error creating storage account.')
+                    else:
+                        log_data = {
+                            'level': 'ERROR',
+                            'user_id': str(request.user.id),
+                        }
+                        logger.error(str(e) + 'Error creating storage account. Retrying...', extra=log_data)
+                        time.sleep(timeout)
 
             try:
                 credentials_path = f"secret/{request.daiteap_user.tenant_id}/{account.id}/credentials"
@@ -951,13 +980,19 @@ def create_cloud_credentials(payload, request, all_account_labels):
     tasks.worker_update_provider_regions.delay('azure', request.user.id, account.id)
 
 def delete_cloud_credentials(cloudaccount):
-    azure_credentials = vault_service.read_secret(cloudaccount.credentials)
-
-    storage_name = settings.AZURE_STORAGE_ACCOUNT_NAME_PREFIX + str(cloudaccount.id)
-    resource_group_name = settings.AZURE_STORAGE_RESOURCE_GROUP_NAME
-
     try:
-        api_client.delete_storage_account(azure_credentials, storage_name, resource_group_name)
+        azure_credentials = vault_service.read_secret(cloudaccount.credentials)
+
+        resource_group_name = settings.AZURE_STORAGE_RESOURCE_GROUP_NAME
+
+        try:
+            api_client.delete_storage_account(azure_credentials, cloudaccount.storage_name, resource_group_name)
+        except Exception as e:
+            log_data = {
+                'level': 'ERROR',
+                'user_id': str(cloudaccount.user.id)
+            }
+            logger.error(str(e), extra=log_data)
     except Exception as e:
         log_data = {
             'level': 'ERROR',

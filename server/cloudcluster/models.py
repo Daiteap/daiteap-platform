@@ -411,6 +411,7 @@ class CloudAccount(models.Model):
     valid = models.BooleanField(default=True, null=True)
     shared = models.BooleanField(default=False, null=True)
     cloud_account_info = models.TextField(blank=True, null=True)
+    storage_name = models.CharField(max_length=1024, blank=True, null=True)
 
     # Checks if user should have access to this CloudAccount
     # Access rules:
