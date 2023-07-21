@@ -917,7 +917,7 @@ def create_cloud_credentials(payload, request, all_account_labels):
 
             account.credentials = "none"
             account.user = request.user
-            account.storage_name = (settings.AZURE_STORAGE_ACCOUNT_NAME_PREFIX + ''.join(random.choice(string.digits) for _ in range(15)))[:24]
+            account.storage_name = (settings.AZURE_STORAGE_ACCOUNT_NAME_PREFIX + ''.join(random.choice(string.digits) for _ in range(1)) + ''.join(random.choice(string.digits + string.ascii_lowercase) for _ in range(23)))[:24]
             account.save()
 
             resource_group_name = settings.AZURE_STORAGE_RESOURCE_GROUP_NAME
@@ -934,7 +934,7 @@ def create_cloud_credentials(payload, request, all_account_labels):
                     break
                 except Exception as e:
                     if 'is already taken' in str(e):
-                        storage_name = settings.AZURE_STORAGE_ACCOUNT_NAME_PREFIX + ''.join(random.choice(string.digits) for _ in range(15))[:24]
+                        storage_name = (settings.AZURE_STORAGE_ACCOUNT_NAME_PREFIX + ''.join(random.choice(string.digits) for _ in range(1)) + ''.join(random.choice(string.digits + string.ascii_lowercase) for _ in range(23)))[:24]
                         account.storage_name = storage_name
                         account.save()
 
