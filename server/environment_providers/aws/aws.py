@@ -849,9 +849,13 @@ def create_cloud_credentials(payload, request, all_account_labels):
         logger.error('Invalid account_params parameter.', extra=log_data)
         raise Exception('Invalid account_params parameter.')
 
-    account.cloud_account_info = get_cloud_account_info(account)
-    account.regions_update_status = 1  # updating
-    account.save()
+    try:
+        account.cloud_account_info = get_cloud_account_info(account)
+        account.regions_update_status = 1  # updating
+        account.save()
+    except Exception as e:
+        account.delete()
+        raise Exception(e)
 
     tasks.worker_update_provider_regions.delay('aws', request.user.id, account.id)
 
