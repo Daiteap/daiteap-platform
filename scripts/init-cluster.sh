@@ -79,6 +79,9 @@ argocd app set argocd/daiteap-platform --helm-set-string djangoDebug=True
 argocd app set argocd/celeryworker --helm-set-string djangoDebug=True
 argocd app set argocd/celeryworker --helm-set vaultToken="$(jq -r '.root_token' docker-compose/vault/vault-init.json)"
 
+argocd app set argocd/daiteap-platform --helm-set useDNSforServices=False
+argocd app set argocd/celeryworker --helm-set useDNSforServices=False
+
 echo --- Configure Keycloak ---
 
 echo ---- Waiting For Keycloak Pod ----
@@ -151,6 +154,7 @@ kubectl -n daiteap exec -it "$BACKEND_POD" -- /bin/sh -c "python3 ./manage.py fi
 echo --- Restart Back-End Pods ---
 
 kubectl -n daiteap rollout restart deploy platform-api
+kubectl -n daiteap rollout restart deploy celeryworker
 echo ---- Waiting For Platform Pods ----
 kubectl -n daiteap rollout status deploy platform-api --timeout=15m
 
