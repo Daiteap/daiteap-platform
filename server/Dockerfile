@@ -17,12 +17,12 @@ COPY cloudcluster/requirements.txt cloudcluster/requirements.txt
 RUN pip install --upgrade pip
 RUN pip3 install -r cloudcluster/requirements.txt
 
-RUN wget https://releases.hashicorp.com/terraform/1.1.0/terraform_1.1.0_linux_$(dpkg --print-architecture).zip -O terraform.zip
-RUN wget https://get.helm.sh/helm-v3.3.4-linux-$(dpkg --print-architecture).tar.gz
-RUN tar zxf helm-v3.3.4-linux-$(dpkg --print-architecture).tar.gz
+RUN wget https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_$(dpkg --print-architecture).zip -O terraform.zip
+RUN wget https://get.helm.sh/helm-v3.12.3-linux-$(dpkg --print-architecture).tar.gz
+RUN tar zxf helm-v3.12.3-linux-$(dpkg --print-architecture).tar.gz
 RUN unzip terraform.zip
 RUN rm -rf terraform.zip
-RUN rm -rf helm-v3.3.4-linux-$(dpkg --print-architecture).tar.gz
+RUN rm -rf helm-v3.12.3-linux-$(dpkg --print-architecture).tar.gz
 RUN mv ./linux-$(dpkg --print-architecture)/helm /usr/bin/
 RUN mv terraform /usr/bin/
 
