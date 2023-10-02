@@ -21,6 +21,6 @@ spec:
       - values.yaml
     path: mysql_server
     repoURL: https://github.com/Daiteap/Helms.git
-    targetRevision: new-dev-branch
+    targetRevision: main
   syncPolicy:
     automated: {}
