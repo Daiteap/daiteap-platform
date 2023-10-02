@@ -242,6 +242,18 @@ rabbitmq:
 
 
 
+# Configuration properties for Keycloak server.
+keycloak:
+  containerSecurityContext:
+    runAsNonRoot: false
+    runAsUser: 0
+  keycloakConfigCli:
+    containerSecurityContext:
+      runAsNonRoot: false
+      runAsUser: false
+
+
+
 # Configuration properties for Redis server.
 redis:
   master:
