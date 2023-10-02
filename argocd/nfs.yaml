@@ -19,6 +19,6 @@ spec:
       - values.yaml
     path: nfs_server
     repoURL: https://github.com/Daiteap/Helms.git
-    targetRevision: new-dev-branch
+    targetRevision: main
   syncPolicy:
     automated: {}
