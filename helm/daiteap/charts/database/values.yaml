@@ -1,0 +1,13 @@
+env: develop
+
+image: mysql:8.0
+
+rootPassword: 
+
+user: daiteap
+password: 
+
+database: daiteap
+
+service:
+  type: ClusterIP

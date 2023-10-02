@@ -1,0 +1,10 @@
+image: k8s.gcr.io/volume-nfs:0.8
+
+storage: 5Gi
+nfsStorage: 1Mi
+
+nfsPort: 2049
+mountdPort: 20048
+rpcbindPort: 111
+
+clusterIp: 10.96.159.61

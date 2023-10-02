@@ -1,0 +1,90 @@
+image: ghcr.io/daiteap/daiteap-platform:latest
+env: develop
+
+# imagePullSecrets:
+#   - name: regcred
+
+service:
+  port: 8080
+  type: NodePort
+
+replicas: 2
+
+googleServiceOauthAccountsPrefix: daiteap-develop
+azureServiceOauthAccountsPrefix: daiteap-develop
+
+ansibleHostKeyChecking: "False"
+
+rabbitmqBrokerUser: guest
+rabbitmqBrokerPassword: guest
+rabbitmqBrokerHost: rabbitmqbroker
+rabbitmqBrokerPort: 5672
+rabbitmqbrokerConnectionTimeout: 600
+rabbitmqbrokerVhost: ""
+
+daiteapEnvironmentUrl: dev.daiteap.com/#/app/platform/clusterdetails/
+userGuideUrl: dev.daiteap.com/documentation/
+daiteapLogoUrl: dev.daiteap.com/img/logo.ce08e0fb.png
+appName: Daiteap
+singleUserMode: "False"
+
+azureAuthScopes: https://management.azure.com/user_impersonation
+ansibleDeprecationWarnings: False
+ansibleCommandWarnings: False
+ansibleActionWarnings: False
+ansibleLocalhostWarning: False
+ansibleSystemWarnings: False
+ansibleTransformInvalidGroupChars: ignore
+ansibleHostPatternMismatch: ignore
+ansibleDisplayFailedStderr: yes
+ansibleSshRetries: 10
+
+redisSecretName: redis
+redisMasterAddress: redis-master
+redisSlaveAddress: redis-slave
+
+mysqlUser: daiteap
+mysqlUrl: database
+mysqlDatabase: daiteap
+mysqlPort: 3306
+
+djangoDebug: False
+djangoAllowedHosts: "*"
+djangoSecretKey: 
+
+azureClientId: 
+azureClientSecret: 
+
+defaultFromEmail: 
+emailApiKey: 
+emailApiUrl: 
+emailHostPassword: 
+emailHostUser: 
+serverEmailAddress: 
+
+sshIdRsa: 
+sshIdRsaPub: 
+
+keycloakServerUrl: https://dev.daiteap.com/auth
+keycloakRealm: Daiteap
+keycloakClientId: django-backend
+keycloakClientSecretKey: 
+
+useDNSforServices: "True"
+daiteapImageCredentials:
+servicesDnsZoneName: daiteap
+servicesDnsDomain: app.daiteap.com
+
+vaultAddr: http://vault:8200
+vaultToken:
+
+awsDaiteapImageOwner: "905898490707"
+awsDaiteapImageName: "dlcmv2-ubuntu-1804-1"
+daiteapUnsubscribeUrl: "https://dev.daiteap.com/#/app/platform/email/unsubscribe"
+daiteapMailUrl: "https://dev.daiteap.com/#/app/platform/email/cluster-status/"
+azureClientCreateAppUri: "/#/app/platform/cloudprofile/oauth/azure/createapp"
+azureClientAuthorizeUri: "/#/app/platform/cloudprofile/oauth/azure/authorize"
+azureClientAdminconsentUri: "/#/app/platform/cloudprofile/oauth/azure/adminconsent"
+gcpDaiteapImageProject: "daiteapdevplayground"
+azureDaiteapImageParameters: "Daiteap/Ubuntu/18.04"
+serviceCatalogCommand: "fix_service_catalog_prod"

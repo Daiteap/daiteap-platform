@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: "{{ .Chart.Name }}"
+spec:
+  replicas: 1
+  selector:
+    role: "{{ .Chart.Name }}"
+  template:
+    metadata:
+      labels:
+        role: "{{ .Chart.Name }}"
+    spec:
+      containers:
+      - name: "{{ .Chart.Name }}"
+        image: "{{ .Values.image }}"
+        ports:
+          - name: nfs
+            containerPort: {{ .Values.nfsPort }}
+          - name: mountd
+            containerPort: {{ .Values.mountdPort }}
+          - name: rpcbind
+            containerPort: {{ .Values.rpcbindPort }}
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - mountPath: /exports
+            name: mypvc
+      volumes:
+        - name: mypvc
+          persistentVolumeClaim:
+            claimName: nfs-pv-provisioning-{{ .Chart.Name }}

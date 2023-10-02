@@ -1,0 +1,288 @@
+# Default values for daiteap.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Configuration properties for Platform-API.
+platform-api:
+  image: ghcr.io/daiteap/daiteap-platform:latest
+  env: develop
+
+  # imagePullSecrets:
+  #   - name: regcred
+
+  service:
+    port: 8080
+    type: NodePort
+
+  replicas: 2
+
+  googleServiceOauthAccountsPrefix: daiteap-develop
+  azureServiceOauthAccountsPrefix: daiteap-develop
+
+  ansibleHostKeyChecking: "False"
+
+  rabbitmqBrokerUser: guest
+  rabbitmqBrokerPassword: guest
+  rabbitmqBrokerHost: rabbitmqbroker
+  rabbitmqBrokerPort: 5672
+  rabbitmqbrokerConnectionTimeout: 600
+  rabbitmqbrokerVhost: ""
+
+  daiteapEnvironmentUrl: dev.daiteap.com/#/app/platform/clusterdetails/
+  userGuideUrl: dev.daiteap.com/documentation/
+  daiteapLogoUrl: dev.daiteap.com/img/logo.ce08e0fb.png
+  appName: Daiteap
+  singleUserMode: "False"
+
+  azureAuthScopes: https://management.azure.com/user_impersonation
+  ansibleDeprecationWarnings: False
+  ansibleCommandWarnings: False
+  ansibleActionWarnings: False
+  ansibleLocalhostWarning: False
+  ansibleSystemWarnings: False
+  ansibleTransformInvalidGroupChars: ignore
+  ansibleHostPatternMismatch: ignore
+  ansibleDisplayFailedStderr: yes
+  ansibleSshRetries: 10
+
+  redisSecretName: redis
+  redisMasterAddress: redis-master
+  redisSlaveAddress: redis-slave
+
+  mysqlUser: daiteap
+  mysqlUrl: database
+  mysqlDatabase: daiteap
+  mysqlPort: 3306
+
+  djangoDebug: False
+  djangoAllowedHosts: "*"
+  djangoSecretKey: example
+
+  azureClientId: example
+  azureClientSecret: example
+
+  defaultFromEmail: email@example.com
+  emailApiKey: example
+  emailApiUrl: example
+  emailHostPassword: example
+  emailHostUser: example
+  serverEmailAddress: example
+
+  sshIdRsa: ZXhhbXBsZQ==
+  sshIdRsaPub: ZXhhbXBsZQ==
+
+  keycloakServerUrl: https://dev.daiteap.com/auth
+  keycloakRealm: Daiteap
+  keycloakClientId: django-backend
+  keycloakClientSecretKey: example
+
+  useDNSforServices: "True"
+  daiteapImageCredentials:
+  servicesDnsZoneName: daiteap
+  servicesDnsDomain: app.daiteap.com
+
+  vaultAddr: http://vault:8200
+  vaultToken: example
+
+  awsDaiteapImageOwner: "905898490707"
+  awsDaiteapImageName: "dlcmv2-ubuntu-1804-1"
+  daiteapUnsubscribeUrl: "https://dev.daiteap.com/#/app/platform/email/unsubscribe"
+  daiteapMailUrl: "https://dev.daiteap.com/#/app/platform/email/cluster-status/"
+  azureClientCreateAppUri: "/#/app/platform/cloudprofile/oauth/azure/createapp"
+  azureClientAuthorizeUri: "/#/app/platform/cloudprofile/oauth/azure/authorize"
+  azureClientAdminconsentUri: "/#/app/platform/cloudprofile/oauth/azure/adminconsent"
+  gcpDaiteapImageProject: "daiteapdevplayground"
+  azureDaiteapImageParameters: "Daiteap/Ubuntu/18.04"
+  serviceCatalogCommand: "fix_service_catalog_prod"
+
+
+
+# Configuration properties for Celeryworker.
+celeryworker:
+  image: ghcr.io/daiteap/daiteap-celery-worker:latest
+  env: develop
+
+  imagePullSecrets:
+    - name: regcred
+
+  service:
+    port: 8080
+    type: NodePort
+
+  replicas: 2
+
+  googleServiceOauthAccountsPrefix: daiteap-develop
+  azureServiceOauthAccountsPrefix: daiteap-develop
+
+  ansibleHostKeyChecking: "False"
+
+  rabbitmqBrokerUser: guest
+  rabbitmqBrokerPassword: guest
+  rabbitmqBrokerHost: rabbitmqbroker
+  rabbitmqBrokerPort: 5672
+  rabbitmqbrokerConnectionTimeout: 600
+  rabbitmqbrokerVhost: ""
+
+  daiteapEnvironmentUrl: dev.daiteap.com/#/app/platform/clusterdetails/
+  userGuideUrl: dev.daiteap.com/documentation/
+  daiteapLogoUrl: dev.daiteap.com/img/logo.ce08e0fb.png
+  appName: Daiteap
+
+  azureAuthScopes: https://management.azure.com/user_impersonation
+  ansibleDeprecationWarnings: False
+  ansibleCommandWarnings: False
+  ansibleActionWarnings: False
+  ansibleLocalhostWarning: False
+  ansibleSystemWarnings: False
+  ansibleTransformInvalidGroupChars: ignore
+  ansibleHostPatternMismatch: ignore
+  ansibleDisplayFailedStderr: yes
+  ansibleSshRetries: 10
+
+  mysqlUser: daiteap
+  mysqlUrl: database
+  mysqlDatabase: daiteap
+  mysqlPort: 3306
+
+  djangoDebug: False
+  djangoAllowedHosts: "*"
+  djangoSecretKey: example
+
+  azureClientId: example
+  azureClientSecret: example
+
+  defaultFromEmail: example
+  emailApiKey: example
+  emailApiUrl: example
+  emailHostPassword: example
+  emailHostUser: example
+  serverEmailAddress: example
+
+  useDNSforServices: "True"
+
+  servicesDnsZoneName: daiteap
+  servicesDnsDomain: app.daiteap.com
+
+  vaultToken: example
+  vaultAddr: http://vault:8200
+
+  awsDaiteapImageOwner: "905898490707"
+  gcpDaiteapImageProject: daiteapdevplayground
+  azureDaiteapImageParameters: Daiteap/Ubuntu/18.04
+
+  daiteapUnsubscribeUrl: https://dev.daiteap.com/#/app/platform/email/unsubscribe
+  daiteapMailUrl: https://dev.daiteap.com/#/app/platform/email/cluster-status/
+
+
+
+# Configuration properties for Daiteap-UI.
+vuejs-client:
+  image:  eu.gcr.io/cloudcluster-261712/vuejs-client:eade95707532d748e0fd046ab3c285621f977b2d
+  env: develop
+
+  replicas: 2
+
+  service:
+    port: 8080
+    type: NodePort
+
+  keycloakServiceName: keycloak
+
+  globalStaticIPName: cloudcluster-dev
+
+  host: dev.daiteap.com
+
+  gkeManagedCertificates: false
+  daiteapManagedCertificates: true
+
+  imagePullSecrets:
+    - name: regcred
+
+  keycloakConfig: ewogICAgInJlYWxtIjogIkRhaXRlYXAiLAogICAgImF1dGgtc2VydmVyLXVybCI6ICJodHRwczovL2Rldi5kYWl0ZWFwLmNvbS9hdXRoLyIsCiAgICAic3NsLXJlcXVpcmVkIjogIm5vbmUiLAogICAgInJlc291cmNlIjogImFwcC12dWUiLAogICAgInB1YmxpYy1jbGllbnQiOiB0cnVlLAogICAgInZlcmlmeS10b2tlbi1hdWRpZW5jZSI6IHRydWUsCiAgICAidXNlLXJlc291cmNlLXJvbGUtbWFwcGluZ3MiOiB0cnVlLAogICAgImNvbmZpZGVudGlhbC1wb3J0IjogMAp9Cg==
+
+
+
+# Configuration properties for MYSQL server.
+database:
+  env: develop
+
+  image: mysql:8.0
+
+  rootPassword: rootPassword
+
+  user: daiteap
+  password: password
+
+  database: daiteap
+
+  service:
+    type: ClusterIP
+
+
+# Configuration properties for NFS server.
+nfs_server:
+  image: k8s.gcr.io/volume-nfs:0.8
+
+  storage: 5Gi
+  nfsStorage: 1Mi
+
+  nfsPort: 2049
+  mountdPort: 20048
+  rpcbindPort: 111
+
+  clusterIp: 10.96.159.61
+
+
+
+# Configuration properties for RabbitMQ server.
+rabbitmq:
+  auth:
+    username: guest
+    password: guest
+
+
+
+# Configuration properties for Redis server.
+redis:
+  master:
+    persistence:
+      size: 2Gi
+  slave:
+    persistence:
+      size: 2Gi
+  replica:
+    replicaCount: 1
+
+
+
+# Configuration properties for Vault server.
+vault:
+  server:
+    auditStorage:
+      size: 5Gi
+    dataStorage:
+      size: 5Gi
+    ha:
+      config: |
+        ui = true listener "tcp" {  tls_disable = 1  address = "[::]:8200"  cluster_address
+        = "[::]:8201"}storage "consul" {  path = "vault"  address = "HOST_IP:8500"}service_registration
+        "kubernetes" {}# Example configuration for using auto-unseal, using Google
+        Cloud KMS. The# GKMS keys must already exist, and the cluster must have
+        a service account# that is authorized to access GCP KMS.#seal "gcpckms"
+        {#   project     = "vault-helm-dev-246514"#   region      = "global"#   key_ring    =
+        "vault-helm-unseal-kr"#   crypto_key  = "vault-helm-unseal-key"#}
+      raft:
+        config: |
+          ui = true listener "tcp" {  tls_disable = 1  address = "[::]:8200"  cluster_address
+          = "[::]:8201"}storage "raft" {  path = "/vault/data"}service_registration
+          "kubernetes" {}
+      standalone:
+        config: |
+          ui = true listener "tcp" {  tls_disable = 1  address = "[::]:8200"  cluster_address
+          = "[::]:8201"}storage "mysql" {  address = "database:3306"  username =
+          "daiteap"  password = "pass"  database = "vault"  plaintext_connection_allowed
+          = "true"}# Example configuration for using auto-unseal, using Google Cloud
+          KMS. The# GKMS keys must already exist, and the cluster must have a service
+          account# that is authorized to access GCP KMS.#seal "gcpckms" {#   project     =
+          "vault-helm-dev"#   region      = "global"#   key_ring    = "vault-helm-unseal-kr"#   crypto_key  =
+          "vault-helm-unseal-key"#}

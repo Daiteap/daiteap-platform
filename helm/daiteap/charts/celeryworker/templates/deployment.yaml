@@ -1,0 +1,191 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Chart.Name }}"
+  labels:
+    app: "{{ .Chart.Name }}"
+    env: "{{ .Values.env }}"
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: "{{ .Chart.Name }}"
+      env: "{{ .Values.env }}"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Chart.Name }}"
+        env: "{{ .Values.env }}"
+    spec:
+      restartPolicy: Always
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      containers:
+        - name: "{{ .Chart.Name }}"
+          image: "{{ .Values.image }}"
+          imagePullPolicy: Always
+          env:
+            - name: VAULT_ADDR
+              value: "{{ .Values.vaultAddr }}"
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: VAULT_TOKEN
+                  name: "{{ .Chart.Name }}"
+            - name: USE_DNS_FOR_SERVICES
+              value: "{{ .Values.useDNSforServices }}"
+            - name: GOOGLE_SERVICE_OAUTH_ACCOUNTS_PREFIX
+              value: "{{ .Values.googleServiceOauthAccountsPrefix }}"
+            - name: AZURE_SERVICE_OAUTH_ACCOUNTS_PREFIX
+              value: "{{ .Values.azureServiceOauthAccountsPrefix }}"
+            - name: ANSIBLE_HOST_KEY_CHECKING
+              value: "{{ .Values.ansibleHostKeyChecking }}"
+            - name: BROKER_USER
+              value: "{{ .Values.rabbitmqBrokerUser }}"
+            - name: BROKER_PASSWORD
+              value: "{{ .Values.rabbitmqBrokerPassword }}"
+            - name: BROKER_HOST
+              value: "{{ .Values.rabbitmqBrokerHost }}"
+            - name: BROKER_PORT
+              value: "{{ .Values.rabbitmqBrokerPort }}"
+            - name: BROKER_CONNECTION_TIMEOUT
+              value: "{{ .Values.rabbitmqbrokerConnectionTimeout }}"
+            - name: BROKER_VHOST
+              value: "{{ .Values.rabbitmqbrokerVhost }}"
+            - name: DAITEAP_ENVIRONMENT_URL
+              value: "{{ .Values.daiteapEnvironmentUrl }}"
+            - name: USER_GUIDE_URL
+              value: "{{ .Values.userGuideUrl }}"
+            - name: DAITEAP_LOGO_URL
+              value: "{{ .Values.daiteapLogoUrl }}"
+            - name: APP_NAME
+              value: "{{ .Values.appName }}"
+            - name: AZURE_AUTH_SCOPES
+              value: "{{ .Values.azureAuthScopes }}"
+            - name: ANSIBLE_DEPRECATION_WARNINGS
+              value: "{{ .Values.ansibleDeprecationWarnings }}"
+            - name: ANSIBLE_COMMAND_WARNINGS
+              value: "{{ .Values.ansibleCommandWarnings }}"
+            - name: ANSIBLE_ACTION_WARNINGS
+              value: "{{ .Values.ansibleActionWarnings }}"
+            - name: ANSIBLE_LOCALHOST_WARNING
+              value: "{{ .Values.ansibleLocalhostWarning }}"
+            - name: ANSIBLE_SYSTEM_WARNINGS
+              value: "{{ .Values.ansibleSystemWarnings }}"
+            - name: ANSIBLE_TRANSFORM_INVALID_GROUP_CHARS
+              value: "{{ .Values.ansibleTransformInvalidGroupChars }}"
+            - name: ANSIBLE_HOST_PATTERN_MISMATCH
+              value: "{{ .Values.ansibleHostPatternMismatch }}"
+            - name: ANSIBLE_DISPLAY_FAILED_STDERR
+              value: "{{ .Values.ansibleDisplayFailedStderr }}"
+            - name: ANSIBLE_SSH_RETRIES
+              value: "{{ .Values.ansibleSshRetries }}"
+            - name: MYSQL_USER
+              value: "{{ .Values.mysqlUser }}"
+            - name: MYSQL_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: database
+                  key: MYSQL_PASSWORD
+            - name: MYSQL_DATABASE
+              value: "{{ .Values.mysqlDatabase }}"
+            - name: MYSQL_URL
+              value: "{{ .Values.mysqlUrl }}"
+            - name: MYSQL_PORT
+              value: "{{ .Values.mysqlPort }}"
+            - name: DJANGO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Chart.Name }}"
+                  key: DJANGO_SECRET_KEY
+            - name: DJANGO_DEBUG
+              value: "{{ .Values.djangoDebug }}"
+            - name: EMAIL_HOST_USER
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Chart.Name }}"
+                  key: EMAIL_HOST_USER
+            - name: EMAIL_HOST_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Chart.Name }}"
+                  key: EMAIL_HOST_PASSWORD
+            - name: DEFAULT_FROM_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Chart.Name }}"
+                  key: DEFAULT_FROM_EMAIL
+            - name: DJANGO_ALLOWED_HOSTS
+              value: "{{ .Values.djangoAllowedHosts }}"
+            - name: AZURE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Chart.Name }}"
+                  key: AZURE_CLIENT_ID
+            - name: AZURE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Chart.Name }}"
+                  key: AZURE_CLIENT_SECRET
+            - name: EMAIL_API_URL
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Chart.Name }}"
+                  key: EMAIL_API_URL
+            - name: EMAIL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Chart.Name }}"
+                  key: EMAIL_API_KEY
+            - name: SERVER_EMAIL_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Chart.Name }}"
+                  key: SERVER_EMAIL_ADDRESS
+            - name: AWS_DAITEAP_IMAGE_OWNER
+              value: "{{ .Values.awsDaiteapImageOwner }}"
+            - name: GCP_DAITEAP_IMAGE_PROJECT
+              value: "{{ .Values.gcpDaiteapImageProject }}"
+            - name: DAITEAP_UNSUBSCRIBE_URL
+              value: "{{ .Values.daiteapUnsubscribeUrl }}"
+            - name: DAITEAP_MAIL_URL
+              value: "{{ .Values.daiteapMailUrl }}"
+            - name: AZURE_DAITEAP_IMAGE_PARAMETERS
+              value: "{{ .Values.azureDaiteapImageParameters }}"
+            - name: TF_IN_AUTOMATION
+              value: "True"
+            - name: SERVICES_DNS_ZONE_NAME
+              value: "{{ .Values.servicesDnsZoneName }}"
+            - name: SERVICES_DNS_DOMAIN
+              value: "{{ .Values.servicesDnsDomain }}"
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: cloudcluster-ssh
+              mountPath: "/var/.ssh"
+            - name: daiteap-dns-secret
+              mountPath: "/var/dns_credentials"
+            - name: capi-management-kubeconfig
+              mountPath: "/root/.kube/config"
+              subPath: "config"
+            - mountPath: /var/image_credentials
+              name: daiteap-image-secret
+      terminationGracePeriodSeconds: 36000
+      volumes:
+        - name: cloudcluster-ssh
+          secret:
+            secretName: cloudcluster-ssh
+            defaultMode: 256
+        - name: capi-management-kubeconfig
+          secret:
+            secretName: capi-management-kubeconfig
+        - name: daiteap-dns-secret
+          secret:
+            secretName: daiteap-dns-credentials
+        - name: daiteap-image-secret
+          secret:
+            defaultMode: 420
+            secretName: daiteap-image-credentials
