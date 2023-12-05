@@ -33,8 +33,10 @@ Mac User can use alternatively
 brew install jq
 
 # Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
-sh docker-compose/init.sh
+source docker-compose/init.sh
 ```
+
+**Note:** If you are using GCP make sure you have uploaded the images and set the access keys in the docker-compose/daiteap_image_credentials.json file.
 ___
 ### Start daiteap with DNS for Service Applications
 Once you install an application from the service catalog you can access it by IP-Adress or using the DNS option to access the service by Domain Name.
@@ -125,6 +127,9 @@ packer init google-ubuntu.pkr.hcl
 packer validate google-ubuntu.pkr.hcl
 packer build google-ubuntu.pkr.hcl
 ```
+
+Create a GCP access key, which has access to the images you just uploaded.
+Add the key to the `docker-compose/daiteap_image_credentials.json` file.
 
 #### Building images for Azure
 

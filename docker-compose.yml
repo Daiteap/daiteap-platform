@@ -77,6 +77,7 @@ services:
       net.core.somaxconn: 1024
     volumes:
       - ./docker-compose:/docker-compose
+      - ./docker-compose/daiteap_image_credentials.json:/var/image_credentials/daiteap_image_credentials.json
     networks:
       - daiteapnet
 
@@ -200,6 +201,7 @@ services:
     volumes:
       - ./docker-compose/.ssh:/var/.ssh
       - ./docker-compose/daiteap_dns_credentials.json:/var/dns_credentials/daiteap_dns_credentials.json
+      - ./docker-compose/daiteap_image_credentials.json:/var/image_credentials/daiteap_image_credentials.json
 
   daiteap-ui:
     image: gcr.io/cloudcluster-261712/daiteap-ui:latest
