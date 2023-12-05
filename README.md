@@ -33,7 +33,7 @@ Mac User can use alternatively
 brew install jq
 
 # Init environment (first start only - open new terminal, cd to ./daiteap-platform and do)
-sh docker-compose/init.sh
+source docker-compose/init.sh
 ```
 ___
 ### Start daiteap with DNS for Service Applications
