@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Chart.Name }}"
+  labels:
+    app: "{{ .Chart.Name }}"
+    env: "{{ .Values.env }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: "{{ .Chart.Name }}"
+      env: "{{ .Values.env }}"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Chart.Name }}"
+        env: "{{ .Values.env }}"
+    spec:
+      restartPolicy: Always
+      containers:
+      - image: "{{ .Values.image }}"
+        name: "{{ .Chart.Name }}"
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database
+              key: MYSQL_ROOT_PASSWORD
+        - name: MYSQL_DATABASE
+          value: "{{ .Values.database }}"
+        - name: MYSQL_USER
+          value: "{{ .Values.user }}"
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database
+              key: MYSQL_PASSWORD
+        ports:
+        - containerPort: 3306
+          name: http
+        volumeMounts:
+        - name: mysql-persistent-storage
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mysql-persistent-storage
+        persistentVolumeClaim:
+          claimName: mysql-pv-claim
