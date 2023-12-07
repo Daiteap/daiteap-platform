@@ -16,6 +16,8 @@ Requirements:
 - jq (cmd JSON parser tool)
 
 ```shell
+# clone frontend repository
+git clone git@github.com:Daiteap/daiteap-ui.git
 # clone and cd into this repository
 git clone git@github.com:Daiteap/daiteap-platform.git
 cd daiteap-platform
@@ -60,7 +62,7 @@ docker-compose up -d
 ### Or
 ### Start daiteap without DNS for services
 ```shell
-docker-compose up -d
+VAULT_TOKEN=$(jq -r .root_token docker-compose/vault/vault-init.json) docker-compose up -d
 ```
 ___
 ### Unseal Vault (unseal after every restart)
@@ -155,4 +157,3 @@ TODO:
 URL [daiteap.com](https://www.daiteap.com/)
 
 [License Apache 2.0](./LICENSE)
-
