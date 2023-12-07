@@ -3145,19 +3145,25 @@ def check_if_service_online(address, cluster_id, accessible_from_browser):
     max_retries = 24
     wait_seconds = 20
     for i in range(0, max_retries):
+        print(f'Waiting for service {address} to get online ({i})')
         all_ok = True
         time.sleep(wait_seconds)
         try:
-            if accessible_from_browser:
+            if accessible_from_browser and settings.USE_DNS_FOR_SERVICES:
+                print('Using DNS')
                 response = requests.get('https://' + address + '/', timeout=30)
+                print(response.status_code)
 
-                if response.status_code != 200:
+                if response.status_code not in [200]:
                     all_ok = False
+
             else:
+                print('Using IP')
                 s = socket.socket()
                 s.settimeout(30)
                 s.connect((address.split(':')[0],int(address.split(':')[1])))
                 s.close()
+                print('OK')
         except Exception as e:
             all_ok = False
 
